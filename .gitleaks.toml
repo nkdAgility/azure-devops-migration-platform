@@ -1,0 +1,14 @@
+title = "azure-devops-migration-platform gitleaks config"
+
+[extend]
+useDefault = true
+
+# Azure Monitor / Application Insights connection strings in appsettings.json are
+# ingestion-only (write telemetry, cannot read it) and intentionally shipped with
+# the CLI, Control Plane and agents. Allowlisted by operator decision on PR #132.
+[allowlist]
+description = "Application Insights ingestion connection strings"
+regexTarget = "line"
+regexes = [
+  '''"AzureMonitorConnectionString":\s*"InstrumentationKey=[0-9a-fA-F-]{36};IngestionEndpoint=https://[a-z0-9-]+\.in\.applicationinsights\.azure\.com/''',
+]

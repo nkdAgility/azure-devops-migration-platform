@@ -14,7 +14,6 @@ public sealed class InventoryModulesTests
 
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
-    [TestCategory("inventory")]
     [TestMethod]
     public async Task InventoryModules_AllModulesEnabled_ProducesPerModuleInventoryArtefacts()
     {
@@ -29,8 +28,6 @@ public sealed class InventoryModulesTests
 
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
-    [TestCategory("inventory")]
-    [TestCategory("multi-org")]
     [TestMethod]
     public async Task InventoryModules_WithoutInventoryAnalyser_PerModuleArtefactsStillProduced()
     {
@@ -51,8 +48,6 @@ public sealed class InventoryModulesTests
 
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
-    [TestCategory("inventory")]
-    [TestCategory("multi-org")]
     [TestMethod]
     public async Task InventoryModules_WithoutInventoryDiscoveryModule_PerModuleArtefactsStillProduced()
     {

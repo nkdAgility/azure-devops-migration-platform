@@ -30,7 +30,7 @@ public sealed class SystemTestCiExecutionTests
         var pat = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_PAT")!;
 
         using var env = SystemTestEnvironment.WithValidCredentials(org, pat);
-        env.InconclusiveIfNotConfigured();
+        env.FailIfNotConfigured();
 
         // Act
         var config = SystemTestConfiguration.LoadFromEnvironment();
@@ -44,22 +44,24 @@ public sealed class SystemTestCiExecutionTests
     }
 
     // ── Scenario 2 ──────────────────────────────────────────────────────────
-    // System tests report a clear skip reason when the PAT is missing.
+    // System tests fail loudly, naming the prerequisite, when the PAT is
+    // missing. A missing credential is a configuration defect, never a skip
+    // (docs/failing-tests-workflow.md, "Missing prerequisites must fail").
     [TestCategory("CodeTest")]
     [TestCategory("DomainTests")]
     [TestMethod]
-    public void CiExecution_MissingPat_InconclusiveIfNotConfigured_ThrowsWithDocsReference()
+    public void CiExecution_MissingPat_FailIfNotConfigured_ThrowsWithDocsReference()
     {
         // Arrange — clear only the PAT for this scope
         using var env = SystemTestEnvironment.WithMissingPat();
 
-        // Act & Assert — InconclusiveIfNotConfigured must throw AssertInconclusiveException
+        // Act & Assert — FailIfNotConfigured must throw AssertFailedException
         // with a message that references docs/contributors.md.
-        var ex = Assert.ThrowsExactly<AssertInconclusiveException>(() => env.InconclusiveIfNotConfigured());
+        var ex = Assert.ThrowsExactly<AssertFailedException>(() => env.FailIfNotConfigured());
         StringAssert.Contains(
             ex.Message,
             "docs/contributors.md",
-            $"Skip message must reference docs/contributors.md. Actual: {ex.Message}");
+            $"Failure message must reference docs/contributors.md. Actual: {ex.Message}");
     }
 
     // ── Scenario 3 ──────────────────────────────────────────────────────────
@@ -74,7 +76,7 @@ public sealed class SystemTestCiExecutionTests
         var pat = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_PAT")!;
 
         using var env = SystemTestEnvironment.WithValidCredentials(org, pat);
-        env.InconclusiveIfNotConfigured();
+        env.FailIfNotConfigured();
 
         // Act
         var config = SystemTestConfiguration.LoadFromEnvironment();
@@ -124,21 +126,22 @@ public sealed class SystemTestCiExecutionTests
 
     // ── Scenario 5 ──────────────────────────────────────────────────────────
     // Conditional execution based on environment: when ORG is missing,
-    // InconclusiveIfMissingOrg must throw with a message referencing docs.
+    // FailIfMissingOrg must throw a hard failure with a message referencing
+    // docs — never an inconclusive/skip result.
     [TestCategory("CodeTest")]
     [TestCategory("DomainTests")]
     [TestMethod]
-    public void CiExecution_MissingOrg_InconclusiveIfMissingOrg_ThrowsWithDocsReference()
+    public void CiExecution_MissingOrg_FailIfMissingOrg_ThrowsWithDocsReference()
     {
         // Arrange — clear only the ORG for this scope
         using var env = SystemTestEnvironment.WithMissingOrg();
 
-        // Act & Assert — InconclusiveIfMissingOrg must throw AssertInconclusiveException
+        // Act & Assert — FailIfMissingOrg must throw AssertFailedException
         // with a message that references docs/contributors.md.
-        var ex = Assert.ThrowsExactly<AssertInconclusiveException>(() => env.InconclusiveIfMissingOrg());
+        var ex = Assert.ThrowsExactly<AssertFailedException>(() => env.FailIfMissingOrg());
         StringAssert.Contains(
             ex.Message,
             "docs/contributors.md",
-            $"Inconclusive message must reference docs/contributors.md. Actual: {ex.Message}");
+            $"Failure message must reference docs/contributors.md. Actual: {ex.Message}");
     }
 }

@@ -19,7 +19,7 @@ phases or rolls back.
 8. Implementation must run `.agents/commands/nkda-tddsn-autonomous.md` scoped to the subsystem; its six artefacts are mandatory session evidence.
 9. Sessions must not span unrelated features or modify code outside the feature scope without logged justification.
 10. `@ignore` / `[Ignore]` may be used for isolation during implementation only and must be removed before the Review verdict.
-11. Every phase transition and return-to-earlier-phase is logged in `Logs/atdd-sessions/<session-id>.md` per the documented template.
+11. Every phase transition and return-to-earlier-phase is logged in `Logs/atdd-sessions/<session-id>.md` per the documented template, and the session closes with machine-readable evidence at `Logs/atdd-sessions/<session-id>.json` validating against `.agents/50-evidence/session-evidence.schema.json` (ADR-0033).
 
 ## Reject Conditions
 

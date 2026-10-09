@@ -1,0 +1,18 @@
+# Governance-critical paths require maintainer review (ADR-0031).
+# The maintainer is defined in .agents/OWNERS; role terminology in
+# .agents/20-guardrails/core/taxonomy-naming.md (Governance Roles).
+
+# Public contract surfaces — Class B/C territory (change-classes.yaml)
+/src/DevOpsMigrationPlatform.Abstractions/ @MrHinsh
+/src/DevOpsMigrationPlatform.Abstractions.Agent/ @MrHinsh
+/src/DevOpsMigrationPlatform.Abstractions.ControlPlane/ @MrHinsh
+/src/DevOpsMigrationPlatform.Abstractions.Storage/ @MrHinsh
+
+# Decision record — consent evidence lives here
+/docs/adr/ @MrHinsh
+
+# The agent harness itself
+/.agents/ @MrHinsh
+
+# CI and governance gates
+/.github/ @MrHinsh

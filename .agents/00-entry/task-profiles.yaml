@@ -1,7 +1,7 @@
-version: 1
+version: 2
 routing:
   contract: ".agents/10-contracts/routing-catalog.yaml"
-  rule: "Classify activity by trigger and inspect first_surfaces first."
+  rule: "Classify activity by trigger and inspect first_surfaces first. Each activity names its profile."
   fail_closed_on_no_match: true
 profiles:
   package-runtime:
@@ -88,3 +88,23 @@ profiles:
       - ".agents/30-context/README.md"
       - ".agents/90-index/context-index.md"
       - ".agents/90-index/guardrails-index.md"
+  tests:
+    guardrails:
+      - ".agents/20-guardrails/core/taxonomy-naming.md"
+      - ".agents/20-guardrails/workflow/testing-rules.md"
+      - ".agents/20-guardrails/workflow/test-first-workflow.md"
+      - ".agents/20-guardrails/workflow/failing-tests-workflow.md"
+      - ".agents/20-guardrails/workflow/definition-of-done.md"
+    context:
+      - ".agents/30-context/architecture/execution-model.md"
+      - ".agents/90-index/guardrails-index.md"
+  harness:
+    guardrails:
+      - ".agents/20-guardrails/core/taxonomy-naming.md"
+      - ".agents/20-guardrails/core/change-governance.md"
+      - ".agents/20-guardrails/workflow/documentation-rules.md"
+      - ".agents/20-guardrails/workflow/definition-of-done.md"
+    context:
+      - ".agents/90-index/contracts-index.md"
+      - ".agents/90-index/guardrails-index.md"
+      - ".agents/90-index/context-index.md"

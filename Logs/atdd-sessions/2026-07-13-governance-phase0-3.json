@@ -1,0 +1,83 @@
+{
+  "session_id": "2026-07-13-governance-phase0-3",
+  "started_at": "2026-07-13T09:30:00Z",
+  "completed_at": "2026-07-13T12:00:00Z",
+  "requirement": "Execute Phases 0-3 of the agentic-maturity remediation plan: CI-enforced governance gates, TestCategory taxonomy enforcement, live-gate fail-loud fix, routing catalog completion with contract schemas, and the session-evidence system itself.",
+  "change_class": "C",
+  "consent_reference": "ADR-0031, ADR-0032, ADR-0033; maintainer instructed implementation in-session (2026-07-13) and authored/pushed commit 0e1fb657",
+  "activity": "harness",
+  "files_changed": [
+    ".github/workflows/governance.yml",
+    ".github/CODEOWNERS",
+    ".github/rulesets/main-branch-ruleset.json",
+    ".github/PULL_REQUEST_TEMPLATE.md",
+    ".agents/OWNERS",
+    ".agents/00-entry/task-profiles.yaml",
+    ".agents/10-contracts/routing-catalog.yaml",
+    ".agents/10-contracts/schemas/*.schema.json",
+    ".agents/20-guardrails/core/change-governance.md",
+    ".agents/20-guardrails/core/taxonomy-naming.md",
+    ".agents/20-guardrails/workflow/definition-of-done.md",
+    ".agents/20-guardrails/workflow/test-first-workflow.md",
+    ".agents/30-context/domains/decision-records-summary.md",
+    ".agents/40-stubs/storage-adapters.md",
+    ".agents/40-stubs/README.md",
+    ".agents/50-evidence/*",
+    ".agents/90-index/context-index.md",
+    ".agents/configure.ps1",
+    ".agents/skills/end-session/SKILL.md",
+    "docs/adr/0031-ci-enforced-governance-gates.md",
+    "docs/adr/0032-routing-completion-and-contract-schemas.md",
+    "docs/adr/0033-machine-readable-session-evidence.md",
+    "docs/adr/README.md",
+    "scripts/guardrails/validate-agent-contracts.py",
+    "scripts/guardrails/validate-evidence.py",
+    "analysis/agentic-maturity-level4-plan.md",
+    "tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Architecture/TestCategoryTaxonomyArchitectureTests.cs",
+    "tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Cli/TfsExport/TfsExportFaultHandlingTests.cs",
+    "tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/ExportDefaultLogLevelTests.cs",
+    "tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/ExportFollowDetachTests.cs",
+    "tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/ExportRemoteNoFollowTests.cs",
+    "tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/ExportStandaloneImpliesFollowTests.cs",
+    "tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/PrintJobSubmittedTests.cs",
+    "tests/DevOpsMigrationPlatform.CLI.Migration.Tests/TUI/JobList/TuiJobList_DslTests.cs",
+    "tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/InventoryModulesTests.cs",
+    "tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/ModuleContractTests.cs",
+    "tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/TeamMigrationOrchestratorDiTests.cs",
+    "tests/DevOpsMigrationPlatform.Infrastructure.Tests/Config/ConfigVersionGateTests.cs",
+    "tests/DevOpsMigrationPlatform.MigrationAgent.Tests/JobConfigResolverTests.cs",
+    "tests/DevOpsMigrationPlatform.TfsMigrationAgent.Tests/WorkItems/TfsWorkItemFetchServiceTests.cs",
+    "src/DevOpsMigrationPlatform.Infrastructure.Storage.AzureBlob/AGENTS.md",
+    "src/DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem/AGENTS.md",
+    "tests/DevOpsMigrationPlatform.Testing.Dsl/SystemTests/SystemTestEnvironment.cs",
+    "tests/DevOpsMigrationPlatform.CLI.Migration.Tests/SystemTests/SystemTestCiExecutionTests.cs"
+  ],
+  "suites": [
+    { "suite": "UnitTests", "run": true, "passed": 1040, "failed": 0 },
+    { "suite": "DomainTests", "run": true, "passed": 44, "failed": 0 },
+    { "suite": "IntegrationTests", "run": true, "passed": 637, "failed": 0 },
+    { "suite": "SystemTest_Simulated", "run": true, "passed": 48, "failed": 0 },
+    { "suite": "SystemTest_Live", "run": true, "passed": 13, "failed": 0 },
+    { "suite": "SystemTest_Smoke", "run": false, "not_run_reason": "Smoke is the CI critical-path subset of suites already run in full locally; executes on the PR." }
+  ],
+  "assumptions": [
+    "GitHub push protection covers provider token formats; gitleaks CI gate adds generic-pattern coverage (confirmed by maintainer in-session).",
+    "actor_id 5 (Repository admin) is the intended ruleset bypass for the solo maintainer."
+  ],
+  "deviations": [
+    "Phase 3 suites were not re-run after evidence-system file additions: changes after the last suite run are non-code (workflow YAML, schemas, docs, skill text, this evidence file).",
+    "Identity-adapter live tests retain their no-op pass when AZDEVOPS_SYSTEM_TEST_IDENTITY_UPN is unset — left for maintainer decision (provision the CI variable or grant the documented Inconclusive exception)."
+  ],
+  "risks": [
+    "Branch ruleset and 'class-c-approved'/'evidence-waived' labels must be applied in GitHub settings by the maintainer before the gates block anything.",
+    "First PR from this branch is the acceptance test for all new gates; gitleaks working-tree scan has not run against CI checkout yet."
+  ],
+  "docs_updated": [
+    "docs/adr/0031-0033 + README index",
+    ".agents/30-context/domains/decision-records-summary.md (ADR 0022-0033)",
+    ".agents/40-stubs/README.md (exemption list)",
+    ".agents/50-evidence/README.md"
+  ],
+  "outcome": "SUCCESS",
+  "commit": "3c78ca28, 24caabcf, 0e1fb657 + this change on governance/agentic-maturity-phase0-2"
+}

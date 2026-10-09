@@ -19,7 +19,6 @@ public class TfsWorkItemFetchServiceTests
     [TestMethod]
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
-    [TestCategory("tfs-object-model")]
     public async Task TfsWorkItemFetchService_FieldProjection_OnlyRequestedFieldsIncluded()
     {
         // Arrange — two work items each carrying three fields; scope requests only two.
@@ -49,7 +48,6 @@ public class TfsWorkItemFetchServiceTests
     [TestMethod]
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
-    [TestCategory("tfs-object-model")]
     public async Task TfsWorkItemFetchService_FilterExclusion_OnlyMatchingTypeYielded()
     {
         // Arrange — three items of different types; filter requests only "Bug".

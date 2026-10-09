@@ -13,7 +13,6 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands;
 [TestClass]
 public class PrintJobSubmittedTests
 {
-    [TestCategory("UnitTest")]
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
@@ -33,7 +32,6 @@ public class PrintJobSubmittedTests
         Assert.IsTrue(output.Contains(jobId.ToString()), $"Expected job ID value in output. Got:\n{output}");
     }
 
-    [TestCategory("UnitTest")]
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
@@ -53,7 +51,6 @@ public class PrintJobSubmittedTests
         Assert.IsTrue(output.Contains(url), $"Expected URL value in output. Got:\n{output}");
     }
 
-    [TestCategory("UnitTest")]
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
@@ -77,7 +74,6 @@ public class PrintJobSubmittedTests
 
     // --- Scenario 1: Standalone mode shows local control plane URL ---
 
-    [TestCategory("UnitTest")]
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
@@ -101,7 +97,6 @@ public class PrintJobSubmittedTests
 
     // --- Scenario 2: Remote mode shows the supplied --url ---
 
-    [TestCategory("UnitTest")]
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
@@ -125,7 +120,6 @@ public class PrintJobSubmittedTests
 
     // --- Scenario 3: Submission failure still shows the attempted URL ---
 
-    [TestCategory("UnitTest")]
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]

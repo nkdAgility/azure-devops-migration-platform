@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Session evidence (Logs/atdd-sessions/*.json)",
+  "description": "Machine-readable record of what a unit of work asked for, changed, ran, and proved (ADR-0033). Formalizes the session log the end-session skill already emits; governance fields are required, narrative fields stay free.",
+  "type": "object",
+  "required": [
+    "session_id",
+    "completed_at",
+    "requirement",
+    "change_class",
+    "files_changed",
+    "suites",
+    "outcome"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "session_id": { "type": "string", "minLength": 1 },
+    "started_at": { "type": "string" },
+    "completed_at": { "type": "string", "minLength": 1 },
+    "requirement": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The requested outcome, in one or two sentences."
+    },
+    "change_class": {
+      "enum": ["A", "B", "C", "docs-only"],
+      "description": "Per .agents/10-contracts/change-classes.yaml; docs-only for changes with no runtime surface."
+    },
+    "consent_reference": {
+      "type": ["string", "null"],
+      "description": "For Class C: the ADR id and/or PR label event evidencing consent. Null otherwise."
+    },
+    "activity": {
+      "type": "string",
+      "description": "Routing activity from .agents/10-contracts/routing-catalog.yaml."
+    },
+    "files_changed": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "suites": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["suite", "run"],
+        "additionalProperties": true,
+        "properties": {
+          "suite": {
+            "enum": [
+              "UnitTests",
+              "DomainTests",
+              "IntegrationTests",
+              "SystemTest_Smoke",
+              "SystemTest_Simulated",
+              "SystemTest_Live"
+            ]
+          },
+          "run": { "type": "boolean" },
+          "passed": { "type": "integer", "minimum": 0 },
+          "failed": { "type": "integer", "minimum": 0 },
+          "not_run_reason": {
+            "type": "string",
+            "description": "Required in spirit when run=false: why this suite was not executed."
+          }
+        }
+      }
+    },
+    "assumptions": { "type": "array", "items": { "type": "string" } },
+    "deviations": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Departures from instructions or guardrails, each with justification."
+    },
+    "risks": { "type": "array", "items": { "type": "string" } },
+    "docs_updated": { "type": "array", "items": { "type": "string" } },
+    "outcome": { "enum": ["SUCCESS", "PARTIAL", "ABANDONED"] },
+    "commit": { "type": ["string", "null"] }
+  }
+}

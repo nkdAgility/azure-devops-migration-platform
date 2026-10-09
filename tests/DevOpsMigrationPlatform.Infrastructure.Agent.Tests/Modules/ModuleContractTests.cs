@@ -15,7 +15,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Modules;
 public class ModuleContractTests
 {
     [TestMethod]
-    [TestCategory("L0")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     public void ModuleContract_ExposesThreeAspectCollections()
     {
         var contract = new ModuleContract(
@@ -32,7 +33,8 @@ public class ModuleContractTests
     }
 
     [TestMethod]
-    [TestCategory("L0")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     public void AllModules_ExposeContract_WithMatchingModuleName()
     {
         foreach (var module in ModuleContractTestData.CreateAllModules())
@@ -47,7 +49,8 @@ public class ModuleContractTests
     }
 
     [TestMethod]
-    [TestCategory("L0")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     public void ModuleContracts_HaveExpectedAnatomy()
     {
         var byName = ModuleContractTestData.CreateAllModules()

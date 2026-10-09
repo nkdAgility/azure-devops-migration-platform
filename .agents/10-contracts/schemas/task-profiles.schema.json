@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Agent task profiles (.agents/00-entry/task-profiles.yaml)",
+  "type": "object",
+  "required": ["version", "routing", "profiles"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "type": "integer", "minimum": 1 },
+    "routing": {
+      "type": "object",
+      "required": ["contract", "rule", "fail_closed_on_no_match"],
+      "additionalProperties": false,
+      "properties": {
+        "contract": { "type": "string", "minLength": 1 },
+        "rule": { "type": "string", "minLength": 1 },
+        "fail_closed_on_no_match": { "const": true }
+      }
+    },
+    "profiles": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "required": ["guardrails", "context"],
+        "additionalProperties": false,
+        "properties": {
+          "guardrails": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "pattern": "^\\.agents/" }
+          },
+          "context": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    }
+  }
+}
