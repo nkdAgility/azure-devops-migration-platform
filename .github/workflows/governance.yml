@@ -65,6 +65,10 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install validators
+        shell: pwsh
+        run: pip install --quiet pyyaml
+
       - name: Validate orchestrator hook configuration
         shell: pwsh
         run: ./scripts/guardrails/validate-orchestrator.ps1 -RepoRoot (Get-Location).Path
