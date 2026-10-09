@@ -15,13 +15,13 @@ Related changes:
   .agents/agents.md Constitution item 8 → "Touch = Tag"
   .agents/20-guardrails/workflow/testing-rules.md — Touch = Convert gate removed
   nkda-testdsl-* skill set retired
+  8 orphaned Reqnroll [Binding] step files (never executed — no .feature
+    files fed them) removed; Reqnroll.MSTest package reference, the
+    PrepareReqnrollFeatureFiles target and the Directory.Packages.props entry
+    dropped
 
 Deferred TODOs:
-  8 orphaned Reqnroll [Binding] step files remain in
-  tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests (no .feature files
-  feed them, so they never execute). Remove them, relocating shared helpers
-  such as TestModule first, then drop the Reqnroll.MSTest package reference,
-  the PrepareReqnrollFeatureFiles target and the Directory.Packages.props entry.
+  None
 -->
 
 <!--

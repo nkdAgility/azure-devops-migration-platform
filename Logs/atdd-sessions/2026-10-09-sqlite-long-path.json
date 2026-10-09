@@ -1,0 +1,51 @@
+{
+  "session_id": "2026-10-09-sqlite-long-path",
+  "started_at": "2026-10-09T12:20:00Z",
+  "completed_at": "2026-10-09T13:20:00Z",
+  "requirement": "Fix, test-first, SQLite 'unable to open database file' (Error 14) when a package-native database sits just under Windows MAX_PATH: the database opens, but its -journal sidecar passes 260 characters and the agent process is not longPathAware.",
+  "change_class": "B",
+  "consent_reference": "Operator asked in-session (2026-10-09): 'yes, fix the sqlite long path test-first'. The .gitignore and Constitution TODO edits complete the previously approved Reqnroll retirement; they had been interrupted, not declined.",
+  "activity": "implementation",
+  "files_changed": [
+    "src/DevOpsMigrationPlatform.Infrastructure/Storage/SqliteFilePath.cs",
+    "src/DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem/ActivePackageAccess.cs",
+    "src/DevOpsMigrationPlatform.Infrastructure.Agent/WorkItems/Identity/SqliteIdMapStore.cs",
+    "src/DevOpsMigrationPlatform.Infrastructure.Agent/Export/SqliteWorkItemProgressStore.cs",
+    "tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/ActivePackageAccessLongPathTests.cs",
+    "tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Import/SqliteIdMapStoreTests.cs",
+    ".gitignore",
+    ".specify/memory/constitution.md",
+    "Logs/atdd-sessions/2026-10-09-sqlite-long-path.json"
+  ],
+  "suites": [
+    { "suite": "UnitTests", "run": true, "passed": 1041, "failed": 0 },
+    { "suite": "DomainTests", "run": true, "passed": 44, "failed": 0 },
+    { "suite": "IntegrationTests", "run": true, "passed": 655, "failed": 0 },
+    { "suite": "SystemTest_Simulated", "run": true, "passed": 48, "failed": 0 },
+    {
+      "suite": "SystemTest_Live",
+      "run": false,
+      "not_run_reason": "The change is confined to how the SQLite data-source path is formed for package-local databases; no connector or live-endpoint code changed."
+    },
+    {
+      "suite": "SystemTest_Smoke",
+      "run": false,
+      "not_run_reason": "Smoke is the CI critical-path subset of suites already run in full locally; executes on the PR."
+    }
+  ],
+  "assumptions": [
+    "The longest SQLite sidecar suffix is '-journal' (8 characters); -wal and -shm are shorter."
+  ],
+  "deviations": [
+    "RED: OpenNativeDatabaseAsync_IdMapAtLongPath_AcceptsWritesWithDefaultJournal failed at 252/255/259 characters with SQLite Error 14, and the data-source contract test failed at 252/257/259 (no \\\\?\\ prefix). Both are GREEN after the fix.",
+    "Suites ran from the full worktree path (about 120 characters deep), which is what reproduced the original failure; Queue_Import_FromPreparedPackage_WritesTargetSideIdMapAndProgress now passes there.",
+    "DevOpsMigrationPlatform.TfsMigrationAgent.Tests (net481: 36 UnitTests, 13 IntegrationTests) is not discovered by the .NET Framework test host at that path, so it ran from a subst drive mapped to the same worktree. Its counts are included in the totals above."
+  ],
+  "risks": [
+    "The .NET Framework test host failing discovery at long paths is a separate test-infrastructure limit; CI checkouts are short, so it does not affect CI."
+  ],
+  "docs_updated": [
+    ".specify/memory/constitution.md"
+  ],
+  "outcome": "SUCCESS"
+}

@@ -4,11 +4,11 @@
 using System;
 using System.Data.Common;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Storage;
+using DevOpsMigrationPlatform.Infrastructure.Storage;
 using Microsoft.Data.Sqlite;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Export;
@@ -51,7 +51,7 @@ public sealed class SqliteWorkItemProgressStore : IWorkItemProgressStore
                 if (dir is not null && !Directory.Exists(dir))
                         Directory.CreateDirectory(dir); // Permitted: SQLite requires real file-system path (see class remarks)
 
-                _connection ??= new SqliteConnection($"Data Source={GetSqliteConnectionPath(_dbFilePath)}");
+                _connection ??= new SqliteConnection($"Data Source={SqliteFilePath.ToDataSource(_dbFilePath)}");
                 if (_connection.State != System.Data.ConnectionState.Open)
                         await _connection.OpenAsync(cancellationToken).ConfigureAwait(false);
 
@@ -162,16 +162,5 @@ public sealed class SqliteWorkItemProgressStore : IWorkItemProgressStore
                 if (_connection is null)
                         throw new InvalidOperationException(
                             $"{nameof(SqliteWorkItemProgressStore)} has not been initialised. Call {nameof(InitializeAsync)} first.");
-        }
-
-        private static string GetSqliteConnectionPath(string dbFilePath)
-        {
-                var fullPath = Path.GetFullPath(dbFilePath);
-                if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows) || fullPath.Length < 260)
-                        return fullPath;
-
-                return fullPath.StartsWith(@"\\", StringComparison.Ordinal)
-                                        ? $@"\\?\UNC\{fullPath.Substring(2)}"
-                    : $@"\\?\{fullPath}";
         }
 }
