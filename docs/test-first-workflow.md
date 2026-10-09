@@ -64,7 +64,7 @@ Implementation execution also runs `.agents/commands/nkda-tddsn-autonomous.md` s
 | 1. Specification | speckit.specify | `spec.md` | Human approval of spec |
 | 2. Spec Hardening | `.agents/skills/nkda-archimprove-red-team-review` + `.agents/skills/nkda-observability-contract` + `.agents/skills/nkda-archcheck-architecture-review` | Reviewed and corrected `spec.md` plus review outputs | All blocking architecture, observability, and red-team findings resolved or explicitly approved by the human before continuing |
 | 2a. Perspectives Gate | Guardrail-driven review against `.agents/20-guardrails/core/architecture-perspectives-ethos.md` | Perspective evidence for touched scope | Pass required for all six perspectives before Test Generation |
-| 3. Test Generation | parse-criteria + test-templates | `.feature` + `*Steps.cs` | Tests compile and fail for the intended missing behaviour (RED) |
+| 3. Test Generation | Agent, using the `tests/DevOpsMigrationPlatform.Testing.Dsl` builders/runners | Code-first DSL behavioural tests (`tests/<Project>.Tests/<Area>/<Behaviour>Tests.cs`) | Tests compile and fail for the intended missing behaviour (RED) |
 | 4. Implementation | `.agents/commands/nkda-tddsn-autonomous.md` | Production code plus six NKDA TDD Safety Net artefacts | Minimal code turns the relevant tests green, a fresh full-suite run is green, refactor stays green, and the command produces all required outputs |
 | 5. Review | review skill | Verdict in session log | Pass verdict (no blockers) |
 | 6. Doc Sync | Manual/agent | Updated docs | Docs match implementation |
@@ -148,10 +148,10 @@ Completed: <ISO 8601>
 
 ## Boundaries
 
-- One session = one scenario (one `.feature` file or one scenario within).
+- One session = one scenario (one behavioural test class or one test method within).
 - Sessions MUST NOT span multiple unrelated features.
 - Sessions MUST NOT modify code outside the feature scope without explicit justification logged.
-- `@ignore` / `[Ignore]` may be used during Phase 4 for isolation — MUST be removed before Phase 5 verdict.
+- `[Ignore]` may be used during Phase 4 for isolation — MUST be removed before Phase 5 verdict.
 
 ---
 

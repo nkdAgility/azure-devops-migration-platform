@@ -16,7 +16,7 @@ Every unit of work must satisfy **all** criteria below. Zero exceptions.
 - Every addition, bug fix, and behaviour change has evidence of RED → GREEN → REFACTOR: a failing behavioural test first, the minimal passing implementation second, then a fresh full-suite run returning the repository to an all-green state, and only then refactoring.
 - No production-first additions. If the change did not begin from an intended failing test, it is not done.
 - No `Assert.Inconclusive()` — treated as build-breaking. Implement the assertion or delete the test.
-- No `@ignore` (Gherkin) or `[Ignore]` (MSTest) in committed code. Session-only temporary use permitted.
+- No `[Ignore]` (MSTest) in committed code. Session-only temporary use permitted.
 - No `throw new NotImplementedException()` in any reachable code path.
 - No hanging tests (infinite loops, unbounded waits, clock-racing).
 

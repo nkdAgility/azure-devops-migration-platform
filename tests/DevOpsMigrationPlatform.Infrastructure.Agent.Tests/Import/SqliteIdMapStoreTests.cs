@@ -12,6 +12,8 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Import;
 
 [TestClass]
+[TestCategory("CodeTest")]
+[TestCategory("IntegrationTests")]
 public class SqliteIdMapStoreTests
 {
     private string _tempDbPath = string.Empty;
@@ -237,6 +239,67 @@ public class SqliteIdMapStoreTests
             Assert.AreEqual(700, source7, $"{connectorType} rebuild/resume must preserve pre-existing source mapping.");
             Assert.AreEqual(800, source8, $"{connectorType} rebuild/resume must preserve first-seeded mapping from prior run.");
         }
+    }
+
+    // ── Long package paths (Windows MAX_PATH) ─────────────────────────────────
+
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
+    [TestMethod]
+    [DataRow(240)]
+    [DataRow(250)]
+    [DataRow(255)]
+    [DataRow(259)]
+    [DataRow(260)]
+    [DataRow(320)]
+    public async Task SetWorkItemMappingAsync_AtLongDatabasePath_PersistsMapping(int dbPathLength)
+    {
+        var root = Path.Combine(Path.GetTempPath(), "idmap-longpath-" + Path.GetRandomFileName());
+        var dbPath = BuildDatabasePathOfLength(root, dbPathLength);
+        try
+        {
+            await using (var store = new SqliteIdMapStore(dbPath))
+            {
+                await store.InitializeAsync(CancellationToken.None);
+                await store.SetWorkItemMappingAsync(sourceId: 10, targetId: 999, CancellationToken.None);
+            }
+
+            await using var reopened = new SqliteIdMapStore(dbPath);
+            await reopened.InitializeAsync(CancellationToken.None);
+            var result = await reopened.GetTargetWorkItemIdAsync(10, CancellationToken.None);
+
+            Assert.AreEqual(999, result, $"Mapping must persist for a {dbPath.Length}-character database path.");
+        }
+        finally
+        {
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            // The \\?\ form (needed past MAX_PATH) is Windows-only.
+            var deletePath = OperatingSystem.IsWindows() ? @"\\?\" + root : root;
+            try { Directory.Delete(deletePath, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        }
+    }
+
+    /// <summary>Builds <c>root\aaa…\idmap.db</c> whose full path is exactly <paramref name="length"/> characters.</summary>
+    private static string BuildDatabasePathOfLength(string root, int length)
+    {
+        const string fileName = "idmap.db";
+        var remaining = length - root.Length - fileName.Length - 1;
+        if (remaining < 2)
+            Assert.Fail($"Temp root '{root}' is too long to build a {length}-character path.");
+
+        var path = root;
+        while (remaining > 0)
+        {
+            // Each segment costs its name plus one separator; keep segments well under 255.
+            var segment = Math.Min(remaining - 1, 100);
+            if (remaining - 1 - segment == 1) segment--; // avoid leaving a 1-char remainder (no room for name + separator)
+            path = Path.Combine(path, new string('d', segment));
+            remaining -= segment + 1;
+        }
+
+        var full = Path.Combine(path, fileName);
+        Assert.AreEqual(length, full.Length, "Test path builder produced the wrong length.");
+        return full;
     }
 }
 

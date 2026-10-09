@@ -8,10 +8,6 @@
         // JSON editing and validation  
         "ms-vscode.vscode-json",
         
-        // Gherkin/BDD testing support
-        "alexkrechik.cucumbertableformatter",
-        "humarnikon.gherkin-autocomplete",
-        
         // Git and source control
         "eamodio.gitlens",
         

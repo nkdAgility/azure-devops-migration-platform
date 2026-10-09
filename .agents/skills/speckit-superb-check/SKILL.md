@@ -1,11 +1,9 @@
 ---
 name: speckit-superb-check
-description: Bridge-native diagnostics command. Verifies that required and optional
-  superpowers skills are installed in workspace or global skill roots and reports
-  which hooks are ready to run.
+description: Bridge-native diagnostics command. Verifies that required and optional superpowers skills are installed in workspace or global skill roots and reports which hooks are ready to run.
 compatibility: Requires spec-kit project structure with .specify/ directory
 metadata:
-  author: github-spec-kit
+  author: rbbtsn0w
   source: superb:commands/check.md
 ---
 

@@ -163,7 +163,7 @@ Guardrails should define constraints, not explanations.
 Recommended file purposes:
 
 - `coding-standards.md`: code shape, naming, async, immutability, dependency injection, SPDX.
-- `testing-rules.md`: MSTest, Reqnroll if applicable, assertion quality, no ignored tests.
+- `testing-rules.md`: MSTest, internal DSL behavioural tests, assertion quality, no ignored tests.
 - `security-rules.md`: credentials, secrets, safe logging, least privilege.
 - `architecture-boundaries.md`: major system boundaries and prohibited coupling.
 - `observability-requirements.md`: tracing, metrics, logs, progress, data classification.

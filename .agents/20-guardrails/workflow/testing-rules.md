@@ -39,37 +39,12 @@ attributes before the change is complete. All rules are blocking:
 3. Wrong or non-canonical tag on touch → correct it in the same edit.
 4. Delegation does not exempt: the calling agent verifies tags before closing the task.
 5. No partial compliance: fix the whole file.
-6. The `nkda-testdsl-*` skills must apply `CodeTest` + `DomainTests` to all converted tests; `nkda-testdsl-refactor` must verify and correct tags in any file it touches.
-
-## Touch = Convert (HARD GATE)
-
-Legacy Reqnroll is migration debt, not an editable test style. Any change to the
-behaviour or scenarios of a legacy `.feature` file or its
-`[Binding]`/`[Given]`/`[When]`/`[Then]` step definitions obligates migration of
-that whole feature family to the internal DSL before the task is complete, via:
-
-```text
-nkda-testdsl-autonomous {feature}
-```
-
-Terminal state: the legacy `.feature` and `*Steps.cs` for that family are removed
-and the converted `CodeTest` + `DomainTests` tests pass. Hand-rolled migration is
-prohibited.
-
-Carve-outs that do NOT trigger migration: (1) outright retirement of an obsolete
-scenario/family with recorded rationale; (2) non-behavioural typo/comment edits;
-(3) orphaned `.feature` files with no matching bindings — delete the orphan once
-its intent is captured elsewhere.
-
-A task that edits legacy `.feature`/`Steps` behaviour without running the DSL
-migration is incomplete, regardless of whether tests pass.
 
 ## Framework Rules
 
 - Unit runner: MSTest only.
-- Code-first behavioural tests use the `tests/DevOpsMigrationPlatform.Testing` internal DSL.
-- New feature behaviour must not be added as `.feature` files unless explicitly approved.
-- No new `[Binding]`, `[Given]`, `[When]`, or `[Then]` classes in migrated areas.
+- Code-first behavioural tests use the `tests/DevOpsMigrationPlatform.Testing.Dsl` internal DSL and carry `CodeTest` + `DomainTests`.
+- Reqnroll/Gherkin is retired (migration completed): no `.feature` files, no `[Binding]`/`[Given]`/`[When]`/`[Then]` classes, no Reqnroll packages.
 - Unit test naming: `<ClassName>Tests` / `<MethodName>_<Condition>_<ExpectedResult>`.
 
 ## Mock Rules

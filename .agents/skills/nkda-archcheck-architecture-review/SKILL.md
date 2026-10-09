@@ -78,7 +78,7 @@ Execute the full `nkda-archcheck-screaming-architecture` skill. Record all findi
 
 Key questions:
 - Are project, namespace, and class names business-meaningful?
-- Do `.feature` file scenario names use business language?
+- Do behavioural DSL test (`DomainTests`) names use business language?
 - Do public method names use business verbs?
 
 ### Step 6 — Architecture Deepening Pass
@@ -162,9 +162,9 @@ List each High violation:
 #### Low / Informational Violations (address in backlog)
 
 ```
-[SA-L1] Scenario name uses technical language: "Test serialisation of WorkItemRevision"
-  File: features/export/workitems/export-work-items.feature:14
-  Fix:  Rewrite as "Export preserves all field values for each revision".
+[SA-L1] Behavioural test name uses technical language: "Test_Serialisation_Of_WorkItemRevision"
+  File: tests/DevOpsMigrationPlatform.WorkItems.Export.Tests/Export/ExportWorkItemsTests.cs:14
+  Fix:  Rewrite as "Export_preserves_all_field_values_for_each_revision".
 
 [VS-L1] IStateStore key "workitems/checkpoint" not scoped by operation or job ID
   File: src/DevOpsMigrationPlatform.WorkItems.Import/ImportJob.cs:88

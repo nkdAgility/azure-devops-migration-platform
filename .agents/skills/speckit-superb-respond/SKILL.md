@@ -1,12 +1,9 @@
 ---
 name: speckit-superb-respond
-description: Code review response protocol. Bridges an installed obra/superpowers
-  receiving-code-review skill. Enforces technical verification before implementing
-  review feedback — no performative agreement, no blind fixes. Pairs with speckit.superb.critique
-  as the implementer counterpart.
+description: Code review response protocol. Bridges an installed obra/superpowers receiving-code-review skill. Enforces technical verification before implementing review feedback — no performative agreement, no blind fixes. Pairs with speckit.superb.critique as the implementer counterpart.
 compatibility: Requires spec-kit project structure with .specify/ directory
 metadata:
-  author: github-spec-kit
+  author: rbbtsn0w
   source: superb:commands/respond.md
 ---
 

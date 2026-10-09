@@ -5,11 +5,11 @@ using System;
 using System.Collections.Generic;
 using System.Data.Common;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Infrastructure.Storage;
 using Microsoft.Data.Sqlite;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Identity;
@@ -54,7 +54,7 @@ public sealed class SqliteIdMapStore : IIdMapStore
         if (!string.IsNullOrWhiteSpace(dir) && !Directory.Exists(dir))
             Directory.CreateDirectory(dir); // Permitted: SQLite requires real file-system path (see class remarks)
 
-        _connection ??= new SqliteConnection($"Data Source={GetSqliteConnectionPath(_dbFilePath)}");
+        _connection ??= new SqliteConnection($"Data Source={SqliteFilePath.ToDataSource(_dbFilePath)}");
         if (_connection.State != System.Data.ConnectionState.Open)
             await _connection.OpenAsync(ct).ConfigureAwait(false);
 
@@ -258,18 +258,5 @@ public sealed class SqliteIdMapStore : IIdMapStore
         if (_connection is null)
             throw new InvalidOperationException(
                 $"{nameof(SqliteIdMapStore)} has not been initialised. Call {nameof(InitializeAsync)} first.");
-    }
-
-    private static string GetSqliteConnectionPath(string dbFilePath)
-    {
-        var fullPath = Path.GetFullPath(dbFilePath);
-        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows) || fullPath.Length < 260)
-        {
-            return fullPath;
-        }
-
-        return fullPath.StartsWith(@"\\", StringComparison.Ordinal)
-            ? $@"\\?\UNC\{fullPath.Substring(2)}"
-            : $@"\\?\{fullPath}";
     }
 }

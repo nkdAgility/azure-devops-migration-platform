@@ -17,7 +17,6 @@
     <PackageReference Include="MSTest.TestFramework" />
     <PackageReference Include="OpenTelemetry" />
     <PackageReference Include="OpenTelemetry.Exporter.InMemory" />
-    <PackageReference Include="Reqnroll.MSTest" />
     <PackageReference Include="Moq" />
   </ItemGroup>
 
@@ -31,18 +30,5 @@
     <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.Infrastructure.AzureDevOps\DevOpsMigrationPlatform.Infrastructure.AzureDevOps.csproj" />
     <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.Infrastructure.Simulated\DevOpsMigrationPlatform.Infrastructure.Simulated.csproj" />
   </ItemGroup>
-
-  <Target Name="PrepareReqnrollFeatureFiles" BeforeTargets="UpdateFeatureFilesInProject">
-    <MakeDir Directories="$(ProjectDir)Features" />
-    <ItemGroup>
-      <_ExpectedFeatureCopies Include="@(ExternalFeatureFiles->'$(ProjectDir)Features\%(Filename)%(Extension)')" />
-      <_ExistingFeatureCopies Include="$(ProjectDir)Features\*.feature" />
-      <_StaleFeatureCopies Include="@(_ExistingFeatureCopies)" Exclude="@(_ExpectedFeatureCopies)" />
-    </ItemGroup>
-    <Delete Files="@(_StaleFeatureCopies)" />
-    <Copy SourceFiles="@(ExternalFeatureFiles)"
-          DestinationFolder="$(ProjectDir)Features"
-          SkipUnchangedFiles="true" />
-  </Target>
 
 </Project>

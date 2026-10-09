@@ -203,29 +203,9 @@ internal sealed class ActivePackageAccess : IPackageAccess
         var dir = System.IO.Path.GetDirectoryName(nativePath)!;
         if (!System.IO.Directory.Exists(dir))
             System.IO.Directory.CreateDirectory(dir);
-        var connectionPath = ToSqliteConnectionPath(nativePath);
+        var connectionPath = SqliteFilePath.ToDataSource(nativePath);
         var connection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={connectionPath}");
         return new ValueTask<System.Data.Common.DbConnection>(connection);
-    }
-
-    /// <summary>
-    /// Applies the <c>\\?\</c> extended-length path prefix on Windows when the path
-    /// exceeds MAX_PATH (260 chars). SQLite's native file I/O requires this prefix
-    /// to open databases at long paths.
-    /// </summary>
-    private static string ToSqliteConnectionPath(string fullPath)
-    {
-        fullPath = System.IO.Path.GetFullPath(fullPath);
-        if (!System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
-                System.Runtime.InteropServices.OSPlatform.Windows)
-            || fullPath.Length < 260)
-        {
-            return fullPath;
-        }
-
-        return fullPath.StartsWith(@"\\", StringComparison.Ordinal)
-            ? $@"\\?\UNC\{fullPath.Substring(2)}"
-            : $@"\\?\{fullPath}";
     }
 
     public ValueTask<IDisposable> AcquireLockAsync(

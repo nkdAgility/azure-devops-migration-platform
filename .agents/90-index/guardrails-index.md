@@ -33,7 +33,6 @@
 - `.agents/20-guardrails/workflow/definition-of-done.md`
 - `.agents/20-guardrails/workflow/testing-rules.md`
 - `.agents/20-guardrails/workflow/spec-coverage-completeness.md`
-- `.agents/20-guardrails/workflow/acceptance-test-format.md`
 - `.agents/20-guardrails/workflow/documentation-rules.md`
 - `.agents/20-guardrails/workflow/delivery-quality-rules.md`
 - `.agents/20-guardrails/workflow/engineering-nonfunctional-rules.md`

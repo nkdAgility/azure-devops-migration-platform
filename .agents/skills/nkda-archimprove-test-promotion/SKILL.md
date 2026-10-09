@@ -27,7 +27,7 @@ When no path is given, default to the solution root and scan all `tests/` projec
 | Priority | Category | Markers | Speed |
 |----------|----------|---------|-------|
 | 1 | Unit Tests | `[TestClass]`/`[TestMethod]`, no `TestCategory` | < 50 ms |
-| 2 | Feature Tests | Reqnroll `[Binding]` + `.feature` | < 500 ms |
+| 2 | Feature Tests | `[TestCategory("DomainTests")]` code-first DSL tests | < 500 ms |
 | 3 | Simulated System Tests | `[TestCategory("SystemTest_Simulated")]` | < 10 s |
 | 4 | Live System Tests | `[TestCategory("SystemTest")]` or `[TestCategory("SystemTest_Live")]` | < 60 s |
 
@@ -48,13 +48,13 @@ Before executing, read:
 
 ### Phase 1 — Discovery
 
-1. **Enumerate all test files** in the target scope (`tests/**/*Tests.cs`, `tests/**/*Steps.cs`).
+1. **Enumerate all test files** in the target scope (`tests/**/*Tests.cs`).
 2. **Classify each test** by its current category (Unit / Feature / Simulated / Live) using markers:
    - `[TestCategory("SystemTest")]` or `[TestCategory("SystemTest_Live")]` → Live
    - `[TestCategory("SystemTest_Simulated")]` → Simulated
-   - `[Binding]` class with associated `.feature` → Feature
+   - `[TestCategory("DomainTests")]` (internal DSL behavioural test) → Feature
    - Plain `[TestMethod]` with no system category → Unit
-3. **Build a coverage map**: for each test, identify what behaviour/logic it validates (method name, scenario name, step text).
+3. **Build a coverage map**: for each test, identify what behaviour/logic it validates (method name, test class, DSL steps).
 
 ### Phase 2 — Promotion Analysis
 
@@ -67,7 +67,7 @@ For each test at level N (where N > 1), ask:
 
 #### Can a Simulated test (level 3) become a Feature test (level 2)?
 
-- **YES if:** The test validates a single module's behaviour and can be expressed as a Reqnroll scenario with mocked dependencies.
+- **YES if:** The test validates a single module's behaviour and can be expressed as a code-first DSL behavioural test with simulated/mocked dependencies.
 - **NO if:** The test requires the full DI container, multiple modules interacting, or real filesystem I/O to be meaningful.
 
 #### Can a Feature test (level 2) become a Unit test (level 1)?

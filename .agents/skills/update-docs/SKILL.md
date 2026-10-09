@@ -89,7 +89,7 @@ Categorise each changed file:
 - **Production code** (`.cs` in `src/`) → triggers doc updates based on the mapping table above
 - **Test code** (`.cs` in `tests/`) → no doc update required unless a new test fixture or scenario config was added
 - **Config/schema** (`.json`, `.yml`, `.props`) → may require `docs/configuration-reference.md` or `.agents/30-context/` update
-- **Feature files** (`.feature`) → no doc update required (features are self-documenting)
+- **Behavioural DSL tests** (`<Behaviour>Tests.cs`) → no doc update required (tests are self-documenting)
 - **Existing doc files** (`.md` in `docs/`, `.agents/`) → already updated; verify they are accurate
 
 **If invoked in reconcile mode (`--reconcile`):**

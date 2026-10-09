@@ -13,6 +13,9 @@
         ],
         "copilot": [
           "speckit.clarify"
+        ],
+        "claude": [
+          "speckit.clarify"
         ]
       },
       "registered_skills": [],

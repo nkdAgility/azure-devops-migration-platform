@@ -102,7 +102,7 @@ Is this already covered elsewhere?
 
 ### Phase 1 — Discovery
 
-1. **Enumerate all test files** in the target scope (`tests/**/*Tests.cs`, `tests/**/*Steps.cs`).
+1. **Enumerate all test files** in the target scope (`tests/**/*Tests.cs`).
 2. **Parse each test method** — extract: class name, method name, attributes, assertion targets, mocked dependencies.
 3. **Read the production code** each test exercises — understand what behaviour is under test.
 
@@ -177,7 +177,6 @@ Produce a structured report grouped by classification:
 1. For each test classified as WASTE:
    - Delete the test method.
    - If the containing class is now empty, delete the class file.
-   - If a `.feature` file's only scenarios map to deleted tests, delete the `.feature` file.
 2. For LOW VALUE tests:
    - Add a `// TODO: [test-validity] Score {N}/25 — {reasoning}. Rewrite to test: {suggested behaviour}` comment above the test method.
    - Do **not** delete — leave for manual rewrite.

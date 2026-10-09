@@ -146,35 +146,35 @@ Any standalone technical noun as a class name is a candidate for a domain-qualif
 
 ---
 
-## Check 4 — Feature File Scenario Names Do Not Reflect Business Language
+## Check 4 — Behavioural Test Names Do Not Reflect Business Language
 
-**Smell:** Gherkin `.feature` files use technical terms in scenario names, making it hard for a non-technical stakeholder to understand what the system does.
+**Smell:** Code-first DSL behavioural tests (`[TestCategory("DomainTests")]`, `tests/<Project>.Tests/<Area>/<Behaviour>Tests.cs`) use technical terms in class or method names, making it hard for a non-technical stakeholder to understand what the system does.
 
-```gherkin
-# BAD — technical language in acceptance criteria
-Scenario: Test serialisation of WorkItemRevision to JSON     ❌
-Scenario: Verify FileSystemArtefactStore write operation     ❌
+```csharp
+// BAD — technical language in behavioural test names
+public void Test_Serialisation_Of_WorkItemRevision_To_Json()      // ❌
+public void Verify_FileSystemArtefactStore_Write()                // ❌
 ```
 
-**Fix:** Rewrite scenario names using the language of the business.
+**Fix:** Name behaviour classes and test methods using the language of the business.
 
-```gherkin
-# GOOD — business language throughout
-Scenario: Export preserves all field values for each revision  ✅
-Scenario: Attachments are stored alongside the revision they belong to  ✅
+```csharp
+// GOOD — business language throughout
+public void Export_preserves_all_field_values_for_each_revision()          // ✅
+public void Attachments_are_stored_alongside_the_revision_they_belong_to() // ✅
 ```
 
 **How to find:**
 
 ```bash
-grep -rn "^  Scenario:" features/ --include="*.feature" \
+grep -rln 'TestCategory("DomainTests")' tests/ --include="*Tests.cs" \
+  | xargs grep -n "public .*void\|public .*Task" \
   | grep -i "test\|verify\|check\|serialis\|deserialis\|json\|store\|class\|method"
 ```
 
-Any scenario name containing technical terms that a business analyst would not use is a candidate for a plain-language rewrite.
+Any behavioural test name containing technical terms that a business analyst would not use is a candidate for a plain-language rewrite.
 
 ---
-
 ## Check 5 — Public Method Name Uses Technical Verb Instead of Business Verb
 
 **Smell:** A public method on a domain or use-case class uses a technical verb (`Process`, `Execute`, `Run`, `Handle`, `Perform`) where a business verb would communicate intent more clearly.
@@ -215,7 +215,7 @@ grep -rn "public.*Task ProcessAsync\|public.*Task ExecuteAsync\|public.*Task Han
 | **High** | Project or namespace name is generic technical term with no business noun — hides system purpose |
 | **Medium** | Class name does not communicate its business responsibility — requires opening the file to understand |
 | **Low** | Method name uses technical verb where a business verb would improve clarity |
-| **Informational** | Feature file scenario names use technical language — impacts stakeholder readability only |
+| **Informational** | Behavioural DSL test names use technical language — impacts stakeholder readability only |
 
 ---
 
@@ -226,7 +226,7 @@ Run this checklist when reviewing new projects, features, or significant renames
 - [ ] **Check 1**: No class, namespace, or folder uses a generic technical name (`Helper`, `Util`, `Manager`, `Common`, `Shared`) without a qualifying business noun.
 - [ ] **Check 2**: Every project name reflects a business operation or a well-understood platform boundary.
 - [ ] **Check 3**: Every public class name announces its business responsibility without requiring the reader to open the file.
-- [ ] **Check 4**: All `.feature` file scenario names use business language understandable by a non-technical stakeholder.
+- [ ] **Check 4**: All behavioural DSL test class and method names use business language understandable by a non-technical stakeholder.
 - [ ] **Check 5**: Public method names on domain and use-case classes use business verbs, not generic technical verbs.
 
 All items must be checked before a feature or refactoring is declared complete. Any unchecked item is a blocking violation.

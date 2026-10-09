@@ -1,0 +1,6 @@
+# Spec Kit verifies its managed files by SHA-256 of the LF content it wrote.
+# With core.autocrlf=true those files check out as CRLF and every one reports
+# as "modified". Keep agent tooling LF in the working tree; text=auto leaves
+# binary files untouched.
+.specify/** text=auto eol=lf
+.agents/** text=auto eol=lf

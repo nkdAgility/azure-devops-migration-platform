@@ -8,7 +8,6 @@
     
     // File associations for this project
     "files.associations": {
-        "*.feature": "gherkin",
         "migration.json": "jsonc",
         "test-*.json": "jsonc",
         "dev-*.json": "jsonc"

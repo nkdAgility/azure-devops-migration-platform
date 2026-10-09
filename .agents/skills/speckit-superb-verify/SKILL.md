@@ -1,13 +1,11 @@
 ---
 name: speckit-superb-verify
-description: 'Mandatory completion gate. Bridges an installed obra/superpowers verification-before-completion
-  skill and extends it with spec-kit''s spec-coverage checklist. No task may be marked
-  done without fresh evidence.
+description: 'Mandatory completion gate. Bridges an installed obra/superpowers verification-before-completion skill and extends it with spec-kit''s spec-coverage checklist. No task may be marked done without fresh evidence.
 
   '
 compatibility: Requires spec-kit project structure with .specify/ directory
 metadata:
-  author: github-spec-kit
+  author: rbbtsn0w
   source: superb:commands/verify.md
 ---
 
@@ -102,32 +100,12 @@ Unmet requirements: [list them]
 
 ---
 
-## Step 4.1 — Fail-Closed Runtime Evidence Gate
-
-When the verified feature requires connector/API side effects, completion additionally
-requires both evidence classes below:
-
-1. **Call-site evidence**: exact `path:line` for real connector API calls implementing
-   required side effects.
-2. **Runtime-proof evidence**: exact `path:line` tests proving required external state
-   transitions (for example exists -> create -> exists and exists -> delete -> missing).
-
-If either evidence class is missing, STOP and output:
-
-```text
-BLOCKED - guardrail unmet
-```
-
-Do not continue to status synchronization in this case.
-
----
-
 ## Step 5 — Status Synchronization
 
 Only after all verification checks pass, synchronize the feature spec status to:
 
 ```bash
-.specify/scripts/powershell/sync-spec-status.ps1 --status "Verified"
+.specify/extensions/superb/scripts/powershell/sync-spec-status.ps1 --status "Verified"
 ```
 
 Status sync rules:

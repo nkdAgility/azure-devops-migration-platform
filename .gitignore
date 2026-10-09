@@ -52,11 +52,6 @@ coverage/
 # Build artefacts
 artifacts/
 
-# Reqnroll-generated codebehind files (generated before compilation; staged from workspace features/)
-**/Features/*.feature.cs
-# Reqnroll-staged feature file copies (build artefacts — canonical source is features/ at workspace root)
-tests/**/Features/*.feature
-
 # Temporary files
 *.tmp
 *.swp
@@ -71,3 +66,7 @@ test_results.txt
 .otel-diagnostics/stdout.txt
 .otel-diagnostics/test-run5/stderr.txt
 .otel-diagnostics/test-run5/stdout.txt
+
+# Spec Kit downloaded catalog caches (machine-local; .specify/.gitignore is CLI-managed)
+.specify/extensions/.cache/
+.specify/presets/.cache/
