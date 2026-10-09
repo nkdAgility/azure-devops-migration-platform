@@ -38,8 +38,10 @@ public sealed class TestCategoryTaxonomyArchitectureTests
         "SystemTest_Live",
     };
 
+    // Tolerates whitespace before '(' / around the literal, combined attributes
+    // (two categories in one [...] list) and line breaks inside the attribute.
     private static readonly Regex CategoryRegex = new(
-        "\\[TestCategory\\(\"(?<name>[^\"]+)\"\\)", RegexOptions.Compiled);
+        "(?<![\\w.])TestCategory(?:Attribute)?\\s*\\(\\s*\"(?<name>[^\"]+)\"\\s*\\)", RegexOptions.Compiled);
 
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
@@ -50,16 +52,15 @@ public sealed class TestCategoryTaxonomyArchitectureTests
 
         foreach (var file in EnumerateTestSourceFiles())
         {
-            var lines = File.ReadAllLines(file);
-            for (var i = 0; i < lines.Length; i++)
+            // Whole-file scan so attributes split across lines are still checked.
+            var text = File.ReadAllText(file);
+            foreach (Match match in CategoryRegex.Matches(text))
             {
-                foreach (Match match in CategoryRegex.Matches(lines[i]))
+                var name = match.Groups["name"].Value;
+                if (!ParentFamilies.Contains(name) && !SpecificCategories.Contains(name))
                 {
-                    var name = match.Groups["name"].Value;
-                    if (!ParentFamilies.Contains(name) && !SpecificCategories.Contains(name))
-                    {
-                        violations.Add($"{Relative(file)}({i + 1}): \"{name}\"");
-                    }
+                    var line = text.AsSpan(0, match.Index).Count('\n') + 1;
+                    violations.Add($"{Relative(file)}({line}): \"{name}\"");
                 }
             }
         }
@@ -207,6 +208,28 @@ public sealed class TestCategoryTaxonomyArchitectureTests
             + string.Join(Environment.NewLine, violations));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public void CategoryScanner_RecognisesSpacingCombinedAndSplitAttributes()
+    {
+        var lines = new[]
+        {
+            "    [TestCategory (\"Spaced\")]",
+            "    [TestCategory(\"A\"), TestCategory(\"B\")]",
+            "    [TestCategory(",
+            "        \"Split\")]",
+            "    [TestMethod]",
+            "    public void M() { }",
+        };
+
+        var categories = CollectAttributeBlockCategories(lines, 4);
+
+        CollectionAssert.AreEquivalent(
+            new[] { "Spaced", "A", "B", "Split" },
+            categories.ToArray());
+    }
+
     /// <summary>
     /// Collects TestCategory values from the attribute block that surrounds
     /// <paramref name="index"/> — lines whose trimmed content starts with '[',
@@ -215,10 +238,12 @@ public sealed class TestCategoryTaxonomyArchitectureTests
     /// </summary>
     private static HashSet<string> CollectAttributeBlockCategories(string[] lines, int index)
     {
+        // A line belongs to the block if it is blank, opens an attribute, or
+        // closes one that began on an earlier line (e.g. `    "Split")]`).
         static bool IsAttributeOrBlank(string line)
         {
             var trimmed = line.Trim();
-            return trimmed.Length == 0 || trimmed.StartsWith('[');
+            return trimmed.Length == 0 || trimmed.StartsWith('[') || trimmed.EndsWith(']');
         }
 
         var categories = new HashSet<string>(StringComparer.Ordinal);
@@ -235,12 +260,10 @@ public sealed class TestCategoryTaxonomyArchitectureTests
             end++;
         }
 
-        for (var i = start; i <= end; i++)
+        var block = string.Join('\n', lines[start..(end + 1)]);
+        foreach (Match match in CategoryRegex.Matches(block))
         {
-            foreach (Match match in CategoryRegex.Matches(lines[i]))
-            {
-                categories.Add(match.Groups["name"].Value);
-            }
+            categories.Add(match.Groups["name"].Value);
         }
 
         return categories;

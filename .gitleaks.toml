@@ -6,9 +6,13 @@ useDefault = true
 # Azure Monitor / Application Insights connection strings in appsettings.json are
 # ingestion-only (write telemetry, cannot read it) and intentionally shipped with
 # the CLI, Control Plane and agents. Allowlisted by operator decision on PR #132.
+#
+# regexTarget "match" tests only the finding's own matched text (for this
+# connection string, generic-api-key matches "Key=<guid>;"), so any other
+# credential on the same line is still reported as its own finding.
 [allowlist]
 description = "Application Insights ingestion connection strings"
-regexTarget = "line"
+regexTarget = "match"
 regexes = [
-  '''"AzureMonitorConnectionString":\s*"InstrumentationKey=[0-9a-fA-F-]{36};IngestionEndpoint=https://[a-z0-9-]+\.in\.applicationinsights\.azure\.com/''',
+  '''^Key=[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12};$''',
 ]
