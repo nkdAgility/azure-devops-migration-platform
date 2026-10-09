@@ -8,10 +8,19 @@
     "completed_at",
     "requirement",
     "change_class",
+    "activity",
     "files_changed",
     "suites",
+    "assumptions",
+    "deviations",
+    "risks",
     "outcome"
   ],
+  "if": { "properties": { "change_class": { "const": "C" } } },
+  "then": {
+    "required": ["consent_reference"],
+    "properties": { "consent_reference": { "type": "string", "minLength": 1 } }
+  },
   "additionalProperties": true,
   "properties": {
     "session_id": { "type": "string", "minLength": 1 },
@@ -32,6 +41,7 @@
     },
     "activity": {
       "type": "string",
+      "minLength": 1,
       "description": "Routing activity from .agents/10-contracts/routing-catalog.yaml."
     },
     "files_changed": {
@@ -67,13 +77,21 @@
         }
       }
     },
-    "assumptions": { "type": "array", "items": { "type": "string" } },
+    "assumptions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Required; an empty array is an explicit claim of none."
+    },
     "deviations": {
       "type": "array",
       "items": { "type": "string" },
-      "description": "Departures from instructions or guardrails, each with justification."
+      "description": "Departures from instructions or guardrails, each with justification. Required; empty means none."
     },
-    "risks": { "type": "array", "items": { "type": "string" } },
+    "risks": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Required; an empty array is an explicit claim of none."
+    },
     "docs_updated": { "type": "array", "items": { "type": "string" } },
     "outcome": { "enum": ["SUCCESS", "PARTIAL", "ABANDONED"] },
     "commit": { "type": ["string", "null"] }

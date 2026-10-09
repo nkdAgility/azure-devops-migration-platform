@@ -49,8 +49,16 @@ for yaml_path, schema_path in PAIRS.items():
     if not schema_path.exists():
         errors.append(f"{schema_path.relative_to(REPO).as_posix()}: schema missing")
         continue
-    data = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
-    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    try:
+        data = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
+    except yaml.YAMLError as exc:
+        errors.append(f"{rel}: YAML parse error: {exc}")
+        continue
+    try:
+        schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        errors.append(f"{schema_path.relative_to(REPO).as_posix()}: JSON parse error: {exc}")
+        continue
     for err in sorted(Draft202012Validator(schema).iter_errors(data), key=str):
         path = "/".join(str(p) for p in err.absolute_path) or "<root>"
         errors.append(f"{rel}: {path}: {err.message}")

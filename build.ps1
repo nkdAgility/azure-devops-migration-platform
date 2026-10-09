@@ -760,6 +760,8 @@ function Invoke-SimulatedSystemTests {
 function Invoke-LiveSystemTests {
     $liveDir = Join-Path $TestResultsDir 'live'
     New-Item -ItemType Directory -Path $liveDir -Force | Out-Null
+    # Stale TRX files from an earlier run must not satisfy the count gate below.
+    Get-ChildItem -LiteralPath $liveDir -Filter '*.trx' -ErrorAction SilentlyContinue | Remove-Item -Force
     # Only tests tagged [TestCategory("SystemTest_Live")]
     Invoke-Step 'Running live system tests (TestCategory=SystemTest_Live)' {
         dotnet test $SolutionFile `
@@ -770,6 +772,16 @@ function Invoke-LiveSystemTests {
             --logger 'console;verbosity=normal' `
             --results-directory $liveDir
     }
+
+    # Vacuous-pass guard (P2.2): a filter or discovery regression that selects
+    # zero live tests must fail, not report green.
+    $trx = @(Get-ChildItem -LiteralPath $liveDir -Filter '*.trx' | Select-Object -ExpandProperty FullName)
+    $executed = 0
+    foreach ($row in (Get-TrxRows -TrxPaths $trx)) { $executed += $row.Passed + $row.Failed }
+    if ($executed -lt 1) {
+        throw "Live system tests executed $executed test(s); expected at least 1. Check the SystemTest_Live filter and test discovery."
+    }
+    Write-Host "  Live system tests executed: $executed"
 }
 
 function Invoke-RemainingSystemTests {

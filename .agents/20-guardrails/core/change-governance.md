@@ -28,7 +28,9 @@ ADR` job in `.github/workflows/governance.yml` blocks any diff touching
 `src/*Abstractions*/**` or `.agents/10-contracts/**` that lacks a synchronized
 `docs/adr/**` change, unless the `class-c-approved` label has been applied
 (ADR-0031). The label may be applied only by the maintainer defined in
-`.agents/OWNERS`.
+`.agents/OWNERS`; `scripts/guardrails/verify-maintainer-label.sh` checks the
+PR's label events and the gate rejects the override when the most recent
+`labeled` event was by anyone else.
 
 ## Commit Governance
 
