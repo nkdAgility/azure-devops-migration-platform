@@ -137,6 +137,76 @@ public sealed class TestCategoryTaxonomyArchitectureTests
             + string.Join(Environment.NewLine, violations));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public void EveryTestMethod_ParentFamilyMatchesSpecificCategories()
+    {
+        var violations = new List<string>();
+
+        foreach (var file in EnumerateTestSourceFiles())
+        {
+            var lines = File.ReadAllLines(file);
+            var classCategories = new HashSet<string>(StringComparer.Ordinal);
+
+            for (var i = 0; i < lines.Length; i++)
+            {
+                var trimmed = lines[i].TrimStart();
+                if (!trimmed.StartsWith('['))
+                {
+                    continue;
+                }
+
+                if (trimmed.Contains("[TestClass", StringComparison.Ordinal))
+                {
+                    classCategories = CollectAttributeBlockCategories(lines, i);
+                    continue;
+                }
+
+                if (!trimmed.Contains("[TestMethod", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var categories = CollectAttributeBlockCategories(lines, i);
+                categories.UnionWith(classCategories);
+
+                var parents = categories.Where(ParentFamilies.Contains).ToList();
+                var specifics = categories.Where(SpecificCategories.Contains).ToList();
+
+                // Missing tags are reported by EveryTestMethod_CarriesParentFamilyAndSpecificCategory.
+                if (parents.Count == 0 || specifics.Count == 0)
+                {
+                    continue;
+                }
+
+                if (parents.Count > 1)
+                {
+                    violations.Add($"{Relative(file)}({i + 1}): multiple parent families ({string.Join(", ", parents)})");
+                    continue;
+                }
+
+                var parent = parents[0];
+                var mismatched = specifics
+                    .Where(s => s.StartsWith("SystemTest_", StringComparison.Ordinal) != (parent == "SystemTest"))
+                    .ToList();
+                if (mismatched.Count > 0)
+                {
+                    violations.Add($"{Relative(file)}({i + 1}): {parent} paired with {string.Join(", ", mismatched)}");
+                }
+            }
+        }
+
+        Assert.AreEqual(
+            0,
+            violations.Count,
+            "Test methods with incompatible [TestCategory] tags. Exactly one parent family; "
+            + "CodeTest pairs only with UnitTests | DomainTests | IntegrationTests, "
+            + "SystemTest only with SystemTest_* (tests/AGENTS.md rule 1):"
+            + Environment.NewLine
+            + string.Join(Environment.NewLine, violations));
+    }
+
     /// <summary>
     /// Collects TestCategory values from the attribute block that surrounds
     /// <paramref name="index"/> — lines whose trimmed content starts with '[',

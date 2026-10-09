@@ -137,6 +137,10 @@ jobs:
           fi
 
           if [[ -n "$evidence_changes" ]]; then
+            # Evidence must describe this diff, not an unrelated historical session.
+            printf '%s\n' "$code_changes" > "$RUNNER_TEMP/code-changes.txt"
+            # shellcheck disable=SC2086
+            python scripts/guardrails/validate-evidence.py --covers "$RUNNER_TEMP/code-changes.txt" $evidence_changes
             exit 0
           fi
 

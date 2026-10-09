@@ -15,7 +15,6 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands;
 [DoNotParallelize]
 public class ExportStandaloneImpliesFollowTests
 {
-    [TestCategory("CodeTest")]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
     [TestMethod]

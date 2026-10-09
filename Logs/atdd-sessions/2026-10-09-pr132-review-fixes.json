@@ -1,0 +1,53 @@
+{
+  "session_id": "2026-10-09-pr132-review-fixes",
+  "started_at": "2026-10-09T10:00:00Z",
+  "completed_at": "2026-10-09T12:15:00Z",
+  "requirement": "Unblock restore (NuGet audit), then address CI failures and Codex review feedback on PR #132: required status checks for all governance jobs, evidence tied to the PR diff, parent/specific TestCategory compatibility, and an offline TFS-unavailable scenario.",
+  "change_class": "B",
+  "consent_reference": "Operator requested commit/push/PR in-session (2026-10-09), enabled Auto-fix on PR #132, and chose the gitleaks allowlist option.",
+  "activity": "harness",
+  "files_changed": [
+    "Directory.Packages.props",
+    ".gitleaks.toml",
+    ".github/workflows/governance.yml",
+    ".github/rulesets/main-branch-ruleset.json",
+    ".agents/50-evidence/README.md",
+    "docs/adr/0031-ci-enforced-governance-gates.md",
+    "scripts/guardrails/validate-evidence.py",
+    "Logs/atdd-sessions/2026-07-13-governance-phase0-3.json",
+    "tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Architecture/TestCategoryTaxonomyArchitectureTests.cs",
+    "tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/ExportDefaultLogLevelTests.cs",
+    "tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/ExportStandaloneImpliesFollowTests.cs",
+    "tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Cli/TfsExport/TfsExportBuilder.cs"
+  ],
+  "suites": [
+    { "suite": "UnitTests", "run": true, "passed": 1041, "failed": 0 },
+    { "suite": "DomainTests", "run": true, "passed": 44, "failed": 0 },
+    { "suite": "IntegrationTests", "run": true, "passed": 637, "failed": 0 },
+    { "suite": "SystemTest_Simulated", "run": true, "passed": 48, "failed": 0 },
+    {
+      "suite": "SystemTest_Live",
+      "run": false,
+      "not_run_reason": "No production or live-connector code changed; edits are CI config, a test-taxonomy convention test, tag fixes, and a test-builder URL."
+    },
+    {
+      "suite": "SystemTest_Smoke",
+      "run": false,
+      "not_run_reason": "Smoke is the CI critical-path subset of suites already run in full locally; executes on the PR."
+    }
+  ],
+  "assumptions": [
+    "Loopback port 1 is closed on dev machines and CI runners, so the TFS-unavailable scenario is refused immediately."
+  ],
+  "deviations": [
+    "Expanded the 2026-07-13 evidence entry 'tests/** (13 files: TestCategory tag remediation)' into the 13 concrete paths from commit 24caabcf and added the two src AGENTS.md files from commit 0e1fb657, so the new diff-coverage check can match them. No claims about that session's test results were changed."
+  ],
+  "risks": [
+    "The ruleset JSON is not applied automatically; the new required checks take effect only when the maintainer re-applies it in GitHub settings."
+  ],
+  "docs_updated": [
+    ".agents/50-evidence/README.md",
+    "docs/adr/0031-ci-enforced-governance-gates.md"
+  ],
+  "outcome": "SUCCESS"
+}

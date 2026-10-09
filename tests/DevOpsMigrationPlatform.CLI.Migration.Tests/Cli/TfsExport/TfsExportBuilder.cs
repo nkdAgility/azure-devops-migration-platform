@@ -22,12 +22,9 @@ public sealed class TfsExportBuilder : IAsyncDisposable
     private string? _projectName;
     private string? _configFileName;
 
-    // Service availability:
-    // NOTE: _tfsAvailable is a stub field reserved for ThrowingTfsJobServiceFactory wiring
-    // once the TfsObjectModel project reference is added to the test project.
-#pragma warning disable CS0414 // assigned but value never used — stub field awaiting production seam
-    private bool _tfsAvailable = true;
-#pragma warning restore CS0414
+    // Loopback port 1 (tcpmux) is closed on dev machines and CI runners, so connections are
+    // refused immediately — a deterministic, offline "TFS unavailable" endpoint.
+    private const string UnreachableTfsUrl = "http://127.0.0.1:1/tfs";
 
     // Subprocess exit code:
     // When set, RunInProcessAsync injects a FixedSubprocessExitCodeSource with this value
@@ -149,12 +146,12 @@ public sealed class TfsExportBuilder : IAsyncDisposable
     // ── service availability ─────────────────────────────────────────────────
 
     /// <summary>
-    /// Configures the scenario so TFS export services throw on creation,
-    /// simulating TFS export being unavailable.
+    /// Points the TFS source at a refused loopback endpoint so the export fails fast
+    /// without any external network access.
     /// </summary>
     public TfsExportBuilder WithTfsUnavailable()
     {
-        _tfsAvailable = false;
+        _serverUrl = UnreachableTfsUrl;
         return this;
     }
 

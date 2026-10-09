@@ -28,7 +28,10 @@
         "required_status_checks": [
           { "context": "Build and Test" },
           { "context": "Secret Scan" },
-          { "context": "Contract Change Requires ADR" }
+          { "context": "Contract Change Requires ADR" },
+          { "context": "Agent Contract Schemas" },
+          { "context": "Spec Guardrails" },
+          { "context": "Session Evidence" }
         ]
       }
     }

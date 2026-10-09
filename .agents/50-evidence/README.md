@@ -19,6 +19,10 @@ and nothing checked for one.
 - An `outcome: SUCCESS` claim with any `failed > 0` suite, or with a suite
   claimed `run: true` but no counts, fails validation — evidence must be
   consistent with itself.
+- Evidence must describe the diff it ships with: every `src/**` or `tests/**`
+  path changed in the PR must match a `files_changed` entry (exact path or
+  glob such as `tests/Foo/**`) in one of the PR's evidence files. Free-text
+  entries like `tests/** (13 files)` do not match anything.
 
 ## Who writes it
 
