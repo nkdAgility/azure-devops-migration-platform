@@ -1,7 +1,7 @@
 {
   "session_id": "2026-10-09-sqlite-long-path",
-  "started_at": "2026-10-09T12:20:00Z",
-  "completed_at": "2026-10-09T13:20:00Z",
+  "started_at": "2026-10-09T11:15:00Z",
+  "completed_at": "2026-10-09T12:06:29Z",
   "requirement": "Fix, test-first, SQLite 'unable to open database file' (Error 14) when a package-native database sits just under Windows MAX_PATH: the database opens, but its -journal sidecar passes 260 characters and the agent process is not longPathAware.",
   "change_class": "B",
   "consent_reference": "Operator asked in-session (2026-10-09): 'yes, fix the sqlite long path test-first'. The .gitignore and Constitution TODO edits complete the previously approved Reqnroll retirement; they had been interrupted, not declined.",

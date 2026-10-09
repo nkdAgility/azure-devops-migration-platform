@@ -12,6 +12,8 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Import;
 
 [TestClass]
+[TestCategory("CodeTest")]
+[TestCategory("IntegrationTests")]
 public class SqliteIdMapStoreTests
 {
     private string _tempDbPath = string.Empty;
@@ -271,7 +273,9 @@ public class SqliteIdMapStoreTests
         finally
         {
             Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-            try { Directory.Delete(@"\\?\" + root, recursive: true); } catch { }
+            // The \\?\ form (needed past MAX_PATH) is Windows-only.
+            var deletePath = OperatingSystem.IsWindows() ? @"\\?\" + root : root;
+            try { Directory.Delete(deletePath, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
         }
     }
 

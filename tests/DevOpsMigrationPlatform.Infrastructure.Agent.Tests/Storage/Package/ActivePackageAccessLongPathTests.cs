@@ -21,6 +21,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Storage.Package;
 /// extended-length prefix is applied with headroom for the longest sidecar suffix.
 /// </summary>
 [TestClass]
+[TestCategory("CodeTest")]
+[TestCategory("IntegrationTests")]
 public class ActivePackageAccessLongPathTests
 {
     private const string IdMapRelativePath = @"\.migration\Checkpoints\idmap.db";
@@ -60,8 +62,7 @@ public class ActivePackageAccessLongPathTests
         }
         finally
         {
-            SqliteConnection.ClearAllPools();
-            try { Directory.Delete(@"\\?\" + baseRoot, recursive: true); } catch { }
+            DeleteTree(baseRoot);
         }
     }
 
@@ -99,9 +100,16 @@ public class ActivePackageAccessLongPathTests
         }
         finally
         {
-            SqliteConnection.ClearAllPools();
-            try { Directory.Delete(@"\\?\" + baseRoot, recursive: true); } catch { }
+            DeleteTree(baseRoot);
         }
+    }
+
+    /// <summary>Deletes a test tree that may exceed MAX_PATH; the <c>\\?\</c> form is Windows-only.</summary>
+    private static void DeleteTree(string root)
+    {
+        SqliteConnection.ClearAllPools();
+        var path = OperatingSystem.IsWindows() ? @"\\?\" + root : root;
+        try { Directory.Delete(path, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
     }
 
     private static ActivePackageAccess CreatePackage(string root)

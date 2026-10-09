@@ -5,19 +5,18 @@ description: Passes the current diff and session context to the Reviewer Agent a
 
 # Skill: Review
 
-Use this skill after the Implementation Agent signals `"tests_passing": true` and `"pending_steps_remaining": 0`.
+Use this skill after the Implementation Agent signals `"tests_passing": true`.
 
 ## Steps
 
 1. **Verify pre-conditions before invoking the Reviewer Agent:**
    - All DSL behavioural tests are passing.
    - All unit tests are passing.
-   - No `PendingStepException` remains in any step definition.
-   - The Implementer Agent's output JSON has `"pending_steps_remaining": 0` and `"tests_passing": true`.
+   - The Implementer Agent's output JSON has `"tests_passing": true`.
 
 2. **Assemble the review package:**
    - The git diff of all files changed in this session.
-   - The Specification Agent's approved output JSON (intent, feature file, architecture constraints, acceptance criteria).
+   - The Specification Agent's approved output JSON (intent, behavioural tests, architecture constraints, acceptance criteria).
    - The Implementation Agent's output JSON.
 
 3. **Invoke the Reviewer Agent** with the review package.
