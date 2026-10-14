@@ -46,19 +46,20 @@ A `devopsmigration queue` run with `Mode: Inventory` uses the REST API directly 
 
 **Requirements:**
 
-- The TFS Object Model (net481) cannot be called from .NET 10. Jobs with `source.type: TeamFoundationServer` are routed to `DevOpsMigrationPlatform.TfsMigrationAgent` via capability matching (`GET /agents/lease?capabilities=tfs`).
+- The TFS Object Model (net481) cannot be called from .NET 10. The CLI derives a job's connectors from both `Source.Type` and `Target.Type`; jobs whose connectors are all `TeamFoundationServer` are routed to `DevOpsMigrationPlatform.TfsMigrationAgent` via capability matching (`GET /agents/lease?capabilities=TeamFoundationServer`).
+- **TFS → ADO needs two jobs today.** A single config with a TFS source and an ADO target demands both connectors, which no agent advertises, so it is never picked up. Run an Export config (TFS `Source`, no `Target`), then an Import config (ADO `Target`) against the same package.
 - The TFS agent uses `IModule` dispatch — the same pattern as the .NET 10 `MigrationAgent`. `TfsWorkItemsModule.ExportAsync` drives the export via `IWorkItemRevisionSource` (TFS OM implementation) and `WorkItemExportOrchestrator`.
 - The TFS agent writes to the package via `IPackageAccess` (`FileSystemArtefactStore` is the underlying store on net481).
-- A job with `source.type: TeamFoundationServer` and a blob package URI MUST be rejected at Tier 0 validation.
+- Only `file:` package URIs are supported (on both agents — the Azure Blob store is not yet implemented).
 - Credentials are passed via the job contract (same as ADO Services) — never via command-line arguments.
-- The TFS agent is Windows-only and cannot run in containers. `AgentLifecycleService` spawns it on Windows and skips it elsewhere.
-- The package output is identical to an ADO export — the same canonical layout. An exported TFS package feeds directly into the standard `import` flow.
+- The TFS agent is Windows-only and cannot run in containers. `AgentLifecycleService` spawns it (once, no restart) when `tfsmigration.exe` is present and skips it otherwise.
+- The package uses the same canonical layout as an ADO export and feeds directly into the standard `import` flow. **Content differs today:** on net481, export skips work item comments, include/exclude filters, WIQL selection and embedded images (`#if !NET481` blocks — tracked as backlog items).
 
 See [docs/agent-hosting.md — TFS Migration Agent](agent-hosting.md#tfs-migration-agent) for the full specification.
 
 **Inventory:**
 
-For TFS source types, a `devopsmigration queue` run with `Mode: Inventory` submits a `Job` (with `Kind: Inventory` and `Connectors: [TeamFoundationServer]`) to the control plane. The TFS agent picks it up via capability matching (`GET /agents/lease?capabilities=tfs`) and runs the TFS inventory module. The TFS inventory module uses `WorkItemStoreExtensions.QueryCountAllByDateChunk` for date-windowed counting (same 120-day / 20k algorithm as the ADO Services path).
+For TFS source types, a `devopsmigration queue` run with `Mode: Inventory` submits a `Job` (with `Kind: Inventory` and `Connectors: [TeamFoundationServer]`) to the control plane. The TFS agent picks it up via capability matching (`GET /agents/lease?capabilities=TeamFoundationServer`) and runs the TFS inventory module. The TFS inventory module uses `WorkItemStoreExtensions.QueryCountAllByDateChunk` for date-windowed counting (same 120-day / 20k algorithm as the ADO Services path).
 
 ### Validation and Normalisation
 

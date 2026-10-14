@@ -87,11 +87,11 @@ Telemetry events: Job submitted, Lease acquired, Heartbeat, Module started/compl
 
 ## CLI Rules
 
-CLI MUST: run standalone, drive Aspire for Standalone mode, connect to remote for Hosted mode, validate jobs before submission, display status via Control Plane API.
+CLI MUST: run standalone, start `ControlPlaneHost` via `LocalStackHost`/`ChildProcessHost` (no Aspire) for Standalone mode, connect to remote for Hosted mode, validate jobs before submission, display status via Control Plane API.
 
 CLI MUST NOT: be in AppHost, use Aspire service discovery, execute Job Engine logic, reference TfsMigrationAgent.
 
-TfsMigrationAgent MUST: poll `GET /agents/lease?capabilities=tfs`, use `IModule` dispatch, write via `IArtefactStore`/`IStateStore`, report via `POST /progress`.
+TfsMigrationAgent MUST: poll `GET /agents/lease?capabilities=TeamFoundationServer` (sole capability; it receives only jobs whose every connector is `TeamFoundationServer`), use `IModule` dispatch, access the package only via `IPackageAccess`, report via the unified worker-event channel `POST /workers/{workerId}/events` (ADR-0020).
 
 TfsMigrationAgent MUST NOT: be in AppHost, be referenced by .NET 10 projects, accept CLI arg credentials.
 

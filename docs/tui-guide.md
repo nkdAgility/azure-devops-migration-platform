@@ -37,7 +37,7 @@ devopsmigration tui [--job <jobId>]
 |---|---|
 | `--job` | Jump directly to the progress view for a specific job, bypassing the job list. |
 
-The TUI always requires a control plane connection. The control plane URL is resolved from the `Environment.ControlPlane.BaseUrl` configuration section. When `Environment.Type` is `Standalone` (the default), `LocalStackHost` starts the control plane at `http://localhost:5100` (preferring process-per-component mode when published binaries are found, with in-process fallback otherwise) — the TUI connects there automatically. If no control plane is reachable the TUI exits with an actionable error.
+The TUI always requires a control plane connection. The control plane URL is resolved from the `Environment.ControlPlane.BaseUrl` configuration section. When `Environment.Type` is `Standalone` (the default), `LocalStackHost` starts the control plane as a child process at `http://localhost:5100` (published binaries are required — run `build.ps1 Install`; there is no in-process fallback) — the TUI connects there automatically. If no control plane is reachable the TUI exits with an actionable error.
 
 ### Authentication
 
@@ -45,10 +45,11 @@ The TUI forwards the same credential as all other CLI commands.
 
 | Environment | Auth method |
 |---|---|
-| Entra ID (cloud or Entra-joined) | Bearer token acquired by `devopsmigration login`. Token is refreshed automatically. |
-| On-premises Active Directory | Windows Integrated Auth (Negotiate). No explicit login step. |
+| Standalone (default) | None — the local control plane runs with a local-only auth bypass. |
+| Entra ID (cloud or Entra-joined) — *planned* | Bearer token acquired by `devopsmigration manage login`. **Not yet implemented** — the command currently exits with "not yet implemented". |
+| On-premises Active Directory — *planned* | Windows Integrated Auth (Negotiate). No explicit login step. |
 
-The TUI never prompts for credentials itself. Run `devopsmigration login` if the token is missing or expired before launching the TUI.
+The TUI never prompts for credentials itself.
 
 ### Job List View
 

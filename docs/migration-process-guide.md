@@ -213,7 +213,7 @@ See [docs/cli-guide.md](cli-guide.md) for local and server command details.
 ### Agent (Cloud)
 
 - A Migration Agent calls the Job Engine after receiving a leased `Job` from the remote control plane.
-- The package boundary is backed by the shared artefact store (`AzureBlobArtefactStore` or equivalent beneath `IPackageAccess`).
+- The package boundary will be backed by a shared artefact store (`AzureBlobArtefactStore` or equivalent beneath `IPackageAccess`) — *planned; no remote store is implemented today*.
 - Progress is consumed by `UnifiedWorkerEventWriter`, which batches events and pushes them to the control plane via `POST /workers/{workerId}/events`.
 - The control plane's progress view mirrors the cursor; the cursor in the package remains authoritative for resume.
 

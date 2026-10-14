@@ -56,7 +56,7 @@ OTel signals (O-1), `IProgressSink` progress events (O-2), and `ILogger` diagnos
 
 Project reference topology enforces layer isolation at compile time. CLI may only reference `Abstractions` and base `Infrastructure`. ControlPlane adds `Abstractions.ControlPlane`. Agent adds `Abstractions.Agent` and `Infrastructure.Agent`. Violations are build errors.
 
-**Current implication:** CLI must not reference `MigrationAgent`, `ControlPlane`, or any infrastructure connector assembly. `LocalStackHost` (in-process fallback) is deleted. The in-process fallback is replaced by `ChildProcessHost`.
+**Current implication:** CLI must not reference `MigrationAgent`, `ControlPlane`, or any infrastructure connector assembly. The in-process fallback is deleted; `LocalStackHost` remains only as the launcher that starts `ControlPlaneHost` via `ChildProcessHost` (it throws if binaries are missing), and `ControlPlaneHost`'s `AgentLifecycleService` spawns both agents.
 
 ## ADR 0008 — Configuration Travels in the Package
 
@@ -144,7 +144,7 @@ Every concern uses one canonical seam and one reusable public runtime surface. A
 
 Runtime guard clauses are allowed only for genuine `net481` vs modern .NET crash-prevention boundaries. Defensive null-service checks, enablement guards, and generic fail-fast checks in module/orchestrator/service runtime code are prohibited; validation belongs in canonical validation surfaces (schema, `IValidateOptions<T>`, `ValidateAsync`, plan-level flows).
 
-**Current implication:** Reject new non-compatibility guard clauses. Remove existing ones when their surrounding code is touched. Guards must never skip or degrade functionality on `net481` — features are implemented, not guarded away.
+**Current implication:** Reject new non-compatibility guard clauses. Remove existing ones when their surrounding code is touched. Guards must never skip or degrade functionality on `net481` — features are implemented, not guarded away. **Compliance gap (2026-10-14):** ~60 `#if !NET481` blocks currently skip functionality (WorkItems comments/filters/WIQL export, embedded images, Nodes/Identities/Teams import, `TfsNullBoardAdapter`); see the ADR's compliance status. Do not add more.
 
 ## ADR 0019 — WorkItems Extension Seam and Staged Cursor Pipeline
 
@@ -269,3 +269,11 @@ The routing catalog is total over the task space: eight activities (package, age
 Every unit of work closes with evidence at `Logs/atdd-sessions/<session-id>.json` validating against `.agents/50-evidence/session-evidence.schema.json`: requirement, change class, consent reference, files changed, per-suite run/passed/failed, assumptions, deviations, risks. `scripts/guardrails/validate-evidence.py` rejects self-contradictions (SUCCESS with failures, claimed-but-uncounted suites, unexplained skips). The `Session Evidence` CI gate blocks src/tests PRs without an evidence file; only the maintainer may waive (`evidence-waived` label).
 
 **Current implication:** Emit the evidence file before requesting a commit — `end-session` step 2 or Definition of Done section 9. Record only suites actually executed after the last change, with real counts; unrun suites carry `run: false` + `not_run_reason`. Never claim an unrun suite.
+
+## ADR 0034 — Backlog Item Workflow and Standing Automation Authorisation
+
+**Status:** Accepted
+
+All work is a GitHub Backlog Item; questions needing a ruling are Decisions. Every item gets a pre-start assessment (ready? right-sized: ≤ 5 acceptance criteria, one concern, one PR, ≤ ~2 days, agent placement verified against code). Too-big items are split into vertical-slice sub-issues; the parent stays open (`broken-down`) until all children close. Done = L1 change DoD + L2 completion protocol (sync main, build, full suite, real live E2E on per-run `adpe2e-` projects, architecture check, check against the ask, clean-up, five-part report) + applicable L3 Backlog Item DoD. Standing authorisation `backlog-automation` in `consent-policy.yaml` lets the backlog groom/deliver workflows create issues, commit, push, open PRs and enable auto-merge (verifier ≥ 90% and all steps pass) — nothing else.
+
+**Current implication:** Follow `.agents/20-guardrails/workflow/backlog-item-workflow.md` and `live-test-environment.md`. Constitution rule 11 is relaxed only inside the authorisation's scope. A missing live E2E is `BLOCKED`, never done.

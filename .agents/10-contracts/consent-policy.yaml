@@ -11,3 +11,24 @@ operator_consent:
   notes:
     - "Silently applying a Class C change is a completion blocker."
     - "Consent does not waive test or architecture evidence requirements."
+standing_authorisations:
+  backlog-automation:
+    granted_by: "operator (Martin Hinshelwood)"
+    granted_on: "2026-10-14"
+    status: "draft — effective once this file is merged to main"
+    scope:
+      workflows:
+        - ".agents/workflows/nkda-backlog-groom-workflow.js"
+        - ".agents/workflows/nkda-backlog-deliver-workflow.js"
+      skills:
+        - ".agents/skills/nkda-backlog-item-create"
+        - ".agents/skills/nkda-backlog-item-prestart"
+    permits:
+      - "Create, label, comment on, and add sub-issues to Backlog Items and Decisions (never close a parent; never edit issues outside the run)"
+      - "Commit, push a backlog/<issue>-* branch, and open a PR for the Backlog Item being delivered (overrides Constitution rule 11 for this scope only)"
+      - "Enable auto-merge only when the independent verifier's confidence is >= 90% and every completion step passed; otherwise disable it"
+      - "Create and delete adpe2e-<run-id>-* projects in the live test organisations per .agents/20-guardrails/workflow/live-test-environment.md"
+    does_not_permit:
+      - "Any Class C change inside a Backlog Item without its own recorded consent"
+      - "Force-push, direct push to main, deleting branches other than the run's own, or merging without the auto-merge rule"
+      - "Writing credentials to any file, log, issue, or PR"

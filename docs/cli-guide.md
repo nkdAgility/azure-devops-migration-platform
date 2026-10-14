@@ -318,7 +318,7 @@ The CLI always communicates with the control plane via `ControlPlaneClient`. The
 
 | Condition | Behaviour |
 |---|---|
-| `Environment` absent or `Type` = `Standalone` | CLI starts **LocalStackHost** which launches `ControlPlaneHost` and `MigrationAgent` at `http://localhost:{port}` (default port `5100`). Prefers **process-per-component** mode when published binaries are found; falls back to **in-process** hosting otherwise. Use `--port <port>` to override. |
+| `Environment` absent or `Type` = `Standalone` | CLI starts **LocalStackHost**, which launches `ControlPlaneHost` as a child process at `http://localhost:{port}` (default port `5100`); `ControlPlaneHost` then spawns the agents. Published binaries are required (`build.ps1 Install`) — there is no in-process fallback. Use `--port <port>` to override. |
 | `Type` = `Hosted` | CLI connects to `ControlPlane.BaseUrl` from config; no local services are started |
 
 The config file is the single source of truth for the control plane URL. The `--port` CLI flag overrides the listen port in Standalone mode, enabling multiple concurrent local runs on different ports (e.g. `--port 5200`). There is no `--url` CLI flag or `MIGRATION_API_URL` environment variable override.
@@ -335,7 +335,7 @@ Before any execution, the CLI converts the local config file into a `Job` (dispa
 2. Compute `configHash` (SHA-256 of the normalised config JSON).
 3. Generate a fresh `jobId` (UUID v4).
 4. Normalise `artefacts.path` to a URI (`file:///` prefix if a bare filesystem path is given).
-5. Construct the `Job` — set `Kind` from `mode`, `Connectors` from the endpoint config, serialise the config JSON into `Job.ConfigPayload`.
+5. Construct the `Job` — set `Kind` from `mode`, `Connectors` from **both** `Source.Type` and `Target.Type` (`QueueCommand.GetConnectors`; Inventory/Dependencies use the organisations list), serialise the config JSON into `Job.ConfigPayload`. The control plane leases the job only to an agent advertising every connector, so a TFS-source / ADO-target config is not routable today — split it into an Export job and an Import job.
 
 The local config file is never sent directly anywhere. The `Job` (with `ConfigPayload`) is the only artefact that crosses boundaries. See [.agents/30-context/domains/job-lifecycle.md](../.agents/30-context/domains/job-lifecycle.md).
 
@@ -345,14 +345,14 @@ The local config file is never sent directly anywhere. The `Job` (with `ConfigPa
 
 ### Standalone (Local / Server)
 
-When `Environment.Type` is `Standalone` (the default), the CLI starts `LocalStackHost` which launches ControlPlane and MigrationAgent at `http://localhost:{port}` (default port `5100`). Use `--port` to run on a different port.
+When `Environment.Type` is `Standalone` (the default), the CLI starts `LocalStackHost`, which launches `ControlPlaneHost` at `http://localhost:{port}` (default port `5100`) with `AgentLifecycle:AutoSpawn=true`. `ControlPlaneHost`'s `AgentLifecycleService` then spawns `MigrationAgent` from `../MigrationAgent/` (restarted with backoff) and, on Windows when present, `TfsMigrationAgent` from `../TfsMigrationAgent/tfsmigration.exe` (spawned once, not restarted). Use `--port` to run on a different port.
 
-**Process-per-component mode (preferred):** When published ControlPlane and MigrationAgent binaries are found (installed layout or dev build output), each component runs as a separate child process. This gives each component its own `System.Diagnostics.DiagnosticListener` instance, producing correct Application Insights Application Map topology: `CLI ↔ ControlPlane ↔ Agent ↔ dev.azure.com`. Executables are resolved in this order:
+**Process-per-component mode (the only mode):** Published ControlPlane and MigrationAgent binaries must be found (installed layout or dev build output); each component runs as a separate child process. This gives each component its own `System.Diagnostics.DiagnosticListener` instance, producing correct Application Insights Application Map topology: `CLI ↔ ControlPlane ↔ Agent ↔ dev.azure.com`. Executables are resolved in this order:
 1. `MIGRATION_CONTROLPLANE_EXE` / `MIGRATION_AGENT_EXE` environment variable override.
 2. Installed layout: `../ControlPlane/` and `../MigrationAgent/` relative to the CLI binary.
 3. Development layout: sibling project `bin/{Debug|Release}/net10.0/` directories.
 
-**In-process fallback:** When executables are not found (e.g. `dotnet run` from source without publishing), falls back to hosting both components in the CLI process. A warning is logged about Application Map accuracy due to OpenTelemetry instrumentation bleed.
+**No in-process fallback:** When executables are not found (e.g. `dotnet run` from source without publishing), `LocalStackHost` throws `InvalidOperationException` ("ControlPlane/Agent binaries not found. Run 'build.ps1 Install' to publish."). Note that `AgentLifecycleService` looks for the agents relative to the running `ControlPlaneHost` (`../MigrationAgent/`, `../TfsMigrationAgent/`), so a development-layout control plane logs a warning and does not spawn them.
 
 - Control plane starts on `http://localhost:{port}` (default: `5100`).
 - `IArtefactStore` is `FileSystemArtefactStore`.
@@ -364,7 +364,7 @@ When `Environment.Type` is `Standalone` (the default), the CLI starts `LocalStac
 When `Environment.Type` is `Hosted`, the CLI connects to `Environment.ControlPlane.BaseUrl`.
 
 - The control plane and agents run as containers managed by `ControlPlaneHost` in the cloud.
-- `IArtefactStore` is `AzureBlobArtefactStore`.
+- `IArtefactStore` is planned to be `AzureBlobArtefactStore` — **not yet implemented**; Hosted mode currently has no remote package store.
 - The CLI process can exit after submission; the job continues running on the remote agents.
 
 ---

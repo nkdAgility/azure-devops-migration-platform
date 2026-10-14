@@ -18,7 +18,7 @@ The system supports five pipeline phases, each of which can be run independently
 1. **Inventory** — Count and catalogue everything in scope before export/import begins. Connects to the source system and enumerates work items, revisions, and related artefacts per project. Results are written to the package (inventory artefacts). Inventory may have been performed previously via `devopsmigration queue` with `Mode: Inventory`, but running it as a pipeline phase ensures results are recorded in the package and visible to downstream phases. Only the `source` connection is required.
 2. **Export** — Azure DevOps Services → Files, or TeamFoundationServer (via .NET 4 OM exporter) → Files, or Simulated → Files (for testing and development). Reads the source system and writes all in-scope data to the package via `IPackageAccess`. **Inventory gate**: if root `.migration/inventory.complete.json` is absent, Export auto-runs Inventory first.
 3. **Prepare** — Files + Target → Validation artefacts. Reads the exported package and connects to the target to cross-validate before import. Each module's `PrepareAsync` analyses the exported data against the target (e.g. identity mapping, node existence, field compatibility) and writes validation artefacts into the package for operator review. Any unresolved issue is blocking unless the operator adds an explicit skip. Prepare is idempotent and re-runnable; it overwrites its own output but never touches operator-edited mapping files.
-4. **Import** — Files → Azure DevOps Services, or Files → TeamFoundationServer (via the .NET 4.8.1 TFS Migration Agent, based on current connector/runtime capability), or Files → Simulated (for testing and development). If Prepare has not been run (no root `.migration/prepare.complete.json` marker), Import auto-runs Prepare first and aborts with a report if any blocking issues are found.
+4. **Import** — Files → Azure DevOps Services, or Files → Simulated (for testing and development), or Files → TeamFoundationServer via the .NET 4.8.1 TFS Migration Agent. The TFS import path is **work items only**: Nodes, Identities and Teams import are compiled out on net481 (see [Two agents](#two-agents-net481-and-net10)). Whether TFS is a supported target is an open decision (ADR-0030 records TFS as source-only). If Prepare has not been run (no root `.migration/prepare.complete.json` marker), Import auto-runs Prepare first and aborts with a report if any blocking issues are found.
 5. **Validate** — Post-import verification. Compares the import results against the exported package to identify missing or mismatched items. Runs Tier 3 post-flight checks (work item count parity, link integrity, attachment integrity, identity resolution completeness) and writes a comprehensive `validation-report.json`. Can be run independently after import to re-check at any time. Only the `target` connection and the package are required.
 
 Additionally, a convenience mode chains all five phases:
@@ -63,12 +63,37 @@ The platform separates **job coordination** (control plane) from **job execution
 
 | Component | Role |
 |---|---|
-| **CLI** | Operator interface. When `Environment.Type` is `Standalone` (the default), uses `LocalStackHost` to start `ControlPlaneHost` and `MigrationAgent` as separate child processes (`ChildProcessHost`) via plain `System.Diagnostics.Process` — no Aspire at runtime. When `Environment.Type` is `Hosted`, connects directly to `ControlPlane.BaseUrl` from config. Always communicates with the control plane via HTTP. Submits jobs, queries status, and manages job lifecycle. Contains no migration execution logic. |
+| **CLI** | Operator interface. When `Environment.Type` is `Standalone` (the default), uses `LocalStackHost` to start `ControlPlaneHost` as a child process (`ChildProcessHost`, plain `System.Diagnostics.Process` — no Aspire at runtime) with `AgentLifecycle:AutoSpawn=true`; `ControlPlaneHost` then spawns the agents. If the published binaries are missing, `LocalStackHost` fails with "Run 'build.ps1 Install'" — there is no in-process fallback. When `Environment.Type` is `Hosted`, connects directly to `ControlPlane.BaseUrl` from config. Always communicates with the control plane via HTTP. Submits jobs, queries status, and manages job lifecycle. Contains no migration execution logic. |
 | **TUI** | Connects to any control plane endpoint — on the same machine, a dedicated server, or in the cloud — and renders live job state. Never submits jobs. |
 | **ControlPlane** | Service library (`DevOpsMigrationPlatform.ControlPlane`). Contains the HTTP API controllers, job state machine, lease protocol, and progress tracking. Currently all stores are in-memory; durable EF Core / PostgreSQL persistence is planned for a later phase. Has no entry point — it is referenced and hosted by `ControlPlaneHost`. |
-| **ControlPlaneHost** | Deployable ASP.NET Core host (`DevOpsMigrationPlatform.ControlPlaneHost`). References the `ControlPlane` service library and adds: process entry point and `AgentLifecycleService` (currently monitors TFS agent on Windows). In Standalone mode the CLI (`LocalStackHost`) manages agent process lifecycle directly; in Cloud mode `ContainerAgentLauncher` deploys and scales agent containers to a configurable ACA environment. Always reachable over HTTP. |
-| **Migration Agent** | (`DevOpsMigrationPlatform.MigrationAgent`) Stateless worker that executes migration jobs. Polls `ControlPlaneHost` for assigned jobs under a time-bounded lease, runs modules via the Job Engine, writes to the package, reports progress back. In Standalone mode its lifecycle is managed by `LocalStackHost` in the CLI; in Cloud mode by `ContainerAgentLauncher` in `ControlPlaneHost`. A single binary and container image supports all modes (`Inventory`, `Export`, `Prepare`, `Import`, `Validate`, `Migrate`). |
-| **TFS Migration Agent** | (`DevOpsMigrationPlatform.TfsMigrationAgent`) A .NET 4.8.1 polling agent — structural peer of the `MigrationAgent` — that handles jobs with `source.type: TeamFoundationServer`. Polls `GET /agents/lease?capabilities=tfs`, acquires TFS jobs, runs `IModule` dispatch (`TfsJobAgentWorker` accepts `IEnumerable<IModule>`), connects to TFS via the TFS Object Model, accesses the package through `IPackageAccess` (backed by `FileSystemArtefactStore` on net481), maintains checkpoints and phase metadata through that same boundary, and reports all telemetry via `UnifiedWorkerEventWriter` (batched `POST /workers/{workerId}/events`). Supported mode coverage follows implemented connector/runtime capability in each release. Windows-only — TFS OM cannot run in containers. `AgentLifecycleService` spawns it on Windows and skips it elsewhere. See [docs/agent-hosting.md — TFS Migration Agent](agent-hosting.md#tfs-migration-agent). |
+| **ControlPlaneHost** | Deployable ASP.NET Core host (`DevOpsMigrationPlatform.ControlPlaneHost`). References the `ControlPlane` service library and adds: process entry point and `AgentLifecycleService`. In Standalone mode `AgentLifecycleService` spawns `MigrationAgent` (restarted with backoff if it exits) and, when `../TfsMigrationAgent/tfsmigration.exe` is present, the TFS agent (spawned once, **not** restarted; suppress with `AgentLifecycle:SpawnTfsAgent=false`). Under Aspire it idles and the AppHost owns agent lifecycle; the TFS agent is deliberately not in the AppHost (`control-plane-rules.md`: TfsMigrationAgent MUST NOT be in AppHost), so TFS jobs are not processed under Aspire. In Cloud mode `ContainerAgentLauncher` deploys and scales agent containers to a configurable ACA environment. Always reachable over HTTP. |
+| **Migration Agent** | (`DevOpsMigrationPlatform.MigrationAgent`) Stateless worker that executes migration jobs. Polls `ControlPlaneHost` for assigned jobs under a time-bounded lease, runs modules via the Job Engine, writes to the package, reports progress back. In Standalone mode its lifecycle is managed by `AgentLifecycleService` in `ControlPlaneHost`; in Cloud mode by `ContainerAgentLauncher` in `ControlPlaneHost`. Advertises capabilities `AzureDevOps, Simulated`. A single binary and container image supports all modes (`Inventory`, `Export`, `Prepare`, `Import`, `Validate`, `Migrate`). |
+| **TFS Migration Agent** | (`DevOpsMigrationPlatform.TfsMigrationAgent`) A .NET 4.8.1 polling agent — structural peer of the `MigrationAgent` — that advertises the single capability `TeamFoundationServer` (`GET /agents/lease?capabilities=TeamFoundationServer`). It only receives jobs whose **every** connector is `TeamFoundationServer` (see [Two agents](#two-agents-net481-and-net10)). It handles job kinds `Export`, `Import`, `Inventory` and `Dependencies`; any other kind (including `Prepare` and `Migrate`) is rejected. It acquires TFS jobs, runs `IModule` dispatch (`TfsJobAgentWorker` accepts `IEnumerable<IModule>`), connects to TFS via the TFS Object Model, accesses the package through `IPackageAccess` (backed by `FileSystemArtefactStore` on net481), maintains checkpoints and phase metadata through that same boundary, and reports all telemetry via `UnifiedWorkerEventWriter` (batched `POST /workers/{workerId}/events`). Windows-only — TFS OM cannot run in containers. `AgentLifecycleService` spawns it when the binary is present and skips it otherwise. See [docs/agent-hosting.md — TFS Migration Agent](agent-hosting.md#tfs-migration-agent). |
+
+### Two agents (net481 and net10)
+
+The TFS Object Model only runs on .NET Framework, so the platform has **two agent processes**. Shared code is multi-targeted; connector code is not.
+
+| | `TfsMigrationAgent` | `MigrationAgent` |
+|---|---|---|
+| Runtime | net481, Windows only | net10, any OS / container |
+| Capabilities advertised | `TeamFoundationServer` | `AzureDevOps`, `Simulated` |
+| Connector project | `Infrastructure.TfsObjectModel` (net481 only) | `Infrastructure.AzureDevOps`, `Infrastructure.Simulated` (net10 only) |
+| Shared, multi-targeted (net481 + net10) | `Abstractions`, `Abstractions.Agent`, `Abstractions.Storage`, `Infrastructure`, `Infrastructure.Agent`, `Infrastructure.Storage.FileSystem` | same |
+| Job kinds | `Export`, `Import`, `Inventory`, `Dependencies` | all |
+| Package store | `FileSystemArtefactStore` only | file system or Azure Blob |
+| Started by (Standalone) | `AgentLifecycleService`, once, no restart | `AgentLifecycleService`, restart with backoff |
+
+**Routing.** The CLI sets `Job.Connectors` from **both** `Source.Type` and `Target.Type` (`QueueCommand.GetConnectors`). The control plane gives a job only to an agent that advertises **all** of its connectors (`JobStore.DequeueAsync`). Consequences:
+
+- TFS → Files (export, `Target` omitted) runs on the TFS agent.
+- Files → ADO (import, no TFS source) runs on the modern agent.
+- A single config with a TFS source **and** an ADO target demands `{TeamFoundationServer, AzureDevOps}`, which no agent advertises — the job is re-queued indefinitely. Until cross-agent routing exists, run TFS → ADO as two jobs: an Export config without `Target`, then an Import config against the same package without a TFS `Source`.
+- A target typed `TeamFoundationServer` whose URL is an Azure DevOps organisation uses the TFS Object Model against ADO (see `scenarios/SystemTest-Live-Import-TFS-WorkItems-Fixture.json`).
+
+**net481 feature gaps.** Shared code contains `#if !NET481` blocks that currently remove behaviour on the TFS agent, contrary to ADR-0018: WorkItems export skips comments, include/exclude filters and WIQL selection; embedded images and referenced-path tracking are skipped; Nodes, Identities and Teams import are skipped; TFS board settings use `TfsNullBoardAdapter`. These are tracked as backlog items, not accepted design.
+
+**Coding constraints for shared code.** Anything in a multi-targeted project must compile for net481: no default interface members (ADR-0027), polyfills for `init`/`required`, net462+/netstandard2.0 packages only.
 
 ### Tools
 
@@ -101,12 +126,12 @@ Project references are compiler-enforced (no cyclic references allowed). Each la
 | TUI | `DevOpsMigrationPlatform.TUI` | `Abstractions` |
 | Control Plane Host | `DevOpsMigrationPlatform.ControlPlaneHost` | `Abstractions`, `Abstractions.ControlPlane`, `Infrastructure`, `ControlPlane` |
 | Control Plane Library | `DevOpsMigrationPlatform.ControlPlane` | `Abstractions.ControlPlane` |
-| Migration Agent | `DevOpsMigrationPlatform.MigrationAgent` | `Abstractions.Agent`, `Infrastructure.Agent`, `Infrastructure` |
-| TFS Migration Agent | `DevOpsMigrationPlatform.TfsMigrationAgent` | `Abstractions.Agent`, `Infrastructure.Agent`, `Infrastructure.TfsObjectModel` |
+| Migration Agent | `DevOpsMigrationPlatform.MigrationAgent` | `Abstractions`, `Abstractions.Agent`, `Infrastructure`, `Infrastructure.Agent`, `Infrastructure.Storage.FileSystem`, `Infrastructure.AzureDevOps`, `Infrastructure.Simulated`, `ServiceDefaults` |
+| TFS Migration Agent | `DevOpsMigrationPlatform.TfsMigrationAgent` | `Abstractions`, `Abstractions.Agent`, `Infrastructure`, `Infrastructure.Agent`, `Infrastructure.Storage.FileSystem`, `Infrastructure.TfsObjectModel` |
 | Infrastructure | `DevOpsMigrationPlatform.Infrastructure.*` | `Abstractions`, `Abstractions.Agent` (where needed) |
 | Abstractions | `DevOpsMigrationPlatform.Abstractions`, `Abstractions.Agent`, `Abstractions.ControlPlane` | Nothing (leaf nodes) |
 
-The CLI must **not** reference `Abstractions.Agent` or `Abstractions.ControlPlane`. Agent projects must **not** reference `ControlPlane`. `TfsMigrationAgent` must **not** be referenced from any .NET 10 project.
+The CLI must **not** reference `Abstractions.Agent` or `Abstractions.ControlPlane`. Agent projects must **not** reference `ControlPlane`. `TfsMigrationAgent` must **not** be referenced from any .NET 10 project. (`Infrastructure.TfsObjectModel` is referenced by the net10 `SchemaGenerator` build tool for options-schema generation only; no runtime .NET 10 component loads it.)
 
 ```mermaid
 graph TD
@@ -160,10 +185,10 @@ Agent
   │  writes to package
   │  Tier 3: post-flight validation (counts, links, attachments)
   ▼
-Package (file:/// or https://<account>.blob.core.windows.net/...)
+Package (file:///; Azure Blob not yet implemented)
 ```
 
-> **TFS source:** The `TfsMigrationAgent` participates in this same flow. The control plane routes jobs with `source.type: TeamFoundationServer` to the TFS agent via capability matching (`?capabilities=tfs`). From the CLI's perspective, TFS and ADO exports are submitted identically — `POST /jobs` — and the appropriate agent picks up the work.
+> **TFS source:** The `TfsMigrationAgent` participates in this same flow. The CLI sets `Job.Connectors` from the config's `Source.Type` **and** `Target.Type`; the control plane leases a job only to an agent advertising all of them (`?capabilities=TeamFoundationServer` for the TFS agent). A TFS export (no `Target`) is therefore submitted exactly like an ADO export. A single config with a TFS source and an ADO target is **not** currently routable — see [Two agents](#two-agents-net481-and-net10).
 
 ```mermaid
 flowchart TD
@@ -172,7 +197,7 @@ flowchart TD
     CP["ControlPlaneHost\nDedup check · Capability routing"]
     Agent["Migration Agent\nTier 2: Pre-flight validation\nJob Engine + Modules"]
     TFSAgent["TFS Migration Agent\n(net481 · Windows-only)"]
-    Package["📦 Package\nfile:/// · blob://"]
+    Package["📦 Package\nfile:///"]
 
     Operator -->|config file| CLI
     CLI -->|POST /jobs| CP
@@ -203,8 +228,8 @@ The package location is expressed as a URI in the `Job`. The Migration Agent res
 
 | URI pattern | Implementation |
 |---|---|
-| `file:///` | `FileSystemArtefactStore` |
-| `https://*.blob.core.windows.net/...` | `AzureBlobArtefactStore` |
+| `file:///` | `FileSystemArtefactStore` (`Infrastructure.Storage.FileSystem`) |
+| `https://*.blob.core.windows.net/...` | **Not implemented.** `AzureBlobArtefactStore` was removed in the `IPackageAccess` boundary refactor; `Infrastructure.Storage.AzureBlob` is currently an empty project and the CLI only resolves `file:` URIs. |
 
 Module code never references a concrete store implementation.
 
@@ -294,12 +319,12 @@ The platform has a single architecture across all hosting topologies. The same c
 
 | Topology | Control Plane host | Agent host | Package store | DB |
 |---|---|---|---|---|
-| **Local** | CLI-managed child process (`LocalStackHost`) on the operator's machine | CLI-managed child process on the same machine | `file:///` | In-memory (no persistent DB) |
-| **Dedicated Server** | CLI-managed child process (`LocalStackHost`) on a server | CLI-managed child process on the same server | `file:///` | In-memory (no persistent DB) |
-| **Cloud (Self-Hosted)** | Azure Container App (customer subscription) | Azure Container App(s) | Azure Blob Storage | Azure PostgreSQL Flexible Server |
-| **Cloud (Managed)** | Azure Container App (NKD Agility subscription) | Azure Container App(s) | Azure Blob Storage | Azure PostgreSQL Flexible Server |
+| **Local** | CLI-managed child process (`LocalStackHost`) on the operator's machine | Spawned by `ControlPlaneHost` (`AgentLifecycleService`) on the same machine | `file:///` | In-memory (no persistent DB) |
+| **Dedicated Server** | CLI-managed child process (`LocalStackHost`) on a server | Spawned by `ControlPlaneHost` (`AgentLifecycleService`) on the same server | `file:///` | In-memory (no persistent DB) |
+| **Cloud (Self-Hosted)** — planned | Azure Container App (customer subscription) | Azure Container App(s) | Azure Blob Storage (store not yet implemented) | Azure PostgreSQL Flexible Server (planned) |
+| **Cloud (Managed)** — planned | Azure Container App (NKD Agility subscription) | Azure Container App(s) | Azure Blob Storage (store not yet implemented) | Azure PostgreSQL Flexible Server (planned) |
 
-In the Local and Dedicated Server topologies, the CLI uses `LocalStackHost` to start `ControlPlaneHost` and `MigrationAgent` as child processes (`ChildProcessHost` — plain `System.Diagnostics.Process`, no Aspire). The control plane uses in-memory stores for this topology; durable PostgreSQL persistence is planned for a later phase. The TUI can connect to the control plane from any machine with network access to the server.
+In the Local and Dedicated Server topologies, the CLI uses `LocalStackHost` to start `ControlPlaneHost` as a child process (`ChildProcessHost` — plain `System.Diagnostics.Process`, no Aspire). `ControlPlaneHost`'s `AgentLifecycleService` then spawns `MigrationAgent` and, on Windows when `tfsmigration.exe` is present, `TfsMigrationAgent`. The control plane uses in-memory stores for this topology; durable PostgreSQL persistence is planned for a later phase. The TUI can connect to the control plane from any machine with network access to the server.
 
 In Cloud topologies, the CLI connects to a pre-existing HTTPS `ControlPlaneHost` endpoint. `ControlPlaneHost` uses `ContainerAgentLauncher` to deploy and scale agent containers. The target container environment is configurable — either the managed Azure Container Apps environment co-located with the control plane, or a user-specified environment for network zone isolation (different VNet, ACA environment, or AKS namespace).
 
@@ -308,8 +333,8 @@ flowchart LR
     subgraph Local["Local / Dedicated Server"]
         direction TB
         LCLI["CLI"] -->|LocalStackHost| LCP["ControlPlaneHost\nlocalhost:5100"]
-        LCP -->|AgentLifecycleService| LTFSAgent["TfsMigrationAgent\n(Windows only)"]
-        LCLI -->|LocalStackHost| LAgent["MigrationAgent"]
+        LCP -->|AgentLifecycleService\nspawn once| LTFSAgent["TfsMigrationAgent\n(Windows only)"]
+        LCP -->|AgentLifecycleService\nrestart on exit| LAgent["MigrationAgent"]
         LAgent --> LPkg["📦 file:///"]
         LTFSAgent --> LPkg
     end
@@ -381,7 +406,7 @@ Key properties:
 | `DevOpsMigrationPlatform.Abstractions.Agent` | `net481;net10.0` | Agent contracts: module interfaces (`IModule`, `IDiscoveryModule`), storage (`IArtefactStore`, `IStateStore`, `IPackageLockService`), checkpointing (`ICheckpointingService`, `IPhaseTrackingService`), export orchestration (`IWorkItemRevisionSource`, `IWorkItemRevisionSourceFactory`, `IWorkItemFetchService`), import orchestration (`IWorkItemImportTarget`, `IWorkItemImportTargetFactory`), attachments (`IAttachmentBinarySource`), identity (`IIdentityMappingService`), discovery (`ICatalogService`, `IInventoryService`, `IDependencyDiscoveryService`), telemetry metrics interfaces |
 | `DevOpsMigrationPlatform.Infrastructure` | `net481;net10.0` | Shared infrastructure used by multiple components: `EndpointOptionsTypeRegistry`, polymorphic JSON converters (`PolymorphicEndpointOptionsConverter`), `ConfigurationService`, `InMemoryJobMetricsStore`, `InMemoryJobSnapshotStore`, telemetry data-classification filter |
 | `DevOpsMigrationPlatform.Infrastructure.ControlPlane` | `net10.0` | Control plane infrastructure: `JobLifecycleMetrics` (OTel implementation of `IJobLifecycleMetrics`), `SnapshotMetricExporter`, telemetry DI registration |
-| `DevOpsMigrationPlatform.Infrastructure.Agent` | `net481;net10.0` | Agent infrastructure: `FileSystemArtefactStore`, `AzureBlobArtefactStore`, `CheckpointingService`, `PhaseTrackingService`, module implementations (`WorkItemsModule`, `InventoryDiscoveryModule`, `DependencyDiscoveryModule`), export/import orchestrators, identity mapping, progress sinks (`AnsiProgressSink`, `PackageProgressSink`) plus `UnifiedWorkerEventWriter` for control-plane telemetry, connector factory registration, telemetry |
+| `DevOpsMigrationPlatform.Infrastructure.Agent` | `net481;net10.0` | Agent infrastructure (package storage lives in `Infrastructure.Storage.FileSystem`): `CheckpointingService`, `PhaseTrackingService`, module implementations (`WorkItemsModule`, `InventoryDiscoveryModule`, `DependencyDiscoveryModule`), export/import orchestrators, identity mapping, progress sinks (`AnsiProgressSink`, `PackageProgressSink`) plus `UnifiedWorkerEventWriter` for control-plane telemetry, connector factory registration, telemetry |
 | `DevOpsMigrationPlatform.Infrastructure.AzureDevOps` | `net10.0` | ADO connector: `AzureDevOpsEndpointOptions`, `AzureDevOpsWorkItemRevisionSource` (first concrete `IWorkItemRevisionSource`), `AzureDevOpsAttachmentBinarySource` (streaming `IStreamingAttachmentBinarySource`), `AzureDevOpsWorkItemImportTarget`, ADO SDK services |
 | `DevOpsMigrationPlatform.Infrastructure.TfsObjectModel` | `net481` | TFS connector: `TeamFoundationServerEndpointOptions`, TFS Object Model services |
 | `DevOpsMigrationPlatform.Infrastructure.Simulated` | `net10.0` | Simulated connector: Config-driven synthetic connector for offline testing. Implements all source and target interfaces with deterministic generated data. No credentials required. |
