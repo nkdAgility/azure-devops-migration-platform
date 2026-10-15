@@ -2,7 +2,7 @@
   "session_id": "2026-10-15-crypto-pins-179",
   "started_at": "2026-10-14T16:40:00Z",
   "completed_at": "2026-10-15T10:30:00Z",
-  "requirement": "Backlog Item #179: restore on main fails under NuGet audit (warnings-as-errors) because System.Security.Cryptography.Pkcs and System.Security.Cryptography.Xml 10.0.12 are affected by GHSA-2fmv-rv2c-59x7, GHSA-846f-f764-76mx, GHSA-7hqp-7c5m-4vq6 and GHSA-c399-9853-6jmj. Pin both to the patched 10.0.13.",
+  "requirement": "Backlog Item #179: restore on main fails under NuGet audit (warnings-as-errors) because System.Security.Cryptography.Pkcs and System.Security.Cryptography.Xml 10.0.12 are affected by GHSA-2fmv-rv2c-59x7, GHSA-846f-f764-76mx, GHSA-7hqp-7c5m-4vq6 and GHSA-c399-9853-6jmj. Pin both to the patched 10.0.13. Also pin Microsoft.Bcl.Memory to 9.0.14 (GHSA-73j8-2gch-69rq, transitive in the net481 TFS projects), found by `dotnet list package --vulnerable --include-transitive`.",
   "change_class": "A",
   "activity": "harness",
   "files_changed": [
@@ -10,15 +10,42 @@
     "Logs/atdd-sessions/2026-10-15-crypto-pins-179.json"
   ],
   "suites": [
-    { "suite": "UnitTests", "run": true, "passed": 1556, "failed": 0 },
-    { "suite": "IntegrationTests", "run": true, "passed": 11, "failed": 0 },
-    { "suite": "SystemTest_Live", "run": true, "passed": 190, "failed": 8 },
-    { "suite": "DomainTests", "run": false, "not_run_reason": "Counted within the full-solution run; per-category split not extracted. The full run had no failures outside the 8 live tests listed under deviations." },
-    { "suite": "SystemTest_Simulated", "run": false, "not_run_reason": "Counted within the full-solution run; per-category split not extracted." },
-    { "suite": "SystemTest_Smoke", "run": false, "not_run_reason": "Runs in CI on the PR." }
+    {
+      "suite": "UnitTests",
+      "run": true,
+      "passed": 1741,
+      "failed": 0
+    },
+    {
+      "suite": "SystemTest_Live",
+      "run": true,
+      "passed": 190,
+      "failed": 8
+    },
+    {
+      "suite": "DomainTests",
+      "run": false,
+      "not_run_reason": "Included in the final non-live run (`--filter TestCategory!=SystemTest_Live`, 1741 passed, 0 failed), which was not split per category."
+    },
+    {
+      "suite": "IntegrationTests",
+      "run": false,
+      "not_run_reason": "Included in the final non-live run (1741 passed, 0 failed), which was not split per category."
+    },
+    {
+      "suite": "SystemTest_Simulated",
+      "run": false,
+      "not_run_reason": "Included in the final non-live run (1741 passed, 0 failed), which was not split per category."
+    },
+    {
+      "suite": "SystemTest_Smoke",
+      "run": false,
+      "not_run_reason": "Runs in CI on the PR."
+    }
   ],
   "assumptions": [
-    "The per-suite counts are approximate groupings of one full-solution `dotnet test` run, by TRX file: 1,567 tests passed across the non-CLI projects, and the CLI.Migration.Tests project ran 198 tests (190 passed, 8 failed). Counts are attributed per project rather than per TestCategory."
+    "UnitTests count = the final run of every non-live test after the last change (`dotnet test --filter TestCategory!=SystemTest_Live`): 1741 passed, 0 failed across 10 projects. SystemTest_Live count = the earlier full run with the Pkcs/Xml pins (before the Bcl.Memory pin). It was not re-run after the Bcl.Memory pin because the test PAT is expired.",
+    "`dotnet list package --vulnerable --include-transitive` reports no vulnerable packages after the change."
   ],
   "deviations": [
     "8 live tests failed in DevOpsMigrationPlatform.CLI.Migration.Tests: Queue_Export_ADO_WritesAuthoritativeAndProjectScopedPackageState, Export_ADO_WritesRevisions, Export_ADO_WritesComments, Queue_Import_ADO_Fixture_CreatesIdmap, Queue_Import_ADO_Fixture_FieldMissing_WritesErrorsJson, Queue_Export_Sim_WritesRevisionFiles (VS30063 / 401), and Queue_Export_TFS_WritesRevisionFiles, Queue_Import_TFS_Fixture_CreatesIdmap (timeouts). Root cause is environmental: AZDEVOPS_SYSTEM_TEST_PAT is rejected by https://dev.azure.com/nkdagility-preview with HTTP 401 on a direct REST call, independent of platform code. These failures cannot be compared against main, because main does not restore without this fix.",
