@@ -139,6 +139,8 @@ if (-not $SkipGitHub -and -not $LocalOnly) {
         AZURE_TEST_TENANT_ID       = $tenantId
         ADO_TEST_SOURCE_COLLECTION = "https://dev.azure.com/$SourceOrg/"
         ADO_TEST_TARGET_COLLECTION = "https://dev.azure.com/$TargetOrg/"
+        # Read by the workflow's live-test step and the tests themselves (an org URL, not a name).
+        AZDEVOPS_SYSTEM_TEST_ORG   = "https://dev.azure.com/$SourceOrg/"
     }
     foreach ($name in $variables.Keys) {
         gh variable set $name --body $variables[$name] --repo $Repository
