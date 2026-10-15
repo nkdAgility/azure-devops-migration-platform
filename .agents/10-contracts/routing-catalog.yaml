@@ -152,6 +152,8 @@ activities:
       - "live test environment"
     first_surfaces:
       - ".agents/20-guardrails/workflow/backlog-item-workflow.md"
+      - ".agents/20-guardrails/workflow/completion-protocol.md"
+      - ".agents/20-guardrails/workflow/backlog-item-dod.md"
       - ".agents/20-guardrails/workflow/live-test-environment.md"
       - ".agents/*"
       - ".github/workflows/governance.yml"

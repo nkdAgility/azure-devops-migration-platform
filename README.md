@@ -107,7 +107,7 @@ Stages run left-to-right: **Capture** → **Export** → **Prepare** → **Impor
 
 ## Compared with Azure DevOps Migration Tools
 
-This platform is the planned successor to [azure-devops-migration-tools](https://github.com/nkdAgility/azure-devops-migration-tools). Until it reaches parity, **use this platform for work item migrations and keep using Migration Tools for everything else.**
+This platform is the planned successor to [azure-devops-migration-tools](https://github.com/nkdAgility/azure-devops-migration-tools). Until it reaches parity, **use this platform to export and evaluate work-item migrations, and keep using Migration Tools for production migrations**. ADO import is not yet recommended for production (see the status table above).
 
 _Assessment as of October 2026 (`v20.0.2-preview` series)._
 
@@ -249,7 +249,7 @@ Counts work items and revisions per project. Read-only — nothing is written.
 devopsmigration queue --config migration.json --follow
 ```
 
-Runs the phase named by the config's `Mode` field (`Export` above) and writes to the package directory. `--follow` streams live progress to the terminal. There is no `--mode` flag — each later step changes `Mode` in the config. Alternatively set `"Mode": "Migrate"` to run every phase as one job.
+Runs the phase named by the config's `Mode` field (`Export` above) and writes to the package directory. `--follow` streams live progress to the terminal. There is no `--mode` flag — each later step changes `Mode` in the config. Alternatively set `"Mode": "Migrate"`: the CLI then submits Export, Prepare and Import as separate jobs in sequence. **It does not run Validate.**
 
 ### 4. Review and prepare
 

@@ -72,7 +72,7 @@ $env:TARGET_PAT = "your-target-token"
 devopsmigration queue --config migration.json --follow
 ```
 
-This runs the phase named by the config's `Mode` field — `Export` in the example above. There is no `--mode` flag: to run Prepare or Import, change `Mode` in the config, or use `"Mode": "Migrate"` to run Inventory → Export → Prepare → Import → Validate as one job. Output appears in `D:\migration-output\<org>\<project>\`.
+This runs the phase named by the config's `Mode` field — `Export` in the example above. There is no `--mode` flag: to run Prepare or Import, change `Mode` in the config, or use `"Mode": "Migrate"`, which submits Export, Prepare and Import as separate jobs in sequence. Migrate does **not** run Validate. Output appears in `D:\migration-output\<org>\<project>\`.
 
 ## Next Steps
 

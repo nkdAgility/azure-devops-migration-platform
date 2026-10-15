@@ -81,7 +81,7 @@ The TFS Object Model only runs on .NET Framework, so the platform has **two agen
 | Connector project | `Infrastructure.TfsObjectModel` (net481 only) | `Infrastructure.AzureDevOps`, `Infrastructure.Simulated` (net10 only) |
 | Shared, multi-targeted (net481 + net10) | `Abstractions`, `Abstractions.Agent`, `Abstractions.Storage`, `Infrastructure`, `Infrastructure.Agent`, `Infrastructure.Storage.FileSystem` | same |
 | Job kinds | `Export`, `Import`, `Inventory`, `Dependencies` | all |
-| Package store | `FileSystemArtefactStore` only | file system or Azure Blob |
+| Package store | `FileSystemArtefactStore` only | `FileSystemArtefactStore` only today (Azure Blob planned, not implemented) |
 | Started by (Standalone) | `AgentLifecycleService`, once, no restart | `AgentLifecycleService`, restart with backoff |
 
 **Routing.** The CLI sets `Job.Connectors` from **both** `Source.Type` and `Target.Type` (`QueueCommand.GetConnectors`). The control plane gives a job only to an agent that advertises **all** of its connectors (`JobStore.DequeueAsync`). Consequences:
@@ -249,9 +249,9 @@ Because the package is a first-class artefact identified by URI, export and impo
 
 | Scenario | Export runs on | Import runs on | Handoff |
 |---|---|---|---|
-| Local / Server → Cloud | Local CLI-hosted control plane | Cloud (Self-Hosted/Managed) | Operator zips package, uploads to blob, resubmits import config pointing at `https://<account>.blob.core.windows.net/<container>/<prefix>` URL |
-| Cloud → Air-gapped | Cloud | Local CLI-hosted control plane | Operator downloads package or zip, resubmits import config pointing at `file:///` URI |
-| Migrate, same environment | Same control plane for both phases | — | Control plane chains export → prepare → import internally |
+| Local / Server → Cloud — *planned* | Local CLI-hosted control plane | Cloud (Self-Hosted/Managed) | Operator zips package, uploads to blob, resubmits import config pointing at an `https://<account>.blob.core.windows.net/...` URL. **Not available yet:** the Azure Blob store is not implemented and the CLI only resolves `file:` URIs. |
+| Local A → Local B (air-gapped) | Local CLI-hosted control plane | Local CLI-hosted control plane | Operator copies the package folder or zip, resubmits import config pointing at a `file:///` URI |
+| Migrate, same environment | Same control plane | — | The CLI submits Export, Prepare and Import as separate jobs in sequence (`QueueCommand.ExecuteMigrateAsync`). Validate is not run. |
 
 The package format is identical in all cases. See [docs/package-format-reference.md](package-format-reference.md) for the zip transfer mechanism.
 

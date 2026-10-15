@@ -12,7 +12,7 @@ Non-negotiable rules for Microsoft Aspire integration. Reject any code that conf
 - `DevOpsMigrationPlatform.ControlPlane` — Service library (HTTP API, job state machine, lease protocol, EF Core)
 - `DevOpsMigrationPlatform.ControlPlaneHost` — Deployable ASP.NET Core host (references ControlPlane, manages agent lifecycle)
 - `DevOpsMigrationPlatform.MigrationAgent` — Worker Service (executes jobs under lease)
-- `DevOpsMigrationPlatform.CLI.Migration` (net10.0) — Main CLI; drives Aspire for local; submits jobs to control plane
+- `DevOpsMigrationPlatform.CLI.Migration` (net10.0) — Main CLI; in Standalone mode starts `ControlPlaneHost` via `LocalStackHost`/`ChildProcessHost` (no Aspire); submits jobs to control plane
 - `DevOpsMigrationPlatform.TfsMigrationAgent` (net481) — TFS agent; spawned by `AgentLifecycleService`; not in AppHost
 
 **MUST NOT have:**
@@ -21,7 +21,7 @@ Non-negotiable rules for Microsoft Aspire integration. Reject any code that conf
 - Custom health/metrics endpoints bypassing ServiceDefaults
 - Hardcoded URLs in Agent or ControlPlaneHost code (use service discovery)
 - Direct project reference from any .NET 10 project to TfsMigrationAgent
-- Custom process management for starting control plane/agents (use Aspire + `AgentLifecycleService`)
+- Custom process management for starting control plane/agents outside the canonical paths: `LocalStackHost`/`ChildProcessHost` + `AgentLifecycleService` (Standalone), the AppHost (Aspire development), `ContainerAgentLauncher` (Cloud)
 
 ---
 
@@ -115,7 +115,7 @@ TfsMigrationAgent MUST NOT: be in AppHost, be referenced by .NET 10 projects, ac
 
 ## Final Rule
 
-Aspire is the orchestration layer across all topologies. CLI is always the operator's entry point. CLI drives Aspire locally; `azd` drives Aspire for cloud. No exceptions.
+CLI is always the operator's entry point. Topology-specific lifecycle: **Standalone** — CLI starts `ControlPlaneHost` via `LocalStackHost`/`ChildProcessHost` and `AgentLifecycleService` spawns the agents (no Aspire); **Hosted** — CLI connects to the remote control plane; **development** — the Aspire AppHost orchestrates; **cloud** — `azd` provisions and `ContainerAgentLauncher` runs agents.
 
 
 

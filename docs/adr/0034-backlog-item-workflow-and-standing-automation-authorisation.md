@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Operator consent was given in session on 2026-10-14: "one target project per worktree, yes authorised, build slice 1". The detailed rules remain marked DRAFT in the guardrail files until the operator ratifies them.
+Accepted. Operator consent was given in session on 2026-10-14 ("one target project per worktree, yes authorised, build slice 1") and the rules were ratified on 2026-10-15, including the manager model: one task = one PR = one worktree, with a manager session checking in on every running task at least every 20 minutes.
 
 ## Context
 
@@ -25,7 +25,7 @@ The operator wants to work through the backlog with agents running in parallel g
 2. **Pre-start assessment.** Every Backlog Item gets a readiness and sizing check before work starts: no more than 5 acceptance criteria, one concern, one PR, independently shippable, and no more than about 2 days of work. It must also state its agent placement, verified against the code: net481 `TfsMigrationAgent` or net10 `MigrationAgent`.
    - An item that is too big is split into vertical-slice **sub-issues**.
    - The parent stays open, labelled `broken-down`, until every child is closed.
-   - The rules are in `.agents/20-guardrails/workflow/backlog-item-workflow.md`.
+   - The rules are in `.agents/20-guardrails/workflow/backlog-item-workflow.md`, `completion-protocol.md` and `backlog-item-dod.md`.
 3. **Definition of Done levels.** Each PR must meet L1, the existing change-level DoD. It must also follow the L2 Completion Protocol:
    - sync with main;
    - build;
@@ -46,7 +46,7 @@ The operator wants to work through the backlog with agents running in parallel g
 ## Consequences
 
 - Constitution rule 11 is relaxed **only** within the scope listed in decision 5. Everywhere else it is unchanged.
-- An item without a live E2E run is reported as `BLOCKED`, not done. Until Entra ID authentication (#140) and the E2E harness (#142) ship, live runs depend on operator-supplied PATs.
+- An item without a live E2E run is reported as `BLOCKED`, not done. Live runs authenticate with an Entra access token used in place of a PAT: the shared test app through GitHub OIDC in CI, and the developer's `az login` locally. No PAT is stored.
 - Running agents in parallel needs per-run isolation. The rules provide it through:
   - per-run projects;
   - per-run Control Plane ports and storage;

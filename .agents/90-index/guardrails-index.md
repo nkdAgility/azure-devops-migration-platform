@@ -31,6 +31,10 @@
 - `.agents/20-guardrails/workflow/test-first-workflow.md`
 - `.agents/20-guardrails/workflow/failing-tests-workflow.md`
 - `.agents/20-guardrails/workflow/definition-of-done.md`
+- `.agents/20-guardrails/workflow/backlog-item-workflow.md`
+- `.agents/20-guardrails/workflow/completion-protocol.md`
+- `.agents/20-guardrails/workflow/backlog-item-dod.md`
+- `.agents/20-guardrails/workflow/live-test-environment.md`
 - `.agents/20-guardrails/workflow/testing-rules.md`
 - `.agents/20-guardrails/workflow/spec-coverage-completeness.md`
 - `.agents/20-guardrails/workflow/documentation-rules.md`

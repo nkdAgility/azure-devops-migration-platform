@@ -15,7 +15,7 @@ standing_authorisations:
   backlog-automation:
     granted_by: "operator (Martin Hinshelwood)"
     granted_on: "2026-10-14"
-    status: "draft — effective once this file is merged to main"
+    status: "ratified 2026-10-15 — effective once this file is merged to main"
     scope:
       workflows:
         - ".agents/workflows/nkda-backlog-groom-workflow.js"
@@ -24,9 +24,9 @@ standing_authorisations:
         - ".agents/skills/nkda-backlog-item-create"
         - ".agents/skills/nkda-backlog-item-prestart"
     permits:
-      - "Create, label, comment on, and add sub-issues to Backlog Items and Decisions (never close a parent; never edit issues outside the run)"
+      - "Create, label, assign (claim with in-progress), comment on, and add sub-issues to Backlog Items and Decisions (never close a parent; never edit issues outside the run; only issues labelled backlog-item or decision)"
       - "Commit, push a backlog/<issue>-* branch, and open a PR for the Backlog Item being delivered (overrides Constitution rule 11 for this scope only)"
-      - "Enable auto-merge only when the independent verifier's confidence is >= 90% and every completion step passed; otherwise disable it"
+      - "Enable auto-merge only when the gate computed by the workflow passes: independent verifier confidence >= 90%, every completion step passed, no unmet acceptance criteria; otherwise disable it"
       - "Create and delete adpe2e-<run-id>-* projects in the live test organisations per .agents/20-guardrails/workflow/live-test-environment.md"
     does_not_permit:
       - "Any Class C change inside a Backlog Item without its own recorded consent"

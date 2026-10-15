@@ -20,7 +20,7 @@ Creating issues is outward-facing. Run **create** only when the operator has app
 
 ### 1. Load the context
 
-- Read both issue templates and `backlog-item-workflow.md` §0.
+- Read both issue templates and `backlog-item-workflow.md` §1–§2.
 - Check that `gh auth status` succeeds. Resolve the repository with `gh repo view --json nameWithOwner`.
 
 ### 2. Check for duplicates

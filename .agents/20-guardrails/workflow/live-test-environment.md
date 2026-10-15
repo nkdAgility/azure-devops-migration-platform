@@ -1,96 +1,88 @@
 # Live Test Environment
 
-> **Status: DRAFT, pending operator approval (Class C governance change).**
+> **Status:** Ratified by the operator on 2026-10-15 (ADR-0034). Effective once merged to `main`.
 
-This file defines how live end-to-end runs work. Completion Protocol step 3 in [backlog-item-workflow.md](backlog-item-workflow.md) and `nkda-backlog-deliver-workflow` both follow it.
+This file defines how live end-to-end runs work. Step 3 of [completion-protocol.md](completion-protocol.md) and `nkda-backlog-deliver-workflow` both follow it.
 
-It adopts the live-test infrastructure that azure-devops-migration-tools uses:
-
-- PR #3221 on `main`: Entra ID auth, the Bicep app, `Setup-TestEnvironment.ps1`, the preflight tests, and `integration-tests.yml`.
-- Branch `test/e2e-regression-2026-10`: the `tools/e2e/` seed, assert and cleanup modules.
-
-Both repositories use the same organisations, identity and conventions. Each has its own name prefix so that one repository's cleanup never touches the other's objects.
-
----
+It adopts the azure-devops-migration-tools live-test approach: the same Entra identity, the same organisations and the same conventions. Migration Tools introduced it in PR #3221; its `tools/e2e/` harness is on branch `test/e2e-regression-2026-10`. Each repository uses its own object prefix, so one repository's cleanup never touches the other's objects.
 
 ## 1. Organisations
 
-| Role | Organisation | Shared with Migration Tools |
+| Role | Organisation | Status |
 | --- | --- | --- |
-| Source | `https://dev.azure.com/nkdagility-adomt-source` | Yes |
-| Target | `https://dev.azure.com/nkdagility-adomt-target` | Yes |
+| Source | `https://dev.azure.com/nkdagility-adomt-source` | Target state; shared with Migration Tools |
+| Target | `https://dev.azure.com/nkdagility-adomt-target` | Target state; shared with Migration Tools |
+| Legacy | `https://dev.azure.com/nkdagility-preview` | **Current.** The checked-in `SystemTest-Live-*` scenarios still use it (fixed projects such as `migrationTest5`). Moving them is #176. |
 
-Live runs may only touch these two organisations. Any other URL is refused (see §5).
+Live runs may touch only these organisations.
 
-## 2. Authentication
+## 2. Authentication: Entra ID, no PATs
 
-**Target state: Entra ID, with no PATs. This is the same as Migration Tools.**
+An Entra ID access token for Azure DevOps (resource `499b84ac-1321-427f-aa17-267ca6975798`) is **accepted wherever a PAT is**. This includes the platform's `AccessToken` authentication, which sends Basic auth. No code change is needed; pass the token where the PAT goes.
 
-- **Local:** the operator runs `az login` with an account that is Project Collection Administrator in both organisations.
-- **CI:** GitHub OIDC workload-identity federation through `azure/login@v2`. It uses the same Entra app as Migration Tools, with an extra federated credential whose subject is `repo:nkdAgility/azure-devops-migration-platform:environment:integration-tests`.
-  - Repository variables (these are ids, not secrets): `AZURE_TEST_CLIENT_ID`, `AZURE_TEST_TENANT_ID`, `ADO_TEST_SOURCE_COLLECTION`, `ADO_TEST_TARGET_COLLECTION`.
-- **Getting a token:** `az account get-access-token --resource 499b84ac-1321-427f-aa17-267ca6975798`. This is a **Bearer** token, not a PAT.
-
-**Interim state: PATs.** The platform currently supports only `AuthenticationType.AccessToken` (PAT, Basic auth) and `Windows`; see `EndpointAuthenticationOptions.cs`. Until the Backlog Item *"Entra ID / Bearer authentication"* ships:
-
-- `SOURCE_PAT` and `TARGET_PAT` are read from the operator's user environment variables.
-- They are never written to files, logs, PRs, issues or reports.
-- They are never passed as an argument to a subagent. Subagents inherit them from the environment.
-
-Changing a live run from PAT to Entra is a change to this file only. The workflow does not change.
-
-## 3. Environment variables
-
-| Variable | Set by | Value |
+| Where | Identity | How the token is obtained |
 | --- | --- | --- |
-| `SOURCE_ORG_URL` | operator / CI | source organisation URL (§1) |
-| `TARGET_ORG_URL` | operator / CI | target organisation URL (§1) |
-| `SOURCE_PAT`, `TARGET_PAT` | operator / CI (interim) | PAT, or empty once Entra is in use |
-| `SOURCE_PROJECT` | **per run** | the project seeded for this run (§4) |
-| `TARGET_PROJECT` | **per run** | an empty target project for this run (§4) |
-| `DEVOPS_MIGRATION_TEST_STORAGE` | **per run** | `%TEMP%\adpe2e\<run-id>`, a new empty folder |
-| Control Plane port | **per run** | `5100 + slot` (§4) |
+| CI | Shared Entra test app `adomt-integration-tests` (`AZURE_TEST_CLIENT_ID`) | `azure/login@v2` in the `integration-tests` environment through GitHub OIDC, then `az account get-access-token`. No secret is stored. The app's federated credentials and the repository variables are defined in `infra/test-env/` (#175). |
+| Local | The developer's own `az login` | `az account get-access-token --resource 499b84ac-1321-427f-aa17-267ca6975798` |
+
+- Set the token only on the test process.
+- Mask it in CI output.
+- Never write it to a file, log, issue or PR.
+- Tokens expire after about an hour, so get a fresh token for each run.
+
+## 3. Environment variables (what the code reads today)
+
+| Variable | Read by | Value |
+| --- | --- | --- |
+| `AZDEVOPS_SYSTEM_TEST_ORG` | Live tests (`QueueCommandTests`, scenarios) | Organisation URL |
+| `AZDEVOPS_SYSTEM_TEST_PAT` | Live tests and scenarios | **The Entra token** (§2) |
+| `SOURCE_ORG_URL`, `SOURCE_PROJECT`, `SOURCE_PAT`, `TARGET_ORG_URL`, `TARGET_PROJECT`, `TARGET_PAT` | Per-run scenario copies (§4) | Set per run; the PAT variables hold the Entra token |
+| `DEVOPS_MIGRATION_TEST_STORAGE` | CLI test runner | A new folder per run |
+
+The CLI test runner gives every CLI run its own ephemeral Control Plane port. It also puts the run in a kill-on-close job object, so no process outlives the test host (#180).
 
 ## 4. Isolation for each run
 
-Every live run, including every parallel worktree, gets its own objects.
-
-- **Run id:** `<issue>-<slot>`, for example `142-2`. The slot is the delivery-workflow slot (1–N). For manual runs it is `m`.
-- **Projects:** `adpe2e-<run-id>-src` in the source organisation and `adpe2e-<run-id>-tgt` in the target organisation. Each is created fresh with process `Agile` unless the scenario says otherwise.
-- **Seeding:** the source project is seeded with the scenario's fixture data. Reuse Migration Tools' `tools/e2e/scenarios/<name>/seed.ps1` pattern, ported to `tools/e2e/`. The seed writes `state.local.json`, which is git-ignored, mapping seed keys to ids.
-- **Port:** the Standalone Control Plane runs on `5100 + slot`. Set it through a run-local copy of the scenario config by overriding `Environment.ControlPlane.BaseUrl`. Never edit the checked-in scenario.
-- **Config:** copy `scenarios/SystemTest-Live-*.json` into `DEVOPS_MIGRATION_TEST_STORAGE` and run that copy.
+- **Run id:** `<issue>-<invocation-id>`. The invocation id is unique per workflow invocation, never just a slot number.
+  - Manual runs use `<issue>-m-<user>-<yyyyMMddHHmm>`.
+  - A run id is never reused, so two deliveries of the same item cannot share resources.
+- **Projects:** `adpe2e-<run-id>-src` and `adpe2e-<run-id>-tgt`, created fresh and seeded with the scenario's fixture data.
+- **Config:** copy the scenario into the run's storage folder, then **rewrite every endpoint**: organisation URLs, project names, and the `$ENV:` credential references.
+  - Before running, check the resolved config. It must reference only this run's `adpe2e-<run-id>-*` projects and contain no `AZDEVOPS_SYSTEM_TEST_*` or fixed project names.
+  - Never run the checked-in scenario directly against per-run projects.
+- **Interim, until #176:** the checked-in live tests use fixed shared projects in `nkdagility-preview`, so live runs are **serialised**. Only one runs at a time, under a single-run lock.
+- **Ownership:** a delivery claims its item before creating any resources:
+  - it assigns the item and adds an `in-progress` label;
+  - it skips any item that is already claimed.
 
 ## 5. Guard rails
 
-- **Prefix guard:** a script may only create or delete objects whose name starts with `adpe2e-`. Migration Tools uses `amte2e-`, and neither repository may touch the other's prefix.
-- **Organisation guard:** refuse any organisation not listed in §1.
-- **Run-scoped cleanup:** delete only `adpe2e-<run-id>-*`, never `adpe2e-*` across the whole organisation, so that parallel runs do not delete each other's projects. Delete the projects, purge them from the recycle bin, then report anything left over.
-- **Stale sweep:** only the operator, or a nightly job, deletes `adpe2e-*` objects older than 24 hours.
+- **Prefix guard:** create or delete only objects whose names start with `adpe2e-`. Migration Tools uses `amte2e-`; neither repository touches the other's prefix.
+- **Organisation guard:** refuse any organisation that is not listed in §1.
+- **Cleanup:** delete only `adpe2e-<run-id>-*` objects, then purge them from the recycle bin.
+  - A stale sweep (`adpe2e-*` older than 24 hours) runs only from the operator or a nightly job.
 
 ## 6. What "completes correctly" means
 
-A live E2E passes only when **all** of the following hold:
+A live E2E run passes only when all of these hold:
 
-1. The job reaches the `Completed` state with no module in error.
-2. Target counts match the source after mapping, per type: work items, revisions, links, attachments, nodes and teams, as applicable to the scenario.
-3. A sample of at least 3 seeded items is checked field by field, including identities, area/iteration paths, embedded images and comments.
-4. Re-running the job creates no duplicates.
+1. The job completes with no module in error.
+2. The target counts match the source after mapping.
+3. At least 3 seeded items have been checked field by field: identities, paths, images and comments.
+4. Re-running the migration creates no duplicates.
 
-Each check is recorded with its observed values in the completion report and the session evidence.
+Record each check, with the values observed, in the completion report and the evidence file.
 
 ## 7. Preflight
 
-Before any live run, check that both organisations are reachable with the configured credentials and that the run's projects exist. A failed check returns **BLOCKED — live environment unavailable** with the cause (401, missing project, unreachable organisation). This mirrors `LiveEnvironmentPreflightTests` in Migration Tools.
+Before any live run, check that each organisation is reachable with the token and that the run's projects exist. If either check fails, the result is **BLOCKED — live environment unavailable**, with the cause (401, missing project, or unreachable).
 
 ## 8. Porting backlog
 
-These Backlog Items bring the platform repository up to the Migration Tools setup:
+The remaining work to match the Migration Tools setup:
 
-1. Entra ID / Bearer authentication in `EndpointAuthenticationOptions`, for both the ADO and TFS-over-ADO paths.
-2. A federated credential for this repository, plus `integration-tests.yml` (windows-latest, .NET 10, net481).
-3. The `tools/e2e/` harness: per-run project create, seed and assert, plus run-scoped cleanup, with the `adpe2e-` prefix and organisation guards.
-4. A `RequiresLiveEnvironment` MSTest condition attribute plus preflight tests, so that unconfigured runs skip rather than fail.
-5. Moving the existing `SystemTest-Live-*` scenarios onto per-run projects.
-
-Until items 3 and 4 ship, `nkda-backlog-deliver-workflow` creates and deletes the per-run projects itself, through the ADO REST API, under the same guards.
+- #140: native Entra acquisition. Optional, because a token can already be passed as a PAT.
+- #141: preflight checks, plus a `RequiresLiveEnvironment` attribute so live tests skip rather than fail when no environment is available.
+- #142: the e2e harness.
+- #175: infra and CI.
+- #176: move the live scenarios to per-run projects.

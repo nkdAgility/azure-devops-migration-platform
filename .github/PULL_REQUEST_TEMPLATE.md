@@ -29,7 +29,7 @@
 
 ## Completion protocol
 
-<!-- .agents/20-guardrails/workflow/backlog-item-workflow.md §A -->
+<!-- .agents/20-guardrails/workflow/completion-protocol.md §A -->
 
 - [ ] 0. Up to date with main
 - [ ] 1. Builds successfully

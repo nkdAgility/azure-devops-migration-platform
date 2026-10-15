@@ -22,8 +22,8 @@ labels: ["backlog-item", "needs-assessment"]
 
 ## Scope
 
-- Connectors: Simulated · AzureDevOpsServices · TeamFoundationServer
-- Phases: Inventory · Export · Prepare · Import · Validate
+- Connectors: <!-- list ONLY the ones in scope: Simulated, AzureDevOpsServices, TeamFoundationServer -->
+- Phases: <!-- list ONLY the ones in scope: Inventory, Export, Prepare, Import, Validate -->
 - Agents: <!-- TfsMigrationAgent (net481: TFS Object Model, Infrastructure.TfsObjectModel) · MigrationAgent (net10: ADO, Simulated) · shared multi-target code (Infrastructure.Agent, Abstractions*) -->
 - Out of scope:
 
@@ -45,7 +45,7 @@ labels: ["backlog-item", "needs-assessment"]
 
 ## Pre-start assessment
 
-<!-- Completed before any work starts. See .agents/20-guardrails/workflow/backlog-item-workflow.md §0. -->
+<!-- Completed before any work starts. See .agents/20-guardrails/workflow/backlog-item-workflow.md §2. -->
 
 **Ready?**
 - [ ] Outcome and acceptance criteria are clear and testable

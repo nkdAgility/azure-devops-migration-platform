@@ -25,7 +25,12 @@
     "docs/**",
     "src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/AGENTS.md",
     "src/DevOpsMigrationPlatform.TfsMigrationAgent/AGENTS.md",
-    "Logs/atdd-sessions/2026-10-14-migration-assessment-backlog-workflow.json"
+    "Logs/atdd-sessions/2026-10-14-migration-assessment-backlog-workflow.json",
+    ".agents/20-guardrails/workflow/completion-protocol.md",
+    ".agents/20-guardrails/workflow/backlog-item-dod.md",
+    ".agents/40-stubs/net481.md",
+    ".agents/20-guardrails/README.md",
+    ".agents/90-index/guardrails-index.md"
   ],
   "suites": [
     {
@@ -61,13 +66,14 @@
   ],
   "assumptions": [
     "Doc corrections were verified against code at ff2e74b8: QueueCommand.GetConnectors and JobStore.DequeueAsync (routing), TfsJobAgentWorker (capabilities, job kinds), LocalStackHost and AgentLifecycleService (hosting, TFS agent spawned once without restart), ManageLoginCommand (stub), and the absence of any Azure Blob artefact store (removed in 40935e1c).",
-    "The agent-contract validator (scripts/guardrails/validate-agent-contracts.py) and orchestrator validator pass after the consent-policy schema extension; both workflow scripts parse with node --check."
+    "The agent-contract validator (scripts/guardrails/validate-agent-contracts.py) and orchestrator validator pass after the consent-policy schema extension; both workflow scripts parse with node --check.",
+    "An Entra ID access token is accepted wherever a PAT is (verified HTTP 200 with Basic auth against nkdagility-adomt-source, -target and nkdagility-preview); live-test-environment.md and ADR-0034 were corrected accordingly."
   ],
   "deviations": [
-    "The new workflow and live-test guardrail files are marked DRAFT pending operator ratification, although ADR-0034 records consent to the model and the standing authorisation.",
     "Neither workflow has been executed yet; they are validated for syntax only. First use is planned as groom (report mode) then deliver (dryRun) on pilot items.",
     "About 20 AGENTS.md/CLAUDE.md files showed LF/CRLF-only working-tree differences unrelated to this work; they are not included.",
-    "No test suite could be executed: restore fails on main because of newly published advisories against System.Security.Cryptography.Pkcs/Xml 10.0.12 (NU1902/NU1903 as errors). Outcome recorded as PARTIAL rather than claiming suites."
+    "No test suite could be executed: restore fails on main because of newly published advisories against System.Security.Cryptography.Pkcs/Xml 10.0.12 (NU1902/NU1903 as errors). Outcome recorded as PARTIAL rather than claiming suites.",
+    "Review round 1 (29 comments): backlog-item-workflow.md split into backlog-item-workflow.md / completion-protocol.md / backlog-item-dod.md to meet the 1,200-word guardrail limit; guardrails ratified by the operator on 2026-10-15 (draft status removed); TFS AGENTS.md corrections moved to the canonical .agents/40-stubs/net481.md (the AGENTS.md files are hardlinks to it, which caused the duplicated text)."
   ],
   "risks": [
     "Live E2E (completion protocol step 3) is BLOCKED until operator PATs are configured or Entra ID auth (#140) and the E2E harness (#142) land.",

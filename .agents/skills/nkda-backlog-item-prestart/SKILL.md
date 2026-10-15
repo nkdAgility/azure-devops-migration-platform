@@ -5,7 +5,7 @@ description: Runs the pre-start assessment on one Backlog Item — checks it is 
 
 # Skill: Backlog Item Pre-start Assessment
 
-Apply §0 of `.agents/20-guardrails/workflow/backlog-item-workflow.md` to a single GitHub issue.
+Apply §2 of `.agents/20-guardrails/workflow/backlog-item-workflow.md` to a single GitHub issue.
 
 ## Modes
 
@@ -34,11 +34,13 @@ gh api repos/{owner}/{repo}/issues/<n>/sub_issues
 
 | Condition | Verdict |
 | --- | --- |
+| The issue does **not** have the `backlog-item` label (this applies to explicitly supplied numbers too) | `skip`, and do not comment on or label the issue. It is outside the standing authorisation's scope. |
 | The issue is closed | `skip` |
 | The issue has the `broken-down` label | `skip`. It is a parent; assess its sub-issues instead. |
 | The issue has the `decision` label | `skip` |
+| The issue has the `in-progress` label | `skip`. A delivery owns it. |
 
-### 2. Ready? (§0.1)
+### 2. Ready? (§2.1)
 
 Check each of the following and record pass or fail with a reason:
 
@@ -58,9 +60,11 @@ Check each of the following and record pass or fail with a reason:
   - An item that needs data to flow between the agents within one job depends on cross-agent routing.
 
   Fail this check if the issue's `Agents:` line is missing or contradicts the code.
-- **Dependencies:** every `Depends on` issue is **closed as completed** and its PR is merged into `main`. Check with `gh issue view <dep> --json state,stateReason`.
+- **Dependencies:** check both of the following for every `Depends on` issue. The issue state alone is not enough, because an issue can be closed while its PR is still open.
+  1. The issue is **closed as completed**: `gh issue view <dep> --json state,stateReason`.
+  2. Its delivering PR is **merged into `main`**: `gh pr list --state merged --base main --search "<dep> in:body"`, or the PR linked from the issue's closing event, with `mergedAt` set and `baseRefName` equal to `main`.
 
-### 3. Right-sized? (§0.2)
+### 3. Right-sized? (§2.2)
 
 Estimate against the codebase, not against the issue text alone.
 
@@ -98,9 +102,13 @@ Write the comment in the template's *Pre-start assessment* format. Include every
 
 | Verdict | Actions |
 | --- | --- |
-| `ready` | Post the comment. Remove `needs-assessment` and add `ready`. |
-| `blocked` | Create each Decision issue using `nkda-backlog-item-create`. Post the comment with links to the Decisions. Remove `needs-assessment` and add `blocked`. |
-| `too-big` | Create the slices using `nkda-backlog-item-create` in create mode with `--parent <n>`. Each slice is labelled `needs-assessment`. Post the comment with `Broken down into #a, #b, #c` and the coverage map. Remove `needs-assessment` and `ready`, and add `broken-down`. **Leave the parent open.** |
+Each verdict **replaces** the previous verdict labels. An item never carries both `ready` and `blocked`.
+
+| Verdict | Actions |
+| --- | --- |
+| `ready` | 1. Post the comment.<br>2. Add `ready`.<br>3. Remove `needs-assessment` and `blocked`. |
+| `blocked` | 1. Find the Decision issues already linked from this item (its body, comments and `Decisions:` line). Reuse them, and create only the Decisions that are not already linked, using `nkda-backlog-item-create`.<br>2. Post the comment with links to all of them.<br>3. Add `blocked`.<br>4. Remove `needs-assessment` and `ready`. |
+| `too-big` | 1. Create the slices using `nkda-backlog-item-create` in create mode with `--parent <n>`, reusing any existing sub-issues. Each slice is labelled `needs-assessment`.<br>2. Post the comment with `Broken down into #a, #b, #c` and the coverage map.<br>3. Add `broken-down`.<br>4. Remove `needs-assessment`, `ready` and `blocked`.<br>5. **Leave the parent open.** |
 
 ## Output schema (returned when called from a workflow)
 

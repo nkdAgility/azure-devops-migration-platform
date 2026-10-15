@@ -20,8 +20,11 @@ log(`Mode: ${mode}; max breakdown depth: ${maxDepth}`)
 
 const LIST_SCHEMA = {
   type: 'object',
-  properties: { issues: { type: 'array', items: { type: 'object', properties: {
-    number: { type: 'number' }, title: { type: 'string' } }, required: ['number', 'title'] } } },
+  properties: {
+    issues: { type: 'array', items: { type: 'object', properties: {
+      number: { type: 'number' }, title: { type: 'string' } }, required: ['number', 'title'] } },
+    total: { type: 'number' },
+  },
   required: ['issues'],
 }
 
@@ -51,7 +54,7 @@ const prestartPrompt = (n, m) => `Read and execute the skill exactly as document
 Issue: #${n}
 Mode: ${m}
 ${m === 'apply'
-  ? 'Apply mode is authorised by the standing authorisation "backlog-automation" in .agents/10-contracts/consent-policy.yaml. Create sub-issues with gh issue create --parent and keep the parent open, labelled broken-down. Return createdIssues with the numbers of every issue you created (slices and Decisions).'
+  ? 'Apply mode. Before ANY GitHub mutation, verify the standing authorisation is in effect: `git show origin/main:.agents/10-contracts/consent-policy.yaml` must contain standing_authorisations.backlog-automation. If it does not (for example, still on an unmerged branch), make NO changes and return applied=false with reason "standing authorisation not in effect on main; needs operator approval". When it is in effect: create sub-issues with gh issue create --parent, keep the parent open labelled broken-down, and return createdIssues with the numbers of every issue you created (slices and Decisions).'
   : 'Assess mode: read-only. Do NOT modify GitHub.'}
 Return the skill's output schema.`
 
@@ -62,10 +65,13 @@ if (Array.isArray(opts.issues) && opts.issues.length) {
   queue = opts.issues.map(n => ({ number: n, title: `#${n}` }))
 } else {
   const listed = await agent(
-    `Run: gh issue list --state open --label needs-assessment --label backlog-item --limit 200 --json number,title
-Return every issue as {number, title}. Read-only.`,
+    `Return EVERY open issue that has both the needs-assessment and backlog-item labels, paginating until exhausted:
+  gh api --paginate "repos/{owner}/{repo}/issues?state=open&labels=needs-assessment,backlog-item&per_page=100" --jq '.[] | select(.pull_request == null) | {number, title}'
+Return every issue as {number, title}, and set total to the count. Read-only.`,
     { label: 'select:needs-assessment', phase: 'Select', schema: LIST_SCHEMA, effort: 'low' })
   queue = listed?.issues ?? []
+  if (typeof listed?.total === 'number' && listed.total !== queue.length)
+    log(`⚠️ Selection returned ${queue.length} of ${listed.total} matching issues — the rest were not assessed.`)
 }
 log(`${queue.length} item(s) to assess`)
 
