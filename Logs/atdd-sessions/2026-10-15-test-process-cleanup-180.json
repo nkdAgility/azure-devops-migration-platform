@@ -1,0 +1,39 @@
+{
+  "session_id": "2026-10-15-test-process-cleanup-180",
+  "started_at": "2026-10-15T11:20:00Z",
+  "completed_at": "2026-10-15T12:10:00Z",
+  "requirement": "Backlog Item #180: a timed-out CLI system test must never leave CLI/ControlPlaneHost/agent processes running, and no test session may run for hours. MSTest [Timeout] abandons the test method, so CliRunner's finally/Kill never runs; the orphaned tree kept `dotnet test` output open for ~17 h and ~2 h in two runs.",
+  "change_class": "A",
+  "activity": "tests",
+  "files_changed": [
+    "tests/DevOpsMigrationPlatform.CLI.Migration.Tests/TestUtilities/ChildProcessJob.cs",
+    "tests/DevOpsMigrationPlatform.CLI.Migration.Tests/TestUtilities/ChildProcessJobTests.cs",
+    "tests/DevOpsMigrationPlatform.CLI.Migration.Tests/TestUtilities/CliRunner.cs",
+    "tests/Directory.Build.props",
+    "tests/test-session.runsettings",
+    "Logs/atdd-sessions/2026-10-15-test-process-cleanup-180.json"
+  ],
+  "suites": [
+    { "suite": "UnitTests", "run": true, "passed": 1006, "failed": 0 },
+    { "suite": "DomainTests", "run": true, "passed": 44, "failed": 0 },
+    { "suite": "IntegrationTests", "run": true, "passed": 643, "failed": 0 },
+    { "suite": "SystemTest_Simulated", "run": true, "passed": 48, "failed": 0 },
+    { "suite": "SystemTest_Live", "run": true, "passed": 0, "failed": 1 },
+    { "suite": "SystemTest_Smoke", "run": false, "not_run_reason": "CI critical-path subset of suites already run locally; runs in CI on the PR." }
+  ],
+  "assumptions": [
+    "RED: ChildProcessJobTests.Dispose_KillsTrackedProcessAndItsDescendants failed to compile before ChildProcessJob existed; GREEN after implementation (parent and grandchild both killed on dispose).",
+    "Runtime proof: the previously orphaning test Queue_Export_TFS_WritesRevisionFiles (SystemTest_Live, run alone with an Entra token in place of the PAT) now returns from `dotnet test` after 182 s with 0 surviving processes whose command line contains devopsmigration-cli-tests. Before the fix: 3 orphans and a run that never returned.",
+    "default.runsettings is not referenced by any project, so its 60 s TestTimeout never applied. It was deliberately left unwired; the new tests/test-session.runsettings carries only TestSessionTimeout."
+  ],
+  "deviations": [
+    "The SystemTest_Live entry is a single targeted test used as runtime proof. It still fails (by timeout) because the CLI test layout starts no TFS agent, so the TeamFoundationServer job is never leased (#170). The fix here is that it no longer hangs or orphans; the full live suite was run earlier today on #181 (12 passed, 2 TFS failed).",
+    "Based on backlog/179-crypto-pins (#181) because main does not restore until that merges."
+  ],
+  "risks": [
+    "ChildProcessJob is Windows-only (no-op elsewhere); CLI system tests run on windows-latest in CI.",
+    "Processes started by the CLI between Process.Start and AssignProcessToJobObject would escape the job; the CLI spawns ControlPlaneHost only after startup, so the window is negligible."
+  ],
+  "docs_updated": [],
+  "outcome": "SUCCESS"
+}

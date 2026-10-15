@@ -26,6 +26,11 @@ public sealed class CliRunner
     private const string TfsMigrationAgentExeName = "tfsmigration.exe";
     private static readonly ConcurrentDictionary<string, string> _testStorageByName = new(StringComparer.Ordinal);
 
+    // Every CLI process (and the ControlPlaneHost/agents it spawns) joins this kill-on-close job.
+    // The handle lives for the whole test host, so the OS kills any surviving tree when the host
+    // exits — including when MSTest abandons a timed-out test before RunAsync's cleanup runs (#180).
+    private static readonly ChildProcessJob _processJob = new();
+
     /// <summary>
     /// Root folder (relative to the repo root) used by system tests as their working directory.
     /// </summary>
@@ -293,6 +298,7 @@ public sealed class CliRunner
         try
         {
             process.Start();
+            _processJob.Add(process);
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
             await process.WaitForExitAsync(timeoutCts.Token).ConfigureAwait(false);
