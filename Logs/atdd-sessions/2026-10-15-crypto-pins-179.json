@@ -13,46 +13,51 @@
     {
       "suite": "UnitTests",
       "run": true,
-      "passed": 1741,
+      "passed": 1006,
+      "failed": 0
+    },
+    {
+      "suite": "DomainTests",
+      "run": true,
+      "passed": 44,
+      "failed": 0
+    },
+    {
+      "suite": "IntegrationTests",
+      "run": true,
+      "passed": 642,
+      "failed": 0
+    },
+    {
+      "suite": "SystemTest_Simulated",
+      "run": true,
+      "passed": 48,
       "failed": 0
     },
     {
       "suite": "SystemTest_Live",
       "run": true,
-      "passed": 190,
-      "failed": 8
-    },
-    {
-      "suite": "DomainTests",
-      "run": false,
-      "not_run_reason": "Included in the final non-live run (`--filter TestCategory!=SystemTest_Live`, 1741 passed, 0 failed), which was not split per category."
-    },
-    {
-      "suite": "IntegrationTests",
-      "run": false,
-      "not_run_reason": "Included in the final non-live run (1741 passed, 0 failed), which was not split per category."
-    },
-    {
-      "suite": "SystemTest_Simulated",
-      "run": false,
-      "not_run_reason": "Included in the final non-live run (1741 passed, 0 failed), which was not split per category."
+      "passed": 12,
+      "failed": 2
     },
     {
       "suite": "SystemTest_Smoke",
       "run": false,
-      "not_run_reason": "Runs in CI on the PR."
+      "not_run_reason": "CI critical-path subset of suites already run locally; runs in CI on the PR."
     }
   ],
   "assumptions": [
-    "UnitTests count = the final run of every non-live test after the last change (`dotnet test --filter TestCategory!=SystemTest_Live`): 1741 passed, 0 failed across 10 projects. SystemTest_Live count = the earlier full run with the Pkcs/Xml pins (before the Bcl.Memory pin). It was not re-run after the Bcl.Memory pin because the test PAT is expired.",
+    "Each suite was run separately with `dotnet test --no-build --filter TestCategory=<suite>` after the final change (the Microsoft.Bcl.Memory pin). The counts are per TestCategory, not per project.",
+    "SystemTest_Live was run with AZDEVOPS_SYSTEM_TEST_PAT set to an Entra ID access token from the operator's `az login` (resource 499b84ac-1321-427f-aa17-267ca6975798), for that process only. This follows the azure-devops-migration-tools method; the token is accepted wherever a PAT is used. No credential was written to disk.",
     "`dotnet list package --vulnerable --include-transitive` reports no vulnerable packages after the change."
   ],
   "deviations": [
-    "8 live tests failed in DevOpsMigrationPlatform.CLI.Migration.Tests: Queue_Export_ADO_WritesAuthoritativeAndProjectScopedPackageState, Export_ADO_WritesRevisions, Export_ADO_WritesComments, Queue_Import_ADO_Fixture_CreatesIdmap, Queue_Import_ADO_Fixture_FieldMissing_WritesErrorsJson, Queue_Export_Sim_WritesRevisionFiles (VS30063 / 401), and Queue_Export_TFS_WritesRevisionFiles, Queue_Import_TFS_Fixture_CreatesIdmap (timeouts). Root cause is environmental: AZDEVOPS_SYSTEM_TEST_PAT is rejected by https://dev.azure.com/nkdagility-preview with HTTP 401 on a direct REST call, independent of platform code. These failures cannot be compared against main, because main does not restore without this fix.",
-    "A timed-out TFS live test left CLI/ControlPlaneHost/MigrationAgent processes running for about 17 hours. Raised as #180."
+    "SystemTest_Live: 2 TFS tests fail. Queue_Export_TFS_WritesRevisionFiles timed out at 180 s, and Queue_Import_TFS_Fixture_CreatesIdmap hit a CLI timeout. The CLI test layout starts no TFS agent, so the TeamFoundationServer job is never leased and re-queues until the test gives up. This is pre-existing and unrelated to package pins (tracked in #170). All 12 ADO/Simulated live tests pass.",
+    "The previous PAT-based live runs failed with 401 because AZDEVOPS_SYSTEM_TEST_PAT had expired. The CI live step fails the same way until it signs in as the shared Entra app (#175).",
+    "A timed-out TFS live test left CLI/ControlPlaneHost/MigrationAgent processes running, which kept `dotnet test` output open for hours. Tracked as #180, which is being fixed next."
   ],
   "risks": [
-    "Live coverage is unverified until the test PAT is renewed."
+    "CI \"Build and Test\" stays red on its live step until #175 wires the federated Entra identity into the workflow."
   ],
   "docs_updated": [],
   "outcome": "PARTIAL"
