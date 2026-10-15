@@ -38,7 +38,7 @@ public class ChildProcessJobTests
         };
 
         using var parent = Process.Start(psi)!;
-        var job = new ChildProcessJob();
+        using var job = new ChildProcessJob();   // closed on every path, including a failed PID read
         job.Add(parent);
 
         var childPidLine = await parent.StandardOutput.ReadLineAsync().WaitAsync(TimeSpan.FromSeconds(20));
@@ -48,5 +48,29 @@ public class ChildProcessJobTests
 
         Assert.IsTrue(parent.WaitForExit(10_000), "Parent process should be killed when the job is disposed.");
         Assert.IsTrue(child.WaitForExit(10_000), "Descendant process should be killed when the job is disposed.");
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
+    [OSCondition(OperatingSystems.Windows)]
+    [TestMethod]
+    public void AddCurrentProcess_ProcessesStartedAfterwardsAreMembersFromBirth()
+    {
+        // CliRunner puts the test host itself in the job, so there is no window between Process.Start
+        // and job assignment in which the CLI could spawn a child outside the job.
+        // The job is deliberately NOT disposed here: disposing a job that contains the test host would
+        // kill it. Its handle closes when the host exits, exactly like CliRunner's job.
+        var job = new ChildProcessJob();
+        job.AddCurrentProcess();
+
+        using var child = Process.Start(new ProcessStartInfo("ping", "-n 30 127.0.0.1") { UseShellExecute = false, CreateNoWindow = true })!;
+        try
+        {
+            Assert.IsTrue(job.Contains(child), "A process started after the host joined the job must already be a member.");
+        }
+        finally
+        {
+            child.Kill();
+        }
     }
 }

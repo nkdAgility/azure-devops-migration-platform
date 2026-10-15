@@ -493,7 +493,9 @@ public class QueueCommandTests
         var result = await CliRunner.RunTestAsync(
             testName: nameof(Queue_Export_TFS_WritesRevisionFiles),
             args: ["queue", "--config", "scenarios/SystemTest-Live-Export-TFS-WorkItems-SingleProject.json", "--force-fresh"],
-            timeout: TimeSpan.FromMinutes(18),
+            // Must stay below the MSTest [Timeout] (180 s): MSTest abandons a timed-out method, so only
+            // the runner's own timeout reliably kills the CLI tree before the next test runs (#180).
+            timeout: TimeSpan.FromSeconds(170),
             cleanOutputFolder: true);
         var outputDir = result.OutputDirectory;
 

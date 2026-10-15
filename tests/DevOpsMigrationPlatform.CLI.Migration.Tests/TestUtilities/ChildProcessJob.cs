@@ -59,6 +59,32 @@ internal sealed class ChildProcessJob : IDisposable
             throw new Win32Exception(Marshal.GetLastWin32Error(), "AssignProcessToJobObject failed.");
     }
 
+    /// <summary>
+    /// Puts the current process in the job, so every process it starts afterwards is a member from
+    /// birth — there is no race between starting a child and assigning it. Never dispose a job that
+    /// contains the current process: closing it kills this process too. Leave the handle to close
+    /// when the process exits.
+    /// </summary>
+    public void AddCurrentProcess()
+    {
+        if (_handle == IntPtr.Zero)
+            return;
+
+        if (!AssignProcessToJobObject(_handle, GetCurrentProcess()))
+            throw new Win32Exception(Marshal.GetLastWin32Error(), "AssignProcessToJobObject(current process) failed.");
+    }
+
+    /// <summary>Returns <c>true</c> when <paramref name="process"/> is a member of this job.</summary>
+    public bool Contains(Process process)
+    {
+        if (_handle == IntPtr.Zero)
+            return false;
+
+        if (!IsProcessInJob(process.Handle, _handle, out var result))
+            throw new Win32Exception(Marshal.GetLastWin32Error(), "IsProcessInJob failed.");
+        return result;
+    }
+
     /// <summary>Closes the job, which kills every process still in it.</summary>
     public void Dispose()
     {
@@ -116,4 +142,10 @@ internal sealed class ChildProcessJob : IDisposable
 
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool CloseHandle(IntPtr hObject);
+
+    [DllImport("kernel32.dll")]
+    private static extern IntPtr GetCurrentProcess();
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool IsProcessInJob(IntPtr processHandle, IntPtr jobHandle, out bool result);
 }

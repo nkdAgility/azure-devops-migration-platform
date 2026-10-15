@@ -26,10 +26,19 @@ public sealed class CliRunner
     private const string TfsMigrationAgentExeName = "tfsmigration.exe";
     private static readonly ConcurrentDictionary<string, string> _testStorageByName = new(StringComparer.Ordinal);
 
-    // Every CLI process (and the ControlPlaneHost/agents it spawns) joins this kill-on-close job.
-    // The handle lives for the whole test host, so the OS kills any surviving tree when the host
-    // exits — including when MSTest abandons a timed-out test before RunAsync's cleanup runs (#180).
-    private static readonly ChildProcessJob _processJob = new();
+    // The test host itself joins this kill-on-close job, so every CLI process (and the
+    // ControlPlaneHost/agents it spawns) is a member from birth — no start-then-assign race. The
+    // handle lives for the whole test host, so the OS kills any surviving tree when the host exits,
+    // including when MSTest abandons a timed-out test before RunAsync's cleanup runs (#180).
+    // Per-test termination is RunAsync's own timeout, which callers must keep below any MSTest [Timeout].
+    private static readonly ChildProcessJob _processJob = CreateHostJob();
+
+    private static ChildProcessJob CreateHostJob()
+    {
+        var job = new ChildProcessJob();
+        job.AddCurrentProcess();
+        return job;
+    }
 
     /// <summary>
     /// Root folder (relative to the repo root) used by system tests as their working directory.
@@ -297,8 +306,8 @@ public sealed class CliRunner
         bool timedOut = false;
         try
         {
+            GC.KeepAlive(_processJob);   // ensure the host job exists before the first CLI starts
             process.Start();
-            _processJob.Add(process);
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
             await process.WaitForExitAsync(timeoutCts.Token).ConfigureAwait(false);
