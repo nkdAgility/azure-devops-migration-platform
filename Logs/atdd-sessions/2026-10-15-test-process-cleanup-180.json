@@ -14,12 +14,41 @@
     "Logs/atdd-sessions/2026-10-15-test-process-cleanup-180.json"
   ],
   "suites": [
-    { "suite": "UnitTests", "run": true, "passed": 1006, "failed": 0 },
-    { "suite": "DomainTests", "run": true, "passed": 44, "failed": 0 },
-    { "suite": "IntegrationTests", "run": true, "passed": 643, "failed": 0 },
-    { "suite": "SystemTest_Simulated", "run": true, "passed": 48, "failed": 0 },
-    { "suite": "SystemTest_Live", "run": true, "passed": 0, "failed": 1 },
-    { "suite": "SystemTest_Smoke", "run": false, "not_run_reason": "CI critical-path subset of suites already run locally; runs in CI on the PR." }
+    {
+      "suite": "UnitTests",
+      "run": true,
+      "passed": 1006,
+      "failed": 0
+    },
+    {
+      "suite": "DomainTests",
+      "run": true,
+      "passed": 44,
+      "failed": 0
+    },
+    {
+      "suite": "IntegrationTests",
+      "run": true,
+      "passed": 643,
+      "failed": 0
+    },
+    {
+      "suite": "SystemTest_Simulated",
+      "run": true,
+      "passed": 48,
+      "failed": 0
+    },
+    {
+      "suite": "SystemTest_Live",
+      "run": true,
+      "passed": 0,
+      "failed": 1
+    },
+    {
+      "suite": "SystemTest_Smoke",
+      "run": false,
+      "not_run_reason": "CI critical-path subset of suites already run locally; runs in CI on the PR."
+    }
   ],
   "assumptions": [
     "RED: ChildProcessJobTests.Dispose_KillsTrackedProcessAndItsDescendants failed to compile before ChildProcessJob existed; GREEN after implementation (parent and grandchild both killed on dispose).",
@@ -35,5 +64,5 @@
     "Processes started by the CLI between Process.Start and AssignProcessToJobObject would escape the job; the CLI spawns ControlPlaneHost only after startup, so the window is negligible."
   ],
   "docs_updated": [],
-  "outcome": "SUCCESS"
+  "outcome": "PARTIAL"
 }
