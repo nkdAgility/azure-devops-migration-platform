@@ -149,7 +149,7 @@ if (-not $SkipGitHub -and -not $LocalOnly) {
 
 if ($LocalOnly) {
     Write-Host "== Done. In each new terminal, export an Entra token wherever the tests expect a PAT:"
-    Write-Host "   `$env:AZDEVOPS_SYSTEM_TEST_ORG = '$SourceOrg'"
+    Write-Host "   `$env:AZDEVOPS_SYSTEM_TEST_ORG = 'https://dev.azure.com/$SourceOrg/'"
     Write-Host "   `$env:AZDEVOPS_SYSTEM_TEST_PAT = (az account get-access-token --resource $AzureDevOpsResource --query accessToken -o tsv)"
     Write-Host "   (Tokens expire after about an hour; re-run the last line if live tests start returning 401.)"
     return

@@ -131,7 +131,7 @@ The workflow then signs in with `azure/login` (OIDC) inside the `integration-tes
 ./infra/test-env/Setup-TestEnvironment.ps1 -LocalOnly -SourceOrg nkdagility-adomt-source -TargetOrg nkdagility-adomt-target
 ```
 
-It checks that your `az login` reaches both orgs and prints the `AZDEVOPS_SYSTEM_TEST_ORG` / `AZDEVOPS_SYSTEM_TEST_PAT` exports. The token expires after about an hour; re-export it when live tests start returning 401.
+It checks that your `az login` reaches both orgs and prints the `AZDEVOPS_SYSTEM_TEST_ORG` (organisation URL, e.g. `https://dev.azure.com/nkdagility-adomt-source/`) and `AZDEVOPS_SYSTEM_TEST_PAT` (Entra token) exports. The token expires after about an hour; re-export it when live tests start returning 401.
 
 ## Authoring Live Tests
 
