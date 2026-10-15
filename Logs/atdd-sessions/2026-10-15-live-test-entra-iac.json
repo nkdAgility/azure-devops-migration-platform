@@ -1,0 +1,40 @@
+{
+  "session_id": "2026-10-15-live-test-entra-iac",
+  "started_at": "2026-10-15T10:00:00Z",
+  "completed_at": "2026-10-15T11:00:00Z",
+  "requirement": "Issue #175 (part): commit infrastructure-as-code for the live-test Entra identity (infra/test-env: main.bicep, bicepconfig.json, Setup-TestEnvironment.ps1), mirroring azure-devops-migration-tools/infra/test-env, and document CI vs local (-LocalOnly) use.",
+  "change_class": "docs-only",
+  "consent_reference": "Operator-assigned task via manager session (2026-10-15): commit the infra/test-env IaC for #175 and document it; do not deploy or run the setup script without explicit approval.",
+  "activity": "documentation",
+  "files_changed": [
+    "infra/test-env/main.bicep",
+    "infra/test-env/bicepconfig.json",
+    "infra/test-env/Setup-TestEnvironment.ps1",
+    "docs/live-system-testing-guide.md",
+    "Logs/atdd-sessions/2026-10-15-live-test-entra-iac.json"
+  ],
+  "suites": [
+    { "suite": "UnitTests", "run": true, "passed": 1042, "failed": 0 },
+    { "suite": "DomainTests", "run": false, "not_run_reason": "No src/ or tests/ change; infrastructure scripts and docs only." },
+    { "suite": "IntegrationTests", "run": false, "not_run_reason": "No src/ or tests/ change; infrastructure scripts and docs only." },
+    { "suite": "SystemTest_Simulated", "run": false, "not_run_reason": "No src/ or tests/ change; infrastructure scripts and docs only." },
+    { "suite": "SystemTest_Live", "run": false, "not_run_reason": "Deploying the Bicep or running the setup script needs operator approval; not run in this session." },
+    { "suite": "SystemTest_Smoke", "run": false, "not_run_reason": "No src/ or tests/ change; runs on the PR." }
+  ],
+  "assumptions": [
+    "The Entra app 'adomt-integration-tests' (clientId 0c91788a-1025-4578-8bde-ddc0d25bc8a5) is owned by azure-devops-migration-tools and is referenced here as existing.",
+    "The federated credential github-platform-integration-tests, the integration-tests environment and the four repository variables already exist (created by hand); the script reproduces them idempotently."
+  ],
+  "deviations": [
+    "Base is origin/backlog/179-crypto-pins (PR #181) because origin/main fails restore on NuGet audit (System.Security.Cryptography.Pkcs/Xml). UnitTests ran as a regression check: a first parallel run showed 26 contention failures in Infrastructure.Agent.Tests (795/795 green in isolation and on rerun) and 1 in CLI.Migration.Tests that needed ControlPlaneHost built first; final run 1042/1042.", "Static validation: 'az bicep build' succeeded and the PowerShell script parses with 0 errors.",
+    "Draft -LocalOnly output printed SOURCE_PAT/TARGET_PAT; corrected to AZDEVOPS_SYSTEM_TEST_ORG/AZDEVOPS_SYSTEM_TEST_PAT, which the live tests actually read.",
+    ".agents/20-guardrails/workflow/live-test-environment.md does not exist on origin/main, so it was not changed."
+  ],
+  "risks": [
+    "A full run of Setup-TestEnvironment.ps1 also creates the github-platform-integration-tests-forks credential and the integration-tests-forks environment, which do not yet exist."
+  ],
+  "docs_updated": [
+    "docs/live-system-testing-guide.md"
+  ],
+  "outcome": "SUCCESS"
+}
