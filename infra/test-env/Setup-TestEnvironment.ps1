@@ -12,7 +12,9 @@
     2. Ensures the app's service principal is a Project Collection Administrator in both orgs. This is
        idempotent, and normally already true from the Migration Tools setup.
     3. Configures GitHub: the integration-tests and integration-tests-forks environments (the latter
-       with required reviewers), plus the repository variables the workflow reads.
+       with required reviewers), plus the repository variables the workflow reads. AZDEVOPS_SYSTEM_TEST_ORG
+       (the org the live tests target) is set only when -LiveTestOrg is passed; until #176 moves the test
+       fixtures it must stay nkdagility-preview.
 
     Prerequisites (one-off): you are signed in with 'az login', can manage the app registration, and
     are an admin of both orgs. You are also signed in with 'gh auth login' as an admin of this
@@ -40,6 +42,7 @@ param(
     [Parameter(Mandatory)] [string] $SourceOrg,
     [Parameter(Mandatory)] [string] $TargetOrg,
     [string[]] $Reviewers,
+    [string] $LiveTestOrg,
     [string] $Repository = 'nkdAgility/azure-devops-migration-platform',
     [string] $ResourceGroup = 'rg-adomt-integration-tests',
     [string] $Location = 'westeurope',
@@ -139,9 +142,10 @@ if (-not $SkipGitHub -and -not $LocalOnly) {
         AZURE_TEST_TENANT_ID       = $tenantId
         ADO_TEST_SOURCE_COLLECTION = "https://dev.azure.com/$SourceOrg/"
         ADO_TEST_TARGET_COLLECTION = "https://dev.azure.com/$TargetOrg/"
-        # Read by the workflow's live-test step and the tests themselves (an org URL, not a name).
-        AZDEVOPS_SYSTEM_TEST_ORG   = "https://dev.azure.com/$SourceOrg/"
     }
+    # Org the live tests run against (read by the workflow's live-test step). Opt-in: left unchanged unless
+    # -LiveTestOrg is passed. It must stay nkdagility-preview until #176 moves the fixtures (migrationTest5 etc.).
+    if ($LiveTestOrg) { $variables.AZDEVOPS_SYSTEM_TEST_ORG = "https://dev.azure.com/$LiveTestOrg/" }
     foreach ($name in $variables.Keys) {
         gh variable set $name --body $variables[$name] --repo $Repository
         Assert-Gh "set variable $name"
@@ -151,7 +155,8 @@ if (-not $SkipGitHub -and -not $LocalOnly) {
 
 if ($LocalOnly) {
     Write-Host "== Done. In each new terminal, export an Entra token wherever the tests expect a PAT:"
-    Write-Host "   `$env:AZDEVOPS_SYSTEM_TEST_ORG = 'https://dev.azure.com/$SourceOrg/'"
+    $liveOrg = if ($LiveTestOrg) { $LiveTestOrg } else { 'nkdagility-preview' }  # fixtures live there until #176
+    Write-Host "   `$env:AZDEVOPS_SYSTEM_TEST_ORG = 'https://dev.azure.com/$liveOrg/'"
     Write-Host "   `$env:AZDEVOPS_SYSTEM_TEST_PAT = (az account get-access-token --resource $AzureDevOpsResource --query accessToken -o tsv)"
     Write-Host "   (Tokens expire after about an hour; re-run the last line if live tests start returning 401.)"
     return

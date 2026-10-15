@@ -115,7 +115,7 @@ The live-test identity is defined as code in [`infra/test-env`](../infra/test-en
 
 - `main.bicep` references the Entra app **shared with Azure DevOps Migration Tools** (`uniqueName: adomt-integration-tests`, resource group `rg-adomt-integration-tests`) as `existing`. It only adds GitHub OIDC federated credentials named `github-platform-<environment>` for this repository, so neither repository's deployment overwrites the other's. The app and its Project Collection Administrator rights in the `nkdagility-adomt-*` orgs are owned by the Migration Tools repository's `infra/test-env`.
 - `bicepconfig.json` enables the Microsoft Graph Bicep extension.
-- `Setup-TestEnvironment.ps1` is idempotent. It deploys the Bicep, confirms the service principal's org access, and configures the GitHub environments (`integration-tests`, plus `integration-tests-forks` with required reviewers) and the repository variables `AZURE_TEST_CLIENT_ID`, `AZURE_TEST_TENANT_ID`, `ADO_TEST_SOURCE_COLLECTION`, `ADO_TEST_TARGET_COLLECTION` and `AZDEVOPS_SYSTEM_TEST_ORG` (the source organisation URL the live tests read).
+- `Setup-TestEnvironment.ps1` is idempotent. It deploys the Bicep, confirms the service principal's org access, and configures the GitHub environments (`integration-tests`, plus `integration-tests-forks` with required reviewers) and the repository variables `AZURE_TEST_CLIENT_ID`, `AZURE_TEST_TENANT_ID`, `ADO_TEST_SOURCE_COLLECTION` and `ADO_TEST_TARGET_COLLECTION`. It changes `AZDEVOPS_SYSTEM_TEST_ORG`, the organisation the live tests target, only when you pass `-LiveTestOrg <org>`; otherwise it leaves the variable as it is. Until #176 moves the live-test fixtures (`migrationTest5` and others), that variable must stay `https://dev.azure.com/nkdagility-preview/`.
 
 **CI (maintainers).** Run once, signed in with `az login` and `gh auth login` as an admin:
 
@@ -131,7 +131,7 @@ The workflow then signs in with `azure/login` (OIDC) inside the `integration-tes
 ./infra/test-env/Setup-TestEnvironment.ps1 -LocalOnly -SourceOrg nkdagility-adomt-source -TargetOrg nkdagility-adomt-target
 ```
 
-It checks that your `az login` reaches both orgs and prints the `AZDEVOPS_SYSTEM_TEST_ORG` (organisation URL, e.g. `https://dev.azure.com/nkdagility-adomt-source/`) and `AZDEVOPS_SYSTEM_TEST_PAT` (Entra token) exports. The token expires after about an hour; re-export it when live tests start returning 401.
+It checks that your `az login` reaches both orgs and prints the `AZDEVOPS_SYSTEM_TEST_ORG` (organisation URL: `-LiveTestOrg` if given, otherwise `https://dev.azure.com/nkdagility-preview/` until #176) and `AZDEVOPS_SYSTEM_TEST_PAT` (Entra token) exports. The token expires after about an hour; re-export it when live tests start returning 401.
 
 ## Authoring Live Tests
 
