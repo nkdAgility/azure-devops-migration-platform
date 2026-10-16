@@ -10,6 +10,8 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
      <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+    <!-- Session-level timeout ceiling for every test run (#180). -->
+    <RunSettingsFilePath>$(MSBuildThisFileDirectory)test-session.runsettings</RunSettingsFilePath>
   </PropertyGroup>
 
   <ItemGroup>
