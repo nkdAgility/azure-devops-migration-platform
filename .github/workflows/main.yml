@@ -14,10 +14,15 @@ jobs:
     name: Build and Test
     # net481 targets require Windows; build.ps1 is the single entry point
     runs-on: windows-latest
+    # The integration-tests environment is the federated-credential subject of the shared Entra test
+    # app (infra/test-env, same as azure-devops-migration-tools); no PAT or secret is stored.
+    # Untrusted runs (PRs from forks) use integration-tests-forks, which requires reviewer approval.
+    environment: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'integration-tests' || 'integration-tests-forks' }}
     permissions:
       checks: write
       contents: read
       pull-requests: write
+      id-token: write
     outputs:
       semver: ${{ steps.version.outputs.semVer }}
 
@@ -71,12 +76,34 @@ jobs:
         timeout-minutes: 10
         run: pwsh ./build.ps1 -Mode SystemTest_Simulated
 
+      - name: Sign in to Entra (GitHub OIDC, shared test app)
+        # Skipped when the identity is not configured (e.g. a fork without the repo variables).
+        if: ${{ vars.AZURE_TEST_CLIENT_ID != '' && vars.AZURE_TEST_TENANT_ID != '' }}
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_TEST_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TEST_TENANT_ID }}
+          allow-no-subscriptions: true
+
       - name: System Test (Live)
+        if: ${{ vars.AZURE_TEST_CLIENT_ID != '' && vars.AZURE_TEST_TENANT_ID != '' }}
         timeout-minutes: 10
-        run: pwsh ./build.ps1 -Mode SystemTest_Live
+        shell: pwsh
         env:
           AZDEVOPS_SYSTEM_TEST_ORG: ${{ vars.AZDEVOPS_SYSTEM_TEST_ORG }}
-          AZDEVOPS_SYSTEM_TEST_PAT: ${{ secrets.AZDEVOPS_SYSTEM_TEST_PAT }}
+        run: |
+          # An Entra access token is accepted wherever a PAT is, so the live tests use it unchanged.
+          # It exists only in this step's process environment: it is never written to GITHUB_ENV, so
+          # later steps cannot read it.
+          $token = az account get-access-token --resource 499b84ac-1321-427f-aa17-267ca6975798 --query accessToken -o tsv
+          if ($LASTEXITCODE -ne 0 -or -not $token) { throw 'Could not get an Azure DevOps token for the test app.' }
+          Write-Host "::add-mask::$token"
+          $env:AZDEVOPS_SYSTEM_TEST_PAT = $token
+          ./build.ps1 -Mode SystemTest_Live
+          $code = $LASTEXITCODE
+          $env:AZDEVOPS_SYSTEM_TEST_PAT = $null
+          az logout 2>$null
+          exit $code
 
       - name: Package
         if: github.event_name != 'pull_request'
