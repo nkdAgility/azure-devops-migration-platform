@@ -65,14 +65,13 @@ internal sealed class ChildProcessJob : IDisposable
     /// contains the current process: closing it kills this process too. Leave the handle to close
     /// when the process exits.
     /// </summary>
-    public void AddCurrentProcess()
-    {
-        if (_handle == IntPtr.Zero)
-            return;
-
-        if (!AssignProcessToJobObject(_handle, GetCurrentProcess()))
-            throw new Win32Exception(Marshal.GetLastWin32Error(), "AssignProcessToJobObject(current process) failed.");
-    }
+    /// <returns>
+    /// <c>true</c> when the current process joined the job. Returns <c>false</c>, and never throws, when
+    /// it cannot join: for example, under a debugger or an outer job that forbids nesting, or on
+    /// non-Windows platforms. Callers then fall back to <see cref="Add"/> for each child they start.
+    /// </returns>
+    public bool TryAddCurrentProcess() =>
+        _handle != IntPtr.Zero && AssignProcessToJobObject(_handle, GetCurrentProcess());
 
     /// <summary>Returns <c>true</c> when <paramref name="process"/> is a member of this job.</summary>
     public bool Contains(Process process)

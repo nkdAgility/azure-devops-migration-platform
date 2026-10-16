@@ -55,7 +55,8 @@
     "RED: ChildProcessJobTests.Dispose_KillsTrackedProcessAndItsDescendants failed to compile before ChildProcessJob existed; GREEN after implementation (parent and grandchild both killed on dispose).",
     "Runtime proof: the previously orphaning test Queue_Export_TFS_WritesRevisionFiles (SystemTest_Live, run alone with an Entra token in place of the PAT) now returns from `dotnet test` after 182 s with 0 surviving processes whose command line contains devopsmigration-cli-tests. Before the fix: 3 orphans and a run that never returned.",
     "default.runsettings is not referenced by any project, so its 60 s TestTimeout never applied. It was deliberately left unwired; the new tests/test-session.runsettings carries only TestSessionTimeout.",
-    "Review round 1: (a) the host-wide job now contains the test host itself (ChildProcessJob.AddCurrentProcess), so CLI descendants are members from birth with no start-then-assign race. Test-first: AddCurrentProcess_ProcessesStartedAfterwardsAreMembersFromBirth failed to compile (RED), then passed. (b) Queue_Export_TFS_WritesRevisionFiles passed an 18-minute runner timeout under a 180 s MSTest [Timeout]; it now passes 170 s, so the runner kills the tree per test while the host keeps running. Re-run alongside other tests: it failed with \"CLI timed out\" at 171 s and 0 processes survived. It was the only such mismatch in tests/. (c) The unit test scopes the job with `using`."
+    "Review round 1: (a) the host-wide job now contains the test host itself (ChildProcessJob.AddCurrentProcess), so CLI descendants are members from birth with no start-then-assign race. Test-first: AddCurrentProcess_ProcessesStartedAfterwardsAreMembersFromBirth failed to compile (RED), then passed. (b) Queue_Export_TFS_WritesRevisionFiles passed an 18-minute runner timeout under a 180 s MSTest [Timeout]; it now passes 170 s, so the runner kills the tree per test while the host keeps running. Re-run alongside other tests: it failed with \"CLI timed out\" at 171 s and 0 processes survived. It was the only such mismatch in tests/. (c) The unit test scopes the job with `using`.",
+    "Review round 2: joining the host to the job is best-effort. ChildProcessJob.TryAddCurrentProcess returns false instead of throwing, and job creation failures are caught, so CliRunner never fails with TypeInitializationException under a debugger or an outer job. When the host is not in the job, each CLI process is added after it starts (TrackProcess). Test renamed to use TryAddCurrentProcess: RED (missing member), then GREEN. Non-live suites re-run: Unit 1006, Domain 44, Integration 644, Simulated 48, all passed."
   ],
   "deviations": [
     "The SystemTest_Live entry is a single targeted test used as runtime proof. It still fails (by timeout) because the CLI test layout starts no TFS agent, so the TeamFoundationServer job is never leased (#170). The fix here is that it no longer hangs or orphans; the full live suite was run earlier today on #181 (12 passed, 2 TFS failed).",
@@ -63,7 +64,8 @@
   ],
   "risks": [
     "ChildProcessJob is Windows-only (no-op elsewhere); CLI system tests run on windows-latest in CI.",
-    "Processes started by the CLI between Process.Start and AssignProcessToJobObject would escape the job; the CLI spawns ControlPlaneHost only after startup, so the window is negligible."
+    "Processes started by the CLI between Process.Start and AssignProcessToJobObject would escape the job; the CLI spawns ControlPlaneHost only after startup, so the window is negligible.",
+    "CI restore is currently red on main because of MessagePack GHSA-qhrr-8q5h-9q3h. That is unrelated to this PR and is being fixed in #184."
   ],
   "docs_updated": [],
   "outcome": "PARTIAL"

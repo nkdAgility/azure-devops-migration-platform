@@ -61,7 +61,7 @@ public class ChildProcessJobTests
         // The job is deliberately NOT disposed here: disposing a job that contains the test host would
         // kill it. Its handle closes when the host exits, exactly like CliRunner's job.
         var job = new ChildProcessJob();
-        job.AddCurrentProcess();
+        Assert.IsTrue(job.TryAddCurrentProcess(), "The test host should be able to join a kill-on-close job on Windows.");
 
         using var child = Process.Start(new ProcessStartInfo("ping", "-n 30 127.0.0.1") { UseShellExecute = false, CreateNoWindow = true })!;
         try
