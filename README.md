@@ -48,8 +48,8 @@ The package is a versioned, portable snapshot on disk.Zip it, move it, review it
 | **Simulated → Simulated** | ✅ | Full Migrate pipeline (Inventory → Export → Prepare → Import) runs offline. Used for CI and integration testing. |
 | **ADO → ADO Export** | ✅ | Production-ready. Work items, revisions, comments, attachments, embedded images, links, identities, nodes, teams. |
 | **ADO → ADO Import** | 🔜 | Real implementation exists — work item creation, node creation, link/attachment/comment import, identity resolution. Integration validation and error-recovery hardening in progress. Not recommended for production yet. |
-| **TFS → ADO Export** | ✅ | Works via the TfsMigrationAgent (.NET 4.8.1, Windows only). Work items, revisions, nodes. |
-| **TFS → ADO Import** | 📋 | TFS export produces a standard package; ADO import target exists. TFS-specific identity and field mapping configs are not yet validated. |
+| **TFS → ADO Export** | ✅ | Works via the TfsMigrationAgent (.NET 4.8.1, Windows only). Work items, revisions, nodes. On net481 the export currently skips comments, include/exclude filters, WIQL selection and embedded images. |
+| **TFS → ADO Import** | 📋 | TFS export produces a standard package; ADO import target exists. Must be run as **two configs** today (Export with a TFS `Source` and no `Target`, then Import with the ADO `Target`) — a single config with both is not picked up by either agent. TFS-specific identity and field mapping configs are not yet validated. |
 
 ### Migration Modules
 
@@ -102,6 +102,62 @@ Stages run left-to-right: **Capture** → **Export** → **Prepare** → **Impor
 | NodeTranslation | ✅ | Translate area and iteration path strings against configured mappings |
 | IdentityLookup | ✅ | Resolve and remap user identities across organisations |
 | WorkItemTypeTranslation | 📋 | Remap work item type names between source and target (e.g., User Story → Product Backlog Item) |
+
+---
+
+## Compared with Azure DevOps Migration Tools
+
+This platform is the planned successor to [azure-devops-migration-tools](https://github.com/nkdAgility/azure-devops-migration-tools). Until it reaches parity, **use this platform to export and evaluate work-item migrations, and keep using Migration Tools for production migrations**. ADO import is not yet recommended for production (see the status table above).
+
+_Assessment as of October 2026 (`v20.0.2-preview` series)._
+
+### Architecture
+
+| Migration Tools | This platform |
+|-----------------|---------------|
+| Copies live from source to target; both must be online at once | Source → Files → Target through a versioned, auditable package |
+| Re-runs rely on a `ReflectedWorkItemId` custom field; a crash can leave a partially migrated item | Checkpoints after each item and resumes from there; `--force-fresh` to restart |
+| TFS processors need .NET Framework 4.7.2 | Modern .NET, plus a separate .NET 4.8.1 agent only for TFS |
+| One console exe and one large JSON config | Control Plane, agents, CLI and TUI; versioned config travels inside the package |
+| Identities mapped during the live run | `Identities/mapping.json` reviewed and edited offline before import |
+
+### Feature parity
+
+| Capability | Migration Tools | This platform |
+|------------|:---------------:|:-------------:|
+| Work items, revisions, comments | ✅ | ✅ export · 🔜 import |
+| Links, attachments, embedded images | ✅ | ✅ export · 🔜 import |
+| Area & iteration paths | ✅ | ✅ |
+| Identity mapping | ✅ | ✅ |
+| Field maps / transforms | ✅ | ✅ (14 transforms) |
+| Teams and board settings | ✅ incl. TFS | ✅ ADO · 📋 TFS |
+| Changeset and git commit link remapping | ✅ | 📋 |
+| Process / work item type definitions | ✅ | 📋 readiness check only |
+| Test plans, suites, configurations | ✅ | 📋 |
+| Shared queries | ✅ | 📋 |
+| Pipelines, task groups, variable groups, service connections | 🧪 Beta | 📋 |
+| Bulk edit, overwrite, delete utilities | ✅ | 📋 |
+| Git / TFVC history, wikis, dashboards | ❌ | 📋 / ❌ |
+
+### Usability
+
+**Better than Migration Tools:** offline review of the package and identity map, checkpoint-based resume, pause/resume/cancel, live progress (`--follow`, TUI), downloadable diagnostics, and the `config new` wizard.
+
+**Still behind Migration Tools:**
+- **Install:** there's no winget, Chocolatey, or dotnet-tool package, and the build output zip is still named `MigrationTools-*`.
+- **Runtime setup:** you need to run a Control Plane and an agent, compared with a single exe.
+- **Config editing:** there's no published config JSON Schema, so editors can't offer IntelliSense.
+- **Docs:** there's no catalogue of transform examples comparable to the Migration Tools docs site.
+- **Error messages:** many are developer-facing (spec 004 tasks T030, T040 and T041).
+- **Testing:** almost all tests run against the Simulated connector; only 14 run against live systems.
+
+### Path to parity
+
+1. Finish work item import hardening (specs 035, 019, 020, 029, 010) and reach a stable release.
+2. Add changeset/commit link remapping and TFS board settings.
+3. Improve operator UX: package distribution, publish the config schema, write a Simulated quickstart, and fix the error messages.
+4. Specify and build shared queries → test plans → process definitions → pipelines.
+
 ---
 
 ## Install
@@ -135,9 +191,9 @@ To start the Control Plane and Migration Agent locally after install:
 flowchart LR
     S1["1️⃣ Create config\ndevopsmigration config new"]
     S2["2️⃣ Check scope\ndevopsmigration discovery inventory"]
-    S3["3️⃣ Export\ndevopsmigration queue --mode Export"]
-    S4["4️⃣ Prepare\ndevopsmigration queue --mode Prepare"]
-    S5["5️⃣ Import\ndevopsmigration queue --mode Import"]
+    S3["3️⃣ Export\nMode: Export → devopsmigration queue"]
+    S4["4️⃣ Prepare\nMode: Prepare → devopsmigration queue"]
+    S5["5️⃣ Import\nMode: Import → devopsmigration queue"]
     S1 --> S2 --> S3 --> S4 --> S5
 ```
 
@@ -193,21 +249,27 @@ Counts work items and revisions per project. Read-only — nothing is written.
 devopsmigration queue --config migration.json --follow
 ```
 
-Exports to the package directory. `--follow` streams live progress to the terminal.
+Runs the phase named by the config's `Mode` field (`Export` above) and writes to the package directory. `--follow` streams live progress to the terminal. There is no `--mode` flag — each later step changes `Mode` in the config. Alternatively set `"Mode": "Migrate"`: the CLI then submits Export, Prepare and Import as separate jobs in sequence. **It does not run Validate.**
 
 ### 4. Review and prepare
 
+Add a `Target` block (same shape as `Source`, using `$ENV:TARGET_PAT`) to the config, set `"Mode": "Prepare"`, then run:
+
 ```powershell
-devopsmigration queue --config migration.json --mode Prepare --follow
+devopsmigration queue --config migration.json --follow
 ```
 
 Validates identities, nodes, and fields against the target. Produces mapping reports in the package directory. Review and fix any blocking issues before importing.
 
 ### 5. Import
 
+Set `"Mode": "Import"` in the config, then run:
+
 ```powershell
-devopsmigration queue --config migration.json --mode Import --follow
+devopsmigration queue --config migration.json --follow
 ```
+
+> **TFS sources:** run Export with a TFS `Source` and **no** `Target`, then use a separate config (ADO `Target`, same `Package.WorkingDirectory`) for Prepare and Import. A single config with a TFS source and an ADO target is not picked up by either agent today.
 
 ### Resuming after failure
 

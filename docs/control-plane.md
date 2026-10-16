@@ -174,17 +174,13 @@ The control plane accepts two authentication schemes. The scheme active in a giv
 | **Entra ID (OIDC / Bearer)** | Cloud deployments and any Entra-joined environment. The CLI/TUI acquires a token scoped to the control plane's Entra App Registration. | `tid` (tenant GUID), `oid` (user object ID), `upn` (email address) |
 | **Windows Integrated Auth (Negotiate)** | On-premises Active Directory deployments. No extra login step; the OS forwards the Kerberos/NTLM token. | `domain` (AD domain FQDN used as `tenant_id`), `sid` (used as `submitted_by_oid`), `samAccountName` (used as `submitted_by_upn`) |
 
-> ⛔ **There is no local-only mode without a control plane.** All topologies — including a developer laptop or dedicated server — run `ControlPlaneHost` via Aspire. The CLI always submits jobs via `ControlPlaneClient` over HTTP. A `LocalJobRunner` or any in-process job executor is **not permitted** and must not be implemented. See guardrail rule #20 in `.agents/20-guardrails/core/architecture-boundaries.md`.
+> ⛔ **There is no local-only mode without a control plane.** All topologies — including a developer laptop or dedicated server — run `ControlPlaneHost` (in Standalone mode as a child process started by the CLI's `LocalStackHost`, without Aspire; Aspire is used only by the development AppHost). The CLI always submits jobs via `ControlPlaneClient` over HTTP. A `LocalJobRunner` or any in-process job executor is **not permitted** and must not be implemented. See guardrail rule #20 in `.agents/20-guardrails/core/architecture-boundaries.md`.
 
 ### Login
 
-For Entra ID, users authenticate with:
+> **Not yet implemented.** The command is `devopsmigration manage login [--url <control-plane-url>]`, but today it prints "not yet implemented", exits with code 1, and is hidden in Preview builds (`ManageLoginCommand.cs`). In Standalone mode the CLI starts `ControlPlaneHost` with `ASPNETCORE_ENVIRONMENT=Development`, which enables a local-only auth bypass, so no login is needed.
 
-```
-devopsmigration login [--url <control-plane-url>]
-```
-
-This performs an interactive MSAL device-code flow and caches the token locally. All subsequent CLI and TUI commands forward this credential automatically. Windows Integrated Auth requires no explicit login step.
+**Planned behaviour:** for Entra ID, `manage login` will perform an interactive MSAL device-code flow and cache the token locally; subsequent CLI and TUI commands will forward it automatically. Windows Integrated Auth will require no explicit login step.
 
 ---
 
