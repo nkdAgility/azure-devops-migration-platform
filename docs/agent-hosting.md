@@ -16,7 +16,7 @@ The package contract, modules, and cursors are unchanged across all deployment t
 |---|---|
 | Poll for work | Call the control plane lease endpoint to receive a job. |
 | Acquire lease | Hold a time-bounded lease on the assigned job. |
-| Mount package store | Connect to the package URI from the job definition (filesystem or blob). See [package-boundary-reference.md](package-boundary-reference.md). |
+| Mount package store | Connect to the package URI from the job definition (filesystem; Azure Blob is planned, not yet implemented). See [package-boundary-reference.md](package-boundary-reference.md). |
 | Materialise config | Write `Job.ConfigPayload` → `.migration/migration-config.json` in the package through `IPackageAccess`. Build per-job `IConfiguration`, publish explicit current package/job/endpoint accessors, and create the per-job `IOptions<T>` DI scope. Fail fast with `PackageConfigNotFoundException` if no payload and no existing file. |
 | Write run audit copies | Write run-scoped audit copies of `job.json`, `plan.json`, and `config.json` under `.migration/runs/<runId>/` through `IPackageAccess`. |
 | Run orchestrator | Execute `ExportAsync`, `ImportAsync`, or both in sequence, exactly as in local mode. |
@@ -92,7 +92,7 @@ flowchart TD
 
 A single agent binary and container image supports all four modes (`Export`, `Prepare`, `Import`, `Migrate`) by reading `mode` from the job definition.
 
-For network zone isolation — where source and target systems are in different network zones — `ControlPlaneHost` can deploy the same agent image to different target contexts via `ContainerAgentLauncher` configuration. One deployment runs in the source network zone (mode `Export`); another runs in the target network zone (mode `Prepare` or `Import`). Both use the same package URI in the shared artefact store. The `manifest.json` and cursor files written by the export-mode agent are read by the prepare/import-mode agent without modification.
+For network zone isolation — where source and target systems are in different network zones — `ControlPlaneHost` can deploy the same agent image to different target contexts via `ContainerAgentLauncher` configuration. One deployment runs in the source network zone (mode `Export`); another runs in the target network zone (mode `Prepare` or `Import`). Both use the same package URI in the shared artefact store. *(Planned: this topology needs the Azure Blob artefact store, which is not yet implemented.)* The `manifest.json` and cursor files written by the export-mode agent are read by the prepare/import-mode agent without modification.
 
 ---
 
@@ -176,6 +176,8 @@ The **TFS Migration Agent** (`DevOpsMigrationPlatform.TfsMigrationAgent`) is a s
 The TFS agent exists because the TFS Object Model is a .NET Framework 3.x/4.x SOAP library that cannot run in .NET 9/10. Isolating it in a dedicated net481 process is the only way to use the TFS OM while keeping the rest of the platform on .NET 10.
 
 > **Current TFS scope is implementation-defined.** Capability coverage on `net481` can evolve; current gaps are not a justification for introducing non-compatibility runtime guard clauses.
+>
+> **Known gaps today** (tracked as backlog items, not accepted design): `#if !NET481` blocks in shared code skip WorkItems comments, include/exclude filters and WIQL selection on export, embedded images, and Nodes/Identities/Teams import; TFS board settings use `TfsNullBoardAdapter`. See [architecture.md — Two agents](architecture.md#two-agents-net481-and-net10).
 
 ### Agent Symmetry
 
@@ -184,13 +186,13 @@ The two agents use the same lease protocol, the same abstractions, and the same 
 | Aspect | MigrationAgent | TfsMigrationAgent |
 |---|---|---|
 | Runtime | net10.0 | net481 |
-| Capabilities | `ado`, `simulated` | `tfs` |
-| Package store | `FileSystemArtefactStore` or `AzureBlobArtefactStore` | `FileSystemArtefactStore` only |
+| Capabilities (`ConnectorType` names sent as `?capabilities=`) | `AzureDevOps`, `Simulated` | `TeamFoundationServer` |
+| Package store | `FileSystemArtefactStore` (Azure Blob store not yet implemented) | `FileSystemArtefactStore` only |
 | Progress reporting | `UnifiedWorkerEventWriter` | `UnifiedWorkerEventWriter` (plain net481 `HttpClient`) |
 | Checkpoint | `IStateStore` | `IStateStore` |
 | Module dispatch (export/import) | `IEnumerable<IModule>` | `IEnumerable<IModule>` |
 | Capture dispatch | `captureHandlersByName` (via `BuildCaptureHandlers`) | `captureHandlersByName` (modules only; no `DependencyCapture`) |
-| Supported modes | Export, Prepare, Import, Migrate | Current implementation coverage may differ by release |
+| Supported job kinds | All (`Inventory`, `Dependencies`, `Export`, `Prepare`, `Import`, `Migrate`) | `Export`, `Import`, `Inventory`, `Dependencies` only — `Prepare` and `Migrate` are rejected (`TfsJobAgentWorker.OnJobAsync`). Import is work items only. |
 | Container support | Yes | No — Windows process only |
 
 ### IModule Dispatch
@@ -198,9 +200,9 @@ The two agents use the same lease protocol, the same abstractions, and the same 
 `TfsJobAgentWorker` accepts `IEnumerable<IModule>` exactly like `JobAgentWorker`. TFS-specific modules implement the same `IModule` contract:
 
 - `ExportAsync` — performs the full TFS OM export via a TFS `IWorkItemRevisionSource` implementation and `WorkItemExportOrchestrator`.
-- `PrepareAsync` — implemented according to current TFS connector/runtime capability.
-- `ImportAsync` — implemented according to current TFS connector/runtime capability.
-- `ValidateAsync` — implemented according to current TFS connector/runtime capability.
+- `PrepareAsync` — not reachable: the TFS agent rejects `Prepare` jobs.
+- `ImportAsync` — work items only, via `TfsWorkItemTarget`; Nodes, Identities and Teams import are compiled out on net481.
+- `ValidateAsync` — not reachable as a standalone job kind on the TFS agent.
 
 ### Capture Dispatch (`TaskKind.Capture`)
 
@@ -215,7 +217,7 @@ If a plan references an analyser, capture handler, module, or organisation endpo
 
 ### Multi-Targeting
 
-`DevOpsMigrationPlatform.Abstractions` and `DevOpsMigrationPlatform.Infrastructure` target both `net481` and `net10.0`. This allows the TFS agent to use the same interface definitions, models, and artefact store implementations as the .NET 10 `MigrationAgent` without any shared runtime binary.
+`DevOpsMigrationPlatform.Abstractions`, `Abstractions.Agent`, `Abstractions.Storage`, `Infrastructure`, `Infrastructure.Agent` and `Infrastructure.Storage.FileSystem` target both `net481` and `net10.0`. Connector projects do not: `Infrastructure.TfsObjectModel` is net481-only; `Infrastructure.AzureDevOps` and `Infrastructure.Simulated` are net10-only. This allows the TFS agent to use the same interface definitions, models, and artefact store implementations as the .NET 10 `MigrationAgent` without any shared runtime binary.
 
 `IAsyncEnumerable<T>` (used by `IArtefactStore`) is satisfied on net481 via `Microsoft.Bcl.AsyncInterfaces`.
 
@@ -224,9 +226,12 @@ The `DevOpsMigrationPlatform.TfsMigrationAgent` project MUST NOT be referenced b
 ### Permanent Constraints
 
 - **Windows-only.** The TFS Object Model is .NET Framework, Windows-only. The TFS agent cannot run in Linux containers, Windows Nano Server, Azure Container Apps, or any container orchestrator.
-- **Filesystem package store only.** The Azure Blob SDK dependency chain is problematic on net481. TFS exports always run on a Windows machine with filesystem access, so `FileSystemArtefactStore` is the only supported store. A job with `source.type: TeamFoundationServer` and a blob package URI must be rejected at Tier 0 validation by the CLI.
-- **No `IHttpClientFactory` / Polly.** The net481 HTTP client is a plain `System.Net.Http.HttpClient`. The control plane is always on the same machine or LAN for TFS topologies; a simple retry loop is sufficient.
+- **Filesystem package store only.** The Azure Blob SDK dependency chain is problematic on net481. TFS exports always run on a Windows machine with filesystem access, so `FileSystemArtefactStore` is the only supported store. (No blob store exists on either agent today; the CLI only resolves `file:` package URIs.)
+- **No Polly resilience handler.** `IHttpClientFactory` is used (via `AddCoreAgentServices`, injected into `TfsJobAgentWorker`), but no Polly handler is registered on net481; the polling loop retries. The control plane is always on the same machine or LAN for TFS topologies.
+- **Single-connector jobs only.** The TFS agent only receives jobs whose every connector is `TeamFoundationServer`. A config with a TFS source and an ADO target is not routable to either agent today — run it as an Export job (no `Target`) followed by an Import job.
 
 ### Lifecycle
 
-`AgentLifecycleService` in `ControlPlaneHost` spawns the TFS agent binary on Windows alongside the MigrationAgent. On Linux/macOS and in cloud container deployments, the TFS agent binary is absent and skipped — a log note is written, no error is raised. The TFS agent polls `GET /agents/lease?capabilities=tfs` and only acquires jobs with `source.type: TeamFoundationServer`.
+`AgentLifecycleService` in `ControlPlaneHost` spawns the TFS agent from `../TfsMigrationAgent/tfsmigration.exe` alongside the MigrationAgent when the binary is present (suppress with `AgentLifecycle:SpawnTfsAgent=false`). It is spawned **once and not restarted** if it exits (the MigrationAgent is restarted with backoff). When the binary is absent — Linux/macOS, containers, source builds — it is skipped with a log note. Under Aspire, `AgentLifecycleService` idles, and the TFS agent is deliberately excluded from the AppHost (`control-plane-rules.md`), so TFS jobs are not processed under Aspire.
+
+The TFS agent polls `GET /agents/lease?capabilities=TeamFoundationServer` and acquires only jobs whose `Connectors` are all `TeamFoundationServer` (the CLI derives `Connectors` from both `Source.Type` and `Target.Type`).

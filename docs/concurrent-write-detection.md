@@ -197,7 +197,7 @@ The Migration Agent tests must verify:
 - ✅ Lease protocol is implemented in `ControlPlaneHost` and `MigrationAgent`
 - ✅ `IArtefactStore` interface documents the protocol requirement
 - ✅ `FileSystemArtefactStore` (local dev) relies on process-level file locks (implicit serialization)
-- ⚠️ `AzureBlobArtefactStore` (cloud) uses Azure leases for blob-level concurrency control
+- ⚠️ `AzureBlobArtefactStore` (cloud) — *planned, not yet implemented*; intended to use Azure leases for blob-level concurrency control
 - ⚠️ **Documentation completeness**: Interface docs now explain the protocol explicitly; this document formalizes the design
 
 ## References

@@ -26,3 +26,35 @@
 ## Deviations / assumptions / risks
 
 <!-- Anything a reviewer should know that the diff does not say. "None" is a valid answer only if the evidence file says the same. -->
+
+## Completion protocol
+
+<!-- .agents/20-guardrails/workflow/completion-protocol.md §A -->
+
+- [ ] 0. Up to date with main
+- [ ] 1. Builds successfully
+- [ ] 2. Full test suite passes
+- [ ] 3. Real end-to-end migration completes correctly (scenario: ___)
+- [ ] 4. Architecture compliance validated
+- [ ] 5. Checked against the original ask (Backlog Item: #___)
+- [ ] 6. Session-only artefacts cleaned up
+
+## Completion report
+
+### 1. What I did
+
+### 2. How I tested it
+
+<!-- Suites above, plus live E2E scenario and the target-state checks performed. -->
+
+### 3. How I updated the docs
+
+<!-- Docs touched and the tools used. -->
+
+### 4. Confidence
+
+<!-- __% — why, and the weakest evidence. ≥ 90% and all steps pass → auto-merge on; otherwise off. -->
+
+### 5. What I did not do
+
+<!-- Skipped steps, unmet requirements, deferred follow-ups (with issue links), known risks. -->

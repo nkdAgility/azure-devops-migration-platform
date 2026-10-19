@@ -44,6 +44,14 @@ dispatched by the module-level `TeamsOrchestrator`; it now holds one
   `TeamsOrchestrator.ImportAsync` remains guarded under `#if !NET481` exactly as
   before — TFS is a source-only connector.
 
+  > **Status note — 2026-10-14:** "TFS is a source-only connector" is true for
+  > **Teams** only. The TFS agent does run `Import` jobs for **work items**
+  > (`TfsJobAgentWorker` → `TfsWorkItemTarget`; live scenario
+  > `SystemTest-Live-Import-TFS-WorkItems-Fixture.json`), while Nodes, Identities
+  > and Teams import are compiled out on net481. Whether TFS is a supported target
+  > at all is an open decision; until it is ruled, see
+  > [architecture.md — Two agents](../architecture.md#two-agents-net481-and-net10).
+
 ### 2. Phase-neutral WorkItem renames (Group B)
 
 The following component types dropped the stray `Export` phase word (they name a

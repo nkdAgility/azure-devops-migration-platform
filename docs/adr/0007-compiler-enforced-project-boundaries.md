@@ -59,6 +59,15 @@ The in-process fallback (`LocalStackHost`) is replaced by `ChildProcessHost`, wh
 - Adding a new interface to `Abstractions.Agent` makes it invisible to CLI code — by design.
 - Developers who add a new module or connector must place interfaces in the correct `Abstractions.*` assembly.
 
+## Status note — 2026-10-14 (facts drifted since acceptance; decision unchanged)
+
+- **`LocalStackHost` still exists** (`src/DevOpsMigrationPlatform.CLI.Migration/LocalStackHost.cs`) but only as the process launcher: it starts `ControlPlaneHost` via `ChildProcessHost` and throws if published binaries are missing. The **in-process fallback** is what was deleted. Agents are spawned by `ControlPlaneHost`'s `AgentLifecycleService`, not by the CLI.
+- **`ExternalToolRunner` and `CLI.TfsMigration` do not exist.** TFS is handled by the `TfsMigrationAgent` polling process, spawned by `AgentLifecycleService`.
+- **Actual agent references** (enforced by the compiler today):
+  - `MigrationAgent`: `Abstractions`, `Abstractions.Agent`, `Infrastructure`, `Infrastructure.Agent`, `Infrastructure.Storage.FileSystem`, `Infrastructure.AzureDevOps`, `Infrastructure.Simulated`, `ServiceDefaults`.
+  - `TfsMigrationAgent`: `Abstractions`, `Abstractions.Agent`, `Infrastructure`, `Infrastructure.Agent`, `Infrastructure.Storage.FileSystem`, `Infrastructure.TfsObjectModel` (there is no `Infrastructure.Tfs`).
+- See [docs/architecture.md — Two agents](../architecture.md#two-agents-net481-and-net10).
+
 ## Related
 
 - [docs/architecture.md](../architecture.md) — component boundaries

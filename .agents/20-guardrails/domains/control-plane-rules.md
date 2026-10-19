@@ -12,7 +12,7 @@ Non-negotiable rules for Microsoft Aspire integration. Reject any code that conf
 - `DevOpsMigrationPlatform.ControlPlane` — Service library (HTTP API, job state machine, lease protocol, EF Core)
 - `DevOpsMigrationPlatform.ControlPlaneHost` — Deployable ASP.NET Core host (references ControlPlane, manages agent lifecycle)
 - `DevOpsMigrationPlatform.MigrationAgent` — Worker Service (executes jobs under lease)
-- `DevOpsMigrationPlatform.CLI.Migration` (net10.0) — Main CLI; drives Aspire for local; submits jobs to control plane
+- `DevOpsMigrationPlatform.CLI.Migration` (net10.0) — Main CLI; in Standalone mode starts `ControlPlaneHost` via `LocalStackHost`/`ChildProcessHost` (no Aspire); submits jobs to control plane
 - `DevOpsMigrationPlatform.TfsMigrationAgent` (net481) — TFS agent; spawned by `AgentLifecycleService`; not in AppHost
 
 **MUST NOT have:**
@@ -21,7 +21,7 @@ Non-negotiable rules for Microsoft Aspire integration. Reject any code that conf
 - Custom health/metrics endpoints bypassing ServiceDefaults
 - Hardcoded URLs in Agent or ControlPlaneHost code (use service discovery)
 - Direct project reference from any .NET 10 project to TfsMigrationAgent
-- Custom process management for starting control plane/agents (use Aspire + `AgentLifecycleService`)
+- Custom process management for starting control plane/agents outside the canonical paths: `LocalStackHost`/`ChildProcessHost` + `AgentLifecycleService` (Standalone), the AppHost (Aspire development), `ContainerAgentLauncher` (Cloud)
 
 ---
 
@@ -87,11 +87,11 @@ Telemetry events: Job submitted, Lease acquired, Heartbeat, Module started/compl
 
 ## CLI Rules
 
-CLI MUST: run standalone, drive Aspire for Standalone mode, connect to remote for Hosted mode, validate jobs before submission, display status via Control Plane API.
+CLI MUST: run standalone, start `ControlPlaneHost` via `LocalStackHost`/`ChildProcessHost` (no Aspire) for Standalone mode, connect to remote for Hosted mode, validate jobs before submission, display status via Control Plane API.
 
 CLI MUST NOT: be in AppHost, use Aspire service discovery, execute Job Engine logic, reference TfsMigrationAgent.
 
-TfsMigrationAgent MUST: poll `GET /agents/lease?capabilities=tfs`, use `IModule` dispatch, write via `IArtefactStore`/`IStateStore`, report via `POST /progress`.
+TfsMigrationAgent MUST: poll `GET /agents/lease?capabilities=TeamFoundationServer` (sole capability; it receives only jobs whose every connector is `TeamFoundationServer`), use `IModule` dispatch, access the package only via `IPackageAccess`, report via the unified worker-event channel `POST /workers/{workerId}/events` (ADR-0020).
 
 TfsMigrationAgent MUST NOT: be in AppHost, be referenced by .NET 10 projects, accept CLI arg credentials.
 
@@ -115,7 +115,7 @@ TfsMigrationAgent MUST NOT: be in AppHost, be referenced by .NET 10 projects, ac
 
 ## Final Rule
 
-Aspire is the orchestration layer across all topologies. CLI is always the operator's entry point. CLI drives Aspire locally; `azd` drives Aspire for cloud. No exceptions.
+CLI is always the operator's entry point. Topology-specific lifecycle: **Standalone** — CLI starts `ControlPlaneHost` via `LocalStackHost`/`ChildProcessHost` and `AgentLifecycleService` spawns the agents (no Aspire); **Hosted** — CLI connects to the remote control plane; **development** — the Aspire AppHost orchestrates; **cloud** — `azd` provisions and `ContainerAgentLauncher` runs agents.
 
 
 

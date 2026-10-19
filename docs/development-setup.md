@@ -267,22 +267,24 @@ Both the Control Plane and Migration Agent call `builder.AddServiceDefaults()` i
 
 ## CLI Integration
 
-The CLI is always the operator's entry point. For local and server-based migrations, the CLI starts `LocalStackHost` which launches the control plane and agent (as child processes or in-process) before submitting the job.
+The CLI is always the operator's entry point. For local and server-based migrations, the CLI starts `LocalStackHost`, which launches `ControlPlaneHost` as a child process; `ControlPlaneHost`'s `AgentLifecycleService` then spawns the agents. There is no in-process mode.
 
 ### CLI.Migration (net10.0) — Main CLI
 
-`CLI.Migration` is the primary operator-facing CLI. It starts `LocalStackHost` for standalone execution — preferring **process-per-component** mode (separate child processes via `ChildProcessHost`) when published binaries are found, with **in-process** fallback otherwise — or connects to a remote endpoint when `Environment.Type` is `Hosted`:
+`CLI.Migration` is the primary operator-facing CLI. It starts `LocalStackHost` for standalone execution, or connects to a remote endpoint when `Environment.Type` is `Hosted`:
 
 ```csharp
 // When Environment.Type is Standalone, the CLI starts LocalStackHost
 var localStack = new LocalStackHost();
 await localStack.StartAsync();
-// Prefers process-per-component; falls back to in-process if binaries not found
+// Requires published binaries (build.ps1 Install); throws InvalidOperationException if they are missing.
+// Starts ControlPlaneHost with AgentLifecycle:AutoSpawn=true; ControlPlaneHost spawns MigrationAgent
+// (restart with backoff) and, if ../TfsMigrationAgent/tfsmigration.exe exists, TfsMigrationAgent (spawn once).
 
 // EnvironmentOptions.ControlPlane.BaseUrl resolves the endpoint
 ```
 
-When a TFS source is configured, the CLI submits the job to the control plane in the same way as any other source. The control plane routes it to `TfsMigrationAgent` via capability matching (`GET /agents/lease?capabilities=tfs`). The TFS agent runs as a Windows polling agent — not as a subprocess of the CLI.
+When a TFS source is configured, the CLI submits the job to the control plane in the same way as any other source. The CLI derives the job's connectors from `Source.Type` **and** `Target.Type`; the control plane leases it to `TfsMigrationAgent` (`GET /agents/lease?capabilities=TeamFoundationServer`) only if every connector is `TeamFoundationServer`. A TFS-source / ADO-target config is not routable today — submit an Export job (no `Target`) and then an Import job. The TFS agent runs as a Windows polling agent spawned by `ControlPlaneHost`, not by the CLI.
 
 ---
 
@@ -518,7 +520,7 @@ The Migration Agent uses `FileSystemArtefactStore`.
 }
 ```
 
-Aspire runs Azurite automatically. The Migration Agent uses `AzureBlobArtefactStore` with local emulator credentials.
+Aspire runs Azurite automatically and sets `PackageStore__Type=azureblob` on the agent. **Not yet functional:** `AzureBlobArtefactStore` was removed in the `IPackageAccess` boundary refactor, `Infrastructure.Storage.AzureBlob` is an empty project, nothing reads `PackageStore__Type`, and the CLI only resolves `file:` package URIs. Use the filesystem layout above.
 
 ### Cloud (Azure Blob Storage)
 
@@ -528,7 +530,7 @@ Aspire runs Azurite automatically. The Migration Agent uses `AzureBlobArtefactSt
 }
 ```
 
-The Migration Agent uses Managed Identity to access Azure Blob Storage.
+*Planned:* the Migration Agent will use Managed Identity to access Azure Blob Storage. Not yet implemented (see Local (Azurite) above).
 
 ---
 

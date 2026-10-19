@@ -31,6 +31,17 @@ The desired policy is explicit: the only valid reason for a runtime guard clause
 - Architecture review and code review should reject new non-compatibility guard clauses.
 - Shared contracts must be fully implemented across all runtimes. There are no unsupported operation boundaries.
 
+## Compliance status — 2026-10-14
+
+The decision stands; the codebase does **not** yet comply. Shared multi-targeted code contains about 60 `#if !NET481` blocks, several of which skip functionality on net481 in breach of points 1 and 6:
+
+- WorkItems export: comments, include/exclude filters and WIQL selection (`WorkItemsOrchestrator`).
+- Embedded images and referenced-path tracking.
+- Nodes, Identities and Teams import (`NodesModule`, `IdentitiesModule`, `TeamsModule`, `TeamsOrchestrator.ImportAsync`).
+- TFS board settings via `TfsNullBoardAdapter`.
+
+These are tracked as backlog items (inventory every block; implement or record an ADR-backed exemption; add a test that fails on new unexempted guards). Do not cite this ADR as evidence that net481 is feature-complete.
+
 ## Enforced By
 
 - `.agents/20-guardrails/core/architecture-boundaries.md` (rule 29)
