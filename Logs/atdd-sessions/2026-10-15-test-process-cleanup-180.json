@@ -8,6 +8,7 @@
   "files_changed": [
     "tests/DevOpsMigrationPlatform.CLI.Migration.Tests/TestUtilities/ChildProcessJob.cs",
     "tests/DevOpsMigrationPlatform.CLI.Migration.Tests/TestUtilities/ChildProcessJobTests.cs",
+    "tests/DevOpsMigrationPlatform.CLI.Migration.Tests/TestUtilities/CliRunnerTimeoutTests.cs",
     "tests/DevOpsMigrationPlatform.CLI.Migration.Tests/TestUtilities/CliRunner.cs",
     "tests/Directory.Build.props",
     "tests/test-session.runsettings",
