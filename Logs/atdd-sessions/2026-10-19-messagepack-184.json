@@ -1,0 +1,35 @@
+{
+  "session_id": "2026-10-19-messagepack-184",
+  "started_at": "2026-10-19T09:00:00Z",
+  "completed_at": "2026-10-19T10:00:00Z",
+  "requirement": "Backlog Item #184: restore on main fails under NuGet audit (warnings-as-errors) with NU1902 because the MessagePack security pin 2.5.301 is affected by GHSA-qhrr-8q5h-9q3h (versions below 2.5.303). Pin MessagePack to 2.5.307, the latest patched 2.5.x release, and cite the advisory in the SecurityPins comment.",
+  "change_class": "A",
+  "activity": "harness",
+  "files_changed": [
+    "Directory.Packages.props",
+    "Logs/atdd-sessions/2026-10-19-messagepack-184.json"
+  ],
+  "suites": [
+    { "suite": "UnitTests", "run": true, "passed": 1042, "failed": 0 },
+    { "suite": "DomainTests", "run": true, "passed": 44, "failed": 0 },
+    { "suite": "IntegrationTests", "run": true, "passed": 655, "failed": 0 },
+    { "suite": "SystemTest_Simulated", "run": true, "passed": 48, "failed": 0 },
+    { "suite": "SystemTest_Live", "run": true, "passed": 14, "failed": 0 },
+    {
+      "suite": "SystemTest_Smoke",
+      "run": false,
+      "not_run_reason": "CI critical-path subset of suites already run locally; runs in CI on the PR."
+    }
+  ],
+  "assumptions": [
+    "Each suite was run separately with `dotnet test --no-build --filter TestCategory=<suite>` after the change, under a hard timeout. Counts are per TestCategory.",
+    "SystemTest_Live was run with AZDEVOPS_SYSTEM_TEST_PAT set, for that process only, to an Entra ID access token from `az account get-access-token --resource 499b84ac-1321-427f-aa17-267ca6975798`. No credential was written to disk.",
+    "`dotnet list package --vulnerable --include-transitive` reports no vulnerable packages in any project after the change; no further advisory needed pinning.",
+    "Real end-to-end run is N/A: a dependency pin changes no behaviour; the Simulated and Live system suites exercise the full pipeline.",
+    "Architecture norms check is N/A: no source code changed."
+  ],
+  "deviations": [],
+  "risks": [],
+  "docs_updated": [],
+  "outcome": "SUCCESS"
+}
