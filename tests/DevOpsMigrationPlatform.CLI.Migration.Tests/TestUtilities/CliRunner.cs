@@ -26,6 +26,46 @@ public sealed class CliRunner
     private const string TfsMigrationAgentExeName = "tfsmigration.exe";
     private static readonly ConcurrentDictionary<string, string> _testStorageByName = new(StringComparer.Ordinal);
 
+    // The test host itself joins this kill-on-close job, so every CLI process (and the
+    // ControlPlaneHost/agents it spawns) is a member from birth — no start-then-assign race. The
+    // handle lives for the whole test host, so the OS kills any surviving tree when the host exits,
+    // including when MSTest abandons a timed-out test before RunAsync's cleanup runs (#180).
+    // Per-test termination is RunAsync's own timeout, which callers must keep below any MSTest [Timeout].
+    // Best-effort: if the host cannot join (debugger, an outer job without nesting), each CLI process
+    // is added after it starts instead; if no job can be created at all, CliRunner still works.
+    private static readonly ChildProcessJob? _processJob = CreateHostJob(out _hostInJob);
+    private static readonly bool _hostInJob;
+
+    private static ChildProcessJob? CreateHostJob(out bool hostInJob)
+    {
+        hostInJob = false;
+        try
+        {
+            var job = new ChildProcessJob();
+            hostInJob = job.TryAddCurrentProcess();
+            return job;
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            return null;
+        }
+    }
+
+    private static void TrackProcess(Process process)
+    {
+        if (_processJob is null || _hostInJob)
+            return;   // already a member from birth, or no job available
+
+        try
+        {
+            _processJob.Add(process);
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            // Best effort: the per-test Kill(entireProcessTree) in RunAsync still applies.
+        }
+    }
+
     /// <summary>
     /// Root folder (relative to the repo root) used by system tests as their working directory.
     /// </summary>
@@ -292,7 +332,9 @@ public sealed class CliRunner
         bool timedOut = false;
         try
         {
+            GC.KeepAlive(_processJob);   // ensure the host job exists before the first CLI starts
             process.Start();
+            TrackProcess(process);
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
             await process.WaitForExitAsync(timeoutCts.Token).ConfigureAwait(false);

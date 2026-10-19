@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Applied to every test project through tests/Directory.Build.props (RunSettingsFilePath). -->
+<RunSettings>
+  <RunConfiguration>
+    <!-- Hard ceiling for one `dotnet test` session (45 min) so that a hung test can never keep a
+         local run or CI waiting for hours (#180). The full suite normally completes in under 15 min. -->
+    <TestSessionTimeout>2700000</TestSessionTimeout>
+  </RunConfiguration>
+</RunSettings>
