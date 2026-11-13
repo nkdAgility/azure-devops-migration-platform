@@ -36,3 +36,10 @@ skills) changes only once Martin approves its exact wording.
 - Every skill is named in the screaming-architecture style, so that its name says what it does for
   the work, not which technique or tool it uses: "Can you ensure that you use a screaming
   archtecture naming for all skills?"
+- **Decision:** class-level `[TestCategory]` tags on test classes are kept ("They should be
+  kept"). `docs/testing-guide.md:84` is right; the testcategory workflow must stop deleting them.
+- **Fact:** the TFS connector uses the TFS Object Model, and supports old TFS with no minimum
+  version. On TFS, a capability is implemented as far as the Object Model supports it, and no
+  further: "the TFS bits are to uyse the Obejct Model and support old TFS with no minimum. SO the
+  TFS capacity gap can only be closed to the point that the TFS Object Model supports". So the TFS
+  exemption applies where the Object Model does not expose a capability.
