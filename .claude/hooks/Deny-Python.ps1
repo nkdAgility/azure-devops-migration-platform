@@ -25,7 +25,7 @@ elseif ($tool -in 'Bash', 'PowerShell') {
 }
 
 if ($reason) {
-    [Console]::Error.WriteLine("Refused: $reason. Python is never used, at any level (Martin, 2026-11-13). Use PowerShell 7 instead.")
+    [Console]::Error.WriteLine("Refused: $reason. You never create or run Python (Martin, 2026-11-13). Use PowerShell 7 instead.")
     exit 2
 }
 exit 0
