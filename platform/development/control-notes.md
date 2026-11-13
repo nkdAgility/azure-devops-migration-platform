@@ -43,3 +43,8 @@ skills) changes only once Martin approves its exact wording.
   further: "the TFS bits are to uyse the Obejct Model and support old TFS with no minimum. SO the
   TFS capacity gap can only be closed to the point that the TFS Object Model supports". So the TFS
   exemption applies where the Object Model does not expose a capability.
+- A state is a stage that every item is expected to move through. Blocked is never a state; it is
+  a tag. Martin asked whether ready is a tag too, and said this needs assessing in collaboration
+  with the other CONTROL sessions: "blocked should never be a state... states are things that
+  every item is ecpected to move through. blocked is a tag? As is ready? (This needs assessed and
+  colaboration form otehr CONTROLS".
