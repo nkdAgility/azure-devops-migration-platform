@@ -1,6 +1,6 @@
 # Engagement gap analysis: what keeps real engagements on Migration Tools
 
-Date: 2026-11-13. Status: draft for operator review. Nothing here is a created issue.
+Date: 2026-11-13. Status: gaps not yet on the backlog were raised as #187–#191.
 
 This analysis compares the azure-devops-migration-tools (ADMT) work done on recent real
 engagements with ADMP as it is today. It ranks the gaps by how much ADMT use each one would
@@ -117,12 +117,12 @@ ADMT work in that engagement). Agent column: **net10** = `MigrationAgent`; **net
 | --- | --- | --- | --- | --- | --- |
 | 1 | Production-ready ADO work item import (revisions, attachments, embedded images, ID map, batching) | A, B, C — every run | #150, #151, #152, #153, #154 | VS403417 ChangedBy empty under BypassRules; partial items skipped on re-run (A); ReflectedWorkItemId field missing on a type is fatal (B log; ADMT #2578, #3248); `FilterWorkItemsThatAlreadyExistInTarget` rewrites WIQL by text (B); TF26194 on fix-up save (ADMT #3240) | net10 |
 | 2 | Test plans, suites, configurations, variables, shared steps/parameters | A (22 plans), B (the whole migration), C | #161 | Requirement-based suites skipped when the requirement is absent (B); configurations/variables must precede plans (B, C); slow per-suite lookup (B); plans/suites lose tags and links (B); shared steps/parameters can't hold ReflectedWorkItemId on inherited targets (ADMT #3248, #2578); fails on invalid suite queries (ADMT #3021) | net10 |
-| 3 | Work item type mapping, incl. type-change history | A, C | **None — draft N1** | Type-changed item created as its first-revision type and fails with misleading VS403417 (ADMT #3168); renamed types need both names in `ApplyTo`; empty `ApplyTo` throws (A) | net10 (shared Infrastructure.Agent tool) |
+| 3 | Work item type mapping, incl. type-change history | A, C | #189 | Type-changed item created as its first-revision type and fails with misleading VS403417 (ADMT #3168); renamed types need both names in `ApplyTo`; empty `ApplyTo` throws (A) | net10 (shared Infrastructure.Agent tool) |
 | 4 | Pipelines: build/release, task groups, variable groups, service connections | A (72–106 build defs per sub-migration), C | #163 | Task group null reference crashes the run (ADMT #2976); exit code 0 after fatal error (ADMT #3170); secrets need re-entry and branch policies by hand (A) | net10 |
 | 5 | Git commit / PR link remap | A (3,913 repointed by script, 1,875 still wrong) | #155 | PR links dropped (ADMT #3215); `CreateFromGit` throws on malformed links (ADMT #3188, #3069; A) | net10 |
 | 6 | Shared queries (and personal queries on request) | A, C; B asked for personal queries | #160 | Query run failed inside the structure run and had to be isolated (A); queries must be rewritten for remapped area paths | net10 |
-| 7 | Incremental re-sync: re-apply source state to items already in the target | A ("changed since" bite), B (existing items get only reflected ID + field maps) | **None — draft N2** | Text-replace WIQL rewrite (B); TF26198 on re-sync of already-remapped mentions (ADMT #3212) | net10 |
-| 8 | Git repository migration with commit-mention linking held off | A (144+ repos), B (2 large, 305 catalogued), C | **None — draft N3** (GitModule planned, no item) | The org-wide link incident (B: 12,018 links); hard-coded cloud host blocks on-prem target (A); oversize/LFS handling (A) | net10 |
+| 7 | Incremental re-sync: re-apply source state to items already in the target | A ("changed since" bite), B (existing items get only reflected ID + field maps) | #190 | Text-replace WIQL rewrite (B); TF26198 on re-sync of already-remapped mentions (ADMT #3212) | net10 |
+| 8 | Git repository migration with commit-mention linking held off | A (144+ repos), B (2 large, 305 catalogued), C | #191 (GitModule planned) | The org-wide link incident (B: 12,018 links); hard-coded cloud host blocks on-prem target (A); oversize/LFS handling (A) | net10 |
 | 9 | Team settings that don't crash or create stray teams | A (crashed, turned off), B (stray teams, VS402485) | Teams ✅ ADO; #157 (TFS) | Crash in `MigrateTeamSettings` (A, B); teams created when disabled-by-intent (B); missing area path fatal (B) | net10 |
 | 10 | Process/target-schema alignment before import | A (alignment script, missing custom fields), C (process-migrator) | #162 (readiness check exists) | Picklist created as text (ADMT #3241); hidden field not hidden (ADMT #3242) | net10 |
 | 11 | Azure DevOps Server as an import target | A (one sub-migration) | #172 partly; verify ADO connector against Server | PAT guard checked only cloud hosts; REST call needed a PAT in Prompt mode (A) | net10 via REST (net481 only if Server version needs the Object Model) |
@@ -133,138 +133,15 @@ engagements confirm that order with one change: **test plans (#161) should come 
 work item import**, ahead of commit-link remap and shared queries, because B's whole migration
 was a test plan and A had 22.
 
-## 5. Draft Backlog Items for uncovered gaps
+## 5. Backlog Items raised for uncovered gaps
 
-### N1. Work item type mapping with type-change history
+The backlog is kept in GitHub issues, so the drafts that used to be here are now issues:
 
-## Outcome
-
-An operator can map source work item types to different target types (e.g. User Story → Product
-Backlog Item) and migrate items whose type changed during their history, so each target item
-ends with the mapped final type and the full revision history.
-
-## Why
-
-Engagements A and C both needed ADMT `WorkItemTypeMappingTool` (A: two type maps; C: a type name
-with a look-alike non-Latin letter). No type-mapping option or transform exists in `src/`
-(grep for `WorkItemTypeMap` finds nothing). ADMT #3168: a type-changed item is created as its
-first-revision type and fails with VS403417 when that type is disabled in the target.
-
-## Acceptance criteria
-
-- [ ] A `WorkItemTypeMappings` config maps source type names to target type names; Prepare reports unmapped source types that don't exist in the target.
-- [ ] An item whose type changed in its history is created and replayed so its target type at each revision follows the map, and its final type matches the mapped final source type.
-- [ ] A map that names a missing target type fails in Prepare with an actionable message naming the type, not at import.
-- [ ] Field transforms with an `ApplyTo` list match on both the source and the mapped type name; an empty `ApplyTo` is a validation error, not an exception.
-- [ ] Re-running the import produces no duplicates and no type flip-flops (live E2E on ADO).
-
-## Scope
-
-- Connectors: Simulated, AzureDevOpsServices, TeamFoundationServer (export of type-change revisions)
-- Phases: Prepare, Import, Validate
-- Agents: shared multi-target code (Infrastructure.Agent tool); import on MigrationAgent
-- Out of scope: changing the target process (see #162)
-
-## azure-devops-migration-tools equivalent
-
-| Behaviour in Migration Tools | Match / improve / drop (why) |
-| --- | --- |
-| `WorkItemTypeMappingTool` source → target type map | Match |
-| Type-change replay over REST needing a target PAT even in Prompt mode | Improve: use the endpoint's own credential |
-| `SkipToFinalRevisedWorkItemType` | Improve: per-revision mapping makes it unnecessary (ADMT #1756) |
-
-## Links
-
-- Depends on: #150
-- Decisions:
-- Spec:
-
-### N2. Incremental re-sync of changed work items
-
-## Outcome
-
-An operator can re-run a work item migration after a cut-off and have every source item changed
-since the last run brought up to date in the target (new revisions, fields, links,
-attachments), without re-creating items or touching unchanged ones.
-
-## Why
-
-Engagement A ran a separate "changed since" batch to catch up before cutover. In engagement B,
-items already in the target received only the reflected ID and field maps, not the source's
-current state, and the ADMT existing-item filter rewrote the WIQL by plain text replacement
-(TF51011). No incremental or delta feature exists in ADMP (no match in `src/`); checkpoint resume
-only skips completed work.
-
-## Acceptance criteria
-
-- [ ] Export with an incremental flag writes only revisions newer than the package's last exported revision per item, appended to the existing package.
-- [ ] Import applies the new revisions: items already in the target (found through the ID map, never by rewriting the source query text) get only their new revisions, and items created in the source since the last run are created.
-- [ ] New links and attachments on changed items are added; existing ones are not duplicated.
-- [ ] Validate reports per item that the target's latest revision matches the source's latest revision.
-- [ ] A live E2E on ADO: migrate, change 3 source items, re-run, target matches with no duplicates.
-
-## Scope
-
-- Connectors: Simulated, AzureDevOpsServices, TeamFoundationServer
-- Phases: Export, Import, Validate
-- Agents: TfsMigrationAgent (TFS export), MigrationAgent (ADO export and import)
-- Out of scope: two-way sync; changes made directly in the target
-
-## azure-devops-migration-tools equivalent
-
-| Behaviour in Migration Tools | Match / improve / drop (why) |
-| --- | --- |
-| Re-run `TfsWorkItemMigrationProcessor` with `FilterWorkItemsThatAlreadyExistInTarget` | Improve: package-cursor delta instead of a WIQL text rewrite |
-| Existing target items updated with reflected ID and field maps only | Improve: replay the missing revisions |
-
-## Links
-
-- Depends on: #150, #151, #152
-- Decisions: whether the delta cursor is per item or per package
-- Spec:
-
-### N3. Git repository migration with work item mention linking held off
-
-## Outcome
-
-An operator can migrate Git repositories (all refs, LFS, optional rename) from one Azure DevOps
-project to another through the package, without the target creating commit-mention links on
-work items during the push.
-
-## Why
-
-All three ADMT engagements moved repos with in-house scripts outside ADMT (A: 144 repos, 36.6 GB
-with LFS; B: 6.6 GB / 120k commits; C: mirror script). In B, mention linking left on during a push
-created 12,018 links on 6,793 work items across the target org and changed 2 items' state. A's
-scripts hard-coded the cloud host and blocked an on-prem target. `docs/module-development-guide.md`
-lists GitModule as planned; there is no Backlog Item.
-
-## Acceptance criteria
-
-- [ ] Export writes each selected repository to the package as a mirror bundle, plus its LFS objects stored separately (a bundle holds only LFS pointers); every ref name with its tip commit ID is recorded.
-- [ ] Import creates the target repository (optionally under a mapped name), pushes all refs and uploads the LFS objects; Validate checks that every ref name and tip commit ID matches the package and that each LFS object is available on the target.
-- [ ] Commit-mention linking on the target is turned off before the push and restored afterwards, each change read back; a mismatch stops the job. The original value is recorded in the package before it is changed, and a later run, or a cancelled or failed one, restores it. Jobs pushing to the same target organisation share one hold on the setting, so it is restored only after the last of them finishes.
-- [ ] Re-running skips repositories already complete and resumes a partly pushed one.
-- [ ] Works against an on-prem Azure DevOps Server target URL as well as Services (live E2E on ADO).
-
-## Scope
-
-- Connectors: Simulated, AzureDevOpsServices, TeamFoundationServer (export of Git repos on the server)
-- Phases: Inventory, Export, Import, Validate
-- Agents: MigrationAgent
-- Out of scope: TFVC history; branch policies; GitHub as a target
-
-## azure-devops-migration-tools equivalent
-
-| Behaviour in Migration Tools | Match / improve / drop (why) |
-| --- | --- |
-| None (ADMT does not migrate repos; it only remaps commit links via `TfsGitRepositoryTool`) | Improve: brings the repo step into the package so #155 can remap against known repos |
-
-## Links
-
-- Depends on:
-- Decisions: whether the mention-linking toggle may use an undocumented endpoint
-- Spec:
+| Gap | Backlog Item | Decision it waits on |
+| --- | --- | --- |
+| Work item type mapping with type-change history | #189 | — |
+| Incremental re-sync of changed work items | #190 | #187 (cursor per item or per package) |
+| Git repository migration with mention linking held off | #191 | #188 (undocumented toggle endpoint) |
 
 ## 6. Sources
 
