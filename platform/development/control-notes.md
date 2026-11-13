@@ -6,8 +6,6 @@ skills) changes only once Martin approves its exact wording.
 
 ## 2026-11-13
 
-- **Decision:** Bryan Finster's agentic-dev-team (https://github.com/bdfinst/agentic-dev-team)
-  is a reference for our plugins ("what would Bryan do?"), but only as a reference: we check
-  what it does on each design question, but we never depend on it and never copy from it.
-  Martin's words: "Id like to add his as a refernce for ours... i.e. what would Bryan do! but
-  only as a refernce".
+- The agentic-dev-team reference belongs to the plugin repository, not to this one: "the
+  refernce is for the plugin repo not this one". It is recorded in
+  `NKDAEngineering-Delivery/docs/notes/martin-notes.md`.
