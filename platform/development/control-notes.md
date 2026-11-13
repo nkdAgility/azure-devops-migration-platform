@@ -48,3 +48,6 @@ skills) changes only once Martin approves its exact wording.
   with the other CONTROL sessions: "blocked should never be a state... states are things that
   every item is ecpected to move through. blocked is a tag? As is ready? (This needs assessed and
   colaboration form otehr CONTROLS".
+- **Instruction:** Python is never used, at any level: no Python file, script, CI step, tool or
+  dependency. "At no point on any level should python ever be used." He asked for it to be locked
+  down, so it must be enforced by a hook and a CI check, each with a test.
