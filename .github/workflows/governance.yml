@@ -52,6 +52,11 @@ jobs:
       - name: Validate .agents contract catalogs
         run: python scripts/guardrails/validate-agent-contracts.py
 
+      # No shift of the Definition of Workflow may be met by a blank Backlog Item
+      # (a check that matches template placeholder text would move unassessed work on).
+      - name: Validate Definition of Workflow checks
+        run: python scripts/guardrails/validate-definition-of-workflow.py
+
   spec-guardrails:
     name: Spec Guardrails
     if: github.event_name == 'pull_request'
