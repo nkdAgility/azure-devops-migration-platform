@@ -1,0 +1,83 @@
+{
+  "storage": {
+    "kind": "github-issue",
+    "repo": "nkdAgility/azure-devops-migration-platform",
+    "labelPrefix": "",
+    "workLabel": "backlog-item",
+    "read": ["body", "comments", "pr"],
+    "statusMarker": "<!-- nkda-status -->"
+  },
+  "initialState": "needs-assessment",
+  "inProgress": ["in-progress"],
+  "wipLimit": 1,
+  "pullOrder": "priority/high first, then oldest first. Never two items touching the same code area at once.",
+  "work": {
+    "needs-assessment": { "tool": "nkda-backlog-item-prestart", "choosesShift": true },
+    "in-progress": { "tool": "nkda-backlog-deliver-workflow" }
+  },
+  "shifts": [
+    {
+      "name": "Ready",
+      "from": "needs-assessment",
+      "to": "ready",
+      "checks": [
+        { "type": "pattern", "pattern": "(?im)^\\*\\*Result:\\*\\*\\s*ready\\s*$", "message": "no pre-start assessment recording the result ready" }
+      ]
+    },
+    {
+      "name": "Blocked",
+      "from": "needs-assessment",
+      "to": "blocked",
+      "checks": [
+        { "type": "pattern", "pattern": "(?i)decision[^\\n]*#\\d+", "message": "no linked Decision issue for the open question" }
+      ]
+    },
+    {
+      "name": "BrokenDown",
+      "from": "needs-assessment",
+      "to": "broken-down",
+      "checks": [
+        { "type": "pattern", "pattern": "(?i)broken down into\\s*#\\d+", "message": "no sub-issues listed" }
+      ]
+    },
+    {
+      "name": "Unblocked",
+      "from": "blocked",
+      "to": "needs-assessment",
+      "checks": [
+        { "type": "pattern", "pattern": "(?i)decision[^\\n]*#\\d+[^\\n]*ruled", "message": "the linked Decision is not recorded as ruled" }
+      ]
+    },
+    {
+      "name": "Claimed",
+      "from": "ready",
+      "to": "in-progress",
+      "records": ["started"],
+      "checks": [
+        { "type": "pattern", "pattern": "(?i)dependencies[^\\n]*(none|merged)", "message": "dependencies not shown as none or merged" }
+      ]
+    },
+    {
+      "name": "Done",
+      "from": "in-progress",
+      "to": "closed",
+      "records": ["closed"],
+      "checks": [
+        { "type": "pattern", "pattern": "(?i)\\bmerged\\b", "message": "the pull request is not merged" },
+        { "type": "pattern", "pattern": "(?im)^\\s*-\\s*\\[x\\][^\\n]*end-to-end migration", "message": "no full end-to-end migration ticked as done" },
+        { "type": "pattern", "pattern": "(?im)^\\s*-\\s*\\[x\\][^\\n]*migration tools mapping", "message": "no ADMT comparison ticked as done" },
+        { "type": "pattern", "pattern": "(?i)confidence[^\\n]*\\b\\d{1,3}\\s*%", "message": "no completion report with a confidence" }
+      ]
+    },
+    {
+      "name": "ParentDone",
+      "from": "broken-down",
+      "to": "closed",
+      "records": ["closed"],
+      "checks": [
+        { "type": "pattern", "pattern": "(?im)^\\s*-\\s*\\[x\\][^\\n]*all sub-issues (are )?closed", "message": "not every sub-issue is ticked as closed" },
+        { "type": "pattern", "pattern": "(?im)^\\s*-\\s*\\[x\\][^\\n]*final live end-to-end migration", "message": "no final end-to-end migration of the whole outcome ticked as done" }
+      ]
+    }
+  ]
+}
