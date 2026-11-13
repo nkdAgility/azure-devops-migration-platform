@@ -29,3 +29,7 @@ skills) changes only once Martin approves its exact wording.
     6. this repo is its first user.
   - The two plugins don't depend on each other. Plugin changes go to the plugin repo's session
     (its PROMPTS.md prompt 2).
+- This repo's Definition of Workflow has a full end-to-end test, like ADMT's. It also has a
+  feature comparison with ADMT, so that we don't repeat its mistakes or miss its features: "DOW
+  for this repo also has a full end to end test like ADMT, but alkso has a feature comparison to
+  ADMT to ensure that we dont repeate mistakes or miss featiures."
