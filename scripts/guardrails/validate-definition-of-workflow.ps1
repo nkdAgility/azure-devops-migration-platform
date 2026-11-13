@@ -30,13 +30,25 @@ catch {
 $blank = $blank -replace '(?s)\A---.*?\r?\n---\r?\n', ''
 
 $problems = [System.Collections.Generic.List[string]]::new()
-$shifts = @($dow.shifts)
+# @($null) has a Count of 1, so drop null entries before counting.
+$shifts = @($dow.shifts | Where-Object { $null -ne $_ })
 if ($shifts.Count -eq 0) { $problems.Add('the definition has no shifts') }
 
-$reachable = @($dow.initialState) + @($shifts | ForEach-Object { $_.to })
+# Reachable states grow outward from the initial state only, so a cycle that no path enters is caught.
+$reachable = [System.Collections.Generic.HashSet[string]]::new()
+if ($dow.initialState) { [void]$reachable.Add($dow.initialState) }
+do {
+    $grew = $false
+    foreach ($s in $shifts) {
+        if ($s.from -and $reachable.Contains($s.from) -and $s.to -and $reachable.Add($s.to)) { $grew = $true }
+    }
+} while ($grew)
+
 foreach ($s in $shifts) {
-    if ($s.from -notin $reachable) { $problems.Add("shift $($s.name): from-state '$($s.from)' is never reached") }
-    $checks = @($s.checks | Where-Object { $_.type -eq 'pattern' })
+    if (-not $s.from -or -not $reachable.Contains($s.from)) { $problems.Add("shift $($s.name): from-state '$($s.from)' is never reached") }
+    $all = @($s.checks | Where-Object { $null -ne $_ })
+    if ($all.Count -eq 0) { $problems.Add("shift $($s.name): it has no checks, so any item would move on"); continue }
+    $checks = @($all | Where-Object { $_.type -eq 'pattern' })
     if ($checks.Count -eq 0) { continue }
     try {
         $met = -not ($checks | Where-Object { -not [regex]::IsMatch($blank, $_.pattern) })

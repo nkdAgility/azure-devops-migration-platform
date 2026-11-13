@@ -198,7 +198,7 @@ only skips completed work.
 ## Acceptance criteria
 
 - [ ] Export with an incremental flag writes only revisions newer than the package's last exported revision per item, appended to the existing package.
-- [ ] Import applies only the new revisions to items already in the target, found through the ID map, never by rewriting the source query text.
+- [ ] Import applies the new revisions: items already in the target (found through the ID map, never by rewriting the source query text) get only their new revisions, and items created in the source since the last run are created.
 - [ ] New links and attachments on changed items are added; existing ones are not duplicated.
 - [ ] Validate reports per item that the target's latest revision matches the source's latest revision.
 - [ ] A live E2E on ADO: migrate, change 3 source items, re-run, target matches with no duplicates.
@@ -241,9 +241,9 @@ lists GitModule as planned; there is no Backlog Item.
 
 ## Acceptance criteria
 
-- [ ] Export writes each selected repository to the package as a mirror bundle including LFS objects; ref and commit counts are recorded.
-- [ ] Import creates the target repository (optionally under a mapped name) and pushes all refs; Validate compares ref and commit counts with the package.
-- [ ] Commit-mention linking on the target is turned off before the push and restored afterwards, each change read back; a mismatch stops the job.
+- [ ] Export writes each selected repository to the package as a mirror bundle, plus its LFS objects stored separately (a bundle holds only LFS pointers); every ref name with its tip commit ID is recorded.
+- [ ] Import creates the target repository (optionally under a mapped name), pushes all refs and uploads the LFS objects; Validate checks that every ref name and tip commit ID matches the package and that each LFS object is available on the target.
+- [ ] Commit-mention linking on the target is turned off before the push and restored afterwards, each change read back; a mismatch stops the job. The original value is recorded in the package before it is changed, and a later run, or a cancelled or failed one, restores it.
 - [ ] Re-running skips repositories already complete and resumes a partly pushed one.
 - [ ] Works against an on-prem Azure DevOps Server target URL as well as Services (live E2E on ADO).
 

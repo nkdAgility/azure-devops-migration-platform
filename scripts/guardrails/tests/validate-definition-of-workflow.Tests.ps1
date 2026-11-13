@@ -36,6 +36,35 @@ Describe 'validate-definition-of-workflow.ps1' {
         ($out -join "`n") | Should -Match 'shift Ready'
     }
 
+    It 'fails an empty definition' {
+        $p = Join-Path $TestDrive 'empty.json'
+        Set-Content $p '{}' -Encoding utf8
+        $out = & pwsh -NoProfile -File $tool -Definition $p 2>&1
+        $LASTEXITCODE | Should -Be 1
+        ($out -join "`n") | Should -Match 'no shifts'
+    }
+
+    It 'fails a shift with no checks' {
+        $d = Get-Content (Join-Path $repo 'platform\development\definition-of-workflow.json') -Raw | ConvertFrom-Json
+        ($d.shifts | Where-Object name -eq 'Ready').checks = @()
+        $p = Join-Path $TestDrive 'nochecks.json'
+        $d | ConvertTo-Json -Depth 20 | Set-Content $p -Encoding utf8
+        $out = & pwsh -NoProfile -File $tool -Definition $p 2>&1
+        $LASTEXITCODE | Should -Be 1
+        ($out -join "`n") | Should -Match 'shift Ready: it has no checks'
+    }
+
+    It 'fails a shift whose from-state cannot be reached from the initial state' {
+        $d = Get-Content (Join-Path $repo 'platform\development\definition-of-workflow.json') -Raw | ConvertFrom-Json
+        $ready = $d.shifts | Where-Object name -eq 'Ready'
+        $ready.from = $ready.to
+        $p = Join-Path $TestDrive 'unreachable.json'
+        $d | ConvertTo-Json -Depth 20 | Set-Content $p -Encoding utf8
+        $out = & pwsh -NoProfile -File $tool -Definition $p 2>&1
+        $LASTEXITCODE | Should -Be 1
+        ($out -join "`n") | Should -Match 'is never reached'
+    }
+
     It 'exits 2 when the definition is missing' {
         & pwsh -NoProfile -File $tool -Definition (Join-Path $TestDrive 'none.json') 2>&1 | Out-Null
         $LASTEXITCODE | Should -Be 2
