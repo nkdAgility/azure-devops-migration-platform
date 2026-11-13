@@ -44,6 +44,15 @@ Describe 'validate-definition-of-workflow.ps1' {
         ($out -join "`n") | Should -Match 'no shifts'
     }
 
+    It 'fails a definition with a null shift among valid ones' {
+        $raw = Get-Content (Join-Path $repo 'platform\development\definition-of-workflow.json') -Raw
+        $p = Join-Path $TestDrive 'nullshift.json'
+        ($raw -replace '"shifts"\s*:\s*\[', '"shifts": [ null,') | Set-Content $p -Encoding utf8
+        $out = & pwsh -NoProfile -File $tool -Definition $p 2>&1
+        $LASTEXITCODE | Should -Be 1
+        ($out -join "`n") | Should -Match 'null shift'
+    }
+
     It 'fails a shift with no checks' {
         $d = Get-Content (Join-Path $repo 'platform\development\definition-of-workflow.json') -Raw | ConvertFrom-Json
         ($d.shifts | Where-Object name -eq 'Ready').checks = @()

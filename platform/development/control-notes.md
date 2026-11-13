@@ -55,3 +55,6 @@ skills) changes only once Martin approves its exact wording.
   along with what they do, including any Python they use. The rule is that the agent never creates
   Python: "Leave Spec Kit and any other plugin along with what it does. YOU are never to create any
   python".
+- **Fact:** this repo's backlog is stored in GitHub issues: "In this repo we are storing teh
+  backlog in github issues". Backlog Items drafted in a markdown file (such as N1–N3 in
+  `engagement-gap-analysis.md`) belong there as issues, not in the repo.

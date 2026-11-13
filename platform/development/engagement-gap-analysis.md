@@ -243,7 +243,7 @@ lists GitModule as planned; there is no Backlog Item.
 
 - [ ] Export writes each selected repository to the package as a mirror bundle, plus its LFS objects stored separately (a bundle holds only LFS pointers); every ref name with its tip commit ID is recorded.
 - [ ] Import creates the target repository (optionally under a mapped name), pushes all refs and uploads the LFS objects; Validate checks that every ref name and tip commit ID matches the package and that each LFS object is available on the target.
-- [ ] Commit-mention linking on the target is turned off before the push and restored afterwards, each change read back; a mismatch stops the job. The original value is recorded in the package before it is changed, and a later run, or a cancelled or failed one, restores it.
+- [ ] Commit-mention linking on the target is turned off before the push and restored afterwards, each change read back; a mismatch stops the job. The original value is recorded in the package before it is changed, and a later run, or a cancelled or failed one, restores it. Jobs pushing to the same target organisation share one hold on the setting, so it is restored only after the last of them finishes.
 - [ ] Re-running skips repositories already complete and resumes a partly pushed one.
 - [ ] Works against an on-prem Azure DevOps Server target URL as well as Services (live E2E on ADO).
 

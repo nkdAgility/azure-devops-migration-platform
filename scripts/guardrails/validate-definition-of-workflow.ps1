@@ -30,8 +30,10 @@ catch {
 $blank = $blank -replace '(?s)\A---.*?\r?\n---\r?\n', ''
 
 $problems = [System.Collections.Generic.List[string]]::new()
-# @($null) has a Count of 1, so drop null entries before counting.
-$shifts = @($dow.shifts | Where-Object { $null -ne $_ })
+# @($null) has a Count of 1, so count only real entries; a null entry is itself a problem.
+$raw = @($dow.shifts)
+$shifts = @($raw | Where-Object { $null -ne $_ })
+if ($null -ne $dow.shifts -and $shifts.Count -lt $raw.Count) { $problems.Add("the definition has $($raw.Count - $shifts.Count) null shift entries") }
 if ($shifts.Count -eq 0) { $problems.Add('the definition has no shifts') }
 
 # Reachable states grow outward from the initial state only, so a cycle that no path enters is caught.
