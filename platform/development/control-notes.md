@@ -33,3 +33,6 @@ skills) changes only once Martin approves its exact wording.
   feature comparison with ADMT, so that we don't repeat its mistakes or miss its features: "DOW
   for this repo also has a full end to end test like ADMT, but alkso has a feature comparison to
   ADMT to ensure that we dont repeate mistakes or miss featiures."
+- Every skill is named in the screaming-architecture style, so that its name says what it does for
+  the work, not which technique or tool it uses: "Can you ensure that you use a screaming
+  archtecture naming for all skills?"
