@@ -51,3 +51,7 @@ skills) changes only once Martin approves its exact wording.
 - **Instruction:** Python is never used, at any level: no Python file, script, CI step, tool or
   dependency. "At no point on any level should python ever be used." He asked for it to be locked
   down, so it must be enforced by a hook and a CI check, each with a test.
+- **Correction to the instruction above:** Spec Kit and every other plugin are left as they are,
+  along with what they do, including any Python they use. The rule is that the agent never creates
+  Python: "Leave Spec Kit and any other plugin along with what it does. YOU are never to create any
+  python".
