@@ -75,6 +75,13 @@ jobs:
       semver: ${{ steps.version.outputs.semVer }}
 
     steps:
+      - name: Fail when change detection failed
+        if: needs.changes.result != 'success'
+        shell: pwsh
+        run: |
+          Write-Output "::error title=Change detection failed::'Detect product changes' ended '${{ needs.changes.result }}', so it is unknown whether the product changed. Re-run the workflow."
+          exit 1
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
