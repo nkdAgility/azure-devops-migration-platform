@@ -57,7 +57,8 @@ jobs:
     name: Build and Test
     needs: changes
     # Skipped only when the classifier succeeded and found no product or test change. A skipped job
-    # still satisfies the required "Build and Test" check. If the classifier fails, build anyway.
+    # still satisfies the required "Build and Test" check. If the classifier fails, this job runs and
+    # fails at once, so the required check blocks the PR instead of passing on an unclassified diff.
     if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.product == 'true' || needs.changes.outputs.tests == 'true') }}
     # net481 targets require Windows; build.ps1 is the single entry point
     runs-on: windows-latest
