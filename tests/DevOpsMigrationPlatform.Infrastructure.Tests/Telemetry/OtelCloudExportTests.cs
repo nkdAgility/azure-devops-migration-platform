@@ -20,6 +20,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Telemetry;
 /// the SnapshotMetricExporter is always present when ControlPlane telemetry services are added.
 /// </summary>
 [TestClass]
+[TestCategory("CodeTest")]
+[TestCategory("IntegrationTests")]
 public class OtelCloudExportTests
 {
     // ─────────────────────────────────────────────────────────────────────────
