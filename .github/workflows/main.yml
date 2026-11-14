@@ -44,7 +44,10 @@ jobs:
           fi
           # --no-renames: a move out of src/ must count as a change to src/.
           # core.quotePath=false: non-ASCII paths come out raw, not quoted, so the anchors still match.
+          # Paths with a double quote, tab or newline are still quoted by git, so strip the
+          # surrounding quotes; only the leading directory or file name is matched.
           files=$(git -c core.quotePath=false diff --name-only --no-renames "$BASE" "$HEAD")
+          files=$(sed -e 's/^"//' -e 's/"$//' <<< "$files")
           echo "$files"
           p=false; t=false
           # Here-strings, not pipes: grep -q exiting early must not fail a writer under pipefail.
