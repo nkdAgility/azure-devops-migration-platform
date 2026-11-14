@@ -58,3 +58,10 @@ skills) changes only once Martin approves its exact wording.
 - **Fact:** this repo's backlog is stored in GitHub issues: "In this repo we are storing teh
   backlog in github issues". Backlog Items drafted in a markdown file (such as N1–N3 in
   `engagement-gap-analysis.md`) belong there as issues, not in the repo.
+
+## 2026-11-14
+
+- **Instruction:** in `main.yml`, only changes that affect the product build or publish a version.
+  Changing a workflow or the agent files must not build or publish one: "only the things that
+  adffect teh product result in a new version of the product? So when w cahnge teh workflow or
+  update the agent bits there should not be a publiched or built version".
