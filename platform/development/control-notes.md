@@ -65,3 +65,5 @@ skills) changes only once Martin approves its exact wording.
   Changing a workflow or the agent files must not build or publish one: "only the things that
   adffect teh product result in a new version of the product? So when w cahnge teh workflow or
   update the agent bits there should not be a publiched or built version".
+- **Decision:** no deliberate CI run to prove that the "Build and Test" failure step fires when
+  change detection fails (PR #186). The step is accepted on review: "No, leave it".
