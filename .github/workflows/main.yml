@@ -42,11 +42,13 @@ jobs:
             echo "product=true" >> "$GITHUB_OUTPUT"; echo "tests=true" >> "$GITHUB_OUTPUT"
             echo "Release, or no base commit to compare: treat as a product change."; exit 0
           fi
-          files=$(git diff --name-only "$BASE" "$HEAD")
+          # --no-renames: a move out of src/ must count as a change to src/.
+          files=$(git diff --name-only --no-renames "$BASE" "$HEAD")
           echo "$files"
           p=false; t=false
-          echo "$files" | grep -Eq "$product" && p=true
-          echo "$files" | grep -Eq "$tests" && t=true
+          # Here-strings, not pipes: grep -q exiting early must not fail a writer under pipefail.
+          if grep -Eq "$product" <<< "$files"; then p=true; fi
+          if grep -Eq "$tests" <<< "$files"; then t=true; fi
           echo "product=$p" >> "$GITHUB_OUTPUT"; echo "tests=$t" >> "$GITHUB_OUTPUT"
           echo "product=$p tests=$t"
 
@@ -54,9 +56,9 @@ jobs:
   ci:
     name: Build and Test
     needs: changes
-    # Skipped when nothing that affects the product or its tests changed. A skipped job still
-    # satisfies the required "Build and Test" check, so such PRs can merge.
-    if: needs.changes.outputs.product == 'true' || needs.changes.outputs.tests == 'true'
+    # Skipped only when the classifier succeeded and found no product or test change. A skipped job
+    # still satisfies the required "Build and Test" check. If the classifier fails, build anyway.
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.product == 'true' || needs.changes.outputs.tests == 'true') }}
     # net481 targets require Windows; build.ps1 is the single entry point
     runs-on: windows-latest
     # The integration-tests environment is the federated-credential subject of the shared Entra test

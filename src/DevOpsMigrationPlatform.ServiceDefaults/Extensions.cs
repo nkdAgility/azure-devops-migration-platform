@@ -120,7 +120,12 @@ public static class Extensions
         var azureMonitorConnectionString = builder.Configuration["Telemetry:AzureMonitorConnectionString"];
         if (!string.IsNullOrWhiteSpace(azureMonitorConnectionString))
             builder.Services.AddOpenTelemetry().UseAzureMonitor(o =>
-                o.ConnectionString = azureMonitorConnectionString);
+            {
+                o.ConnectionString = azureMonitorConnectionString;
+                // 1.5+ defaults to 5 traces/second; keep sampling every trace as before.
+                o.SamplingRatio = 1.0f;
+                o.TracesPerSecond = null;
+            });
 
         return builder;
     }
