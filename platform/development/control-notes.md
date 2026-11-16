@@ -67,3 +67,51 @@ skills) changes only once Martin approves its exact wording.
   update the agent bits there should not be a publiched or built version".
 - **Decision:** no deliberate CI run to prove that the "Build and Test" failure step fires when
   change detection fails (PR #186). The step is accepted on review: "No, leave it".
+
+## 2026-11-16
+
+- The full end-to-end proof is a real migration, and it covers at least two paths: REST → REST
+  (the AzureDevOpsServices connector at both ends), and Object Model → REST (the
+  TeamFoundationServer connector reading through the TFS Object Model, writing through REST).
+  Azure DevOps Services is always used as both source and target, including for the Object Model
+  path: "We also need at least: 1) REST -> REST 2) ObjectModel -> REST. Its ok to always use ADO
+  Service as teh soruce and targets".
+- #220 (Object Model → REST live scenario) is the most important item; it was created as the
+  missing end-to-end item.
+- Rulings on the #220 pre-start (blocked) questions:
+  - Shape: #220 depends on #169 (one TFS → ADO job across both agents) and keeps a single migrate
+    scenario file. It is not split into two sequential scenario files.
+  - Per-run projects: #220 builds the minimal create, seed and clean-up of its own
+    `adpe2e-<issue>-<slot>` projects; #176 later moves the other scenarios onto it.
+  - TFS auth: the Object Model export signs in with the `az login` / CI federated-identity bearer
+    token, as REST does; connector support for that is checked within #220.
+- Ruling on Decision #192 (blocks #169, and so #220): option A. One TFS → Azure DevOps job carries
+  per-phase connector demand, and the Control Plane re-routes that same job between capable
+  agents phase by phase. The package is the hand-off, and the operator sees one job ID and status.
+- Martin said #169 must be started, since #220 depends on it.
+- Ruling on how the new Ready rule (two scenario lines) applies: "Hold all ready verdicts". No item
+  moves to `ready` until the Object Model → REST scenario exists and the item names its two
+  scenarios. That holds the sub-issue verdicts 200, 202, 204, 206, 207, 208, 212, 213 and 215.
+  No-migration items are not exempted.
+- **Correction:** Martin updated his Decision #192 ruling at 14:18 on 2026-11-16, replacing Option
+  A (recorded above) with sub-jobs. A migration whose source and target need different
+  connectors runs as one parent job with two child jobs on the same package: an Export child
+  (source connector only) and an Import child (target connector only) that depends on it. The CLI
+  splits the job; the Control Plane routes each child by its own connectors and only holds the
+  Import child until the Export child completes. The operator sees one parent job ID. (Recorded as
+  his ruling in the #192 comment of 2026-11-16 14:18; ADR-0035.)
+- A delivery slice is only valid when it is a complete vertical slice of work that can be shipped
+  to production and delivers value. #169's first pre-start proposal split one piece of work into
+  three delivery slices: "Delivery slices are only valid when they are complete vertica lslices of
+  work that can be shiopped to production and oproce value."
+- **Decision (in CONTROL-HUB, replacing this repo's stricter slice rule):** one plugin-level rule
+  for every repository. Every delivery slice is valuable on its own; a slice that only prepares for
+  another is allowed only when shipping them together would fail, with the reason written on it.
+  Martin: "Q2 A", choosing "Delivery Slices should be valuable on their own. The only time
+  staggered delivery of value is allowed is if there would be some kind of failure if we don't",
+  and "this should be plugin level stuff". Recorded in the Hub at
+  `platform/development/decision-log/2026-11-16-preparing-slice-only-when-together-would-fail.md`.
+- Martin approved applying the blocked sub-issue verdicts ("Yes, apply blocked"). Items 201, 203,
+  205, 209, 210, 211, 214, 216, 217, 218 and 219 moved to `blocked` with their assessment comments.
+  Decision #221 (what TFS "export comments" means: System.History mapping or an exemption) was
+  raised for #217.

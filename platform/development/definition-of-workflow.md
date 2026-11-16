@@ -30,9 +30,9 @@ no state.
 
 | State (label) | Moves to | Expected before it moves |
 |---|---|---|
-| `needs-assessment` (new item) | `ready` | The pre-start assessment is recorded as a comment and passes: the outcome and criteria are clear; no open questions remain; connectors, phases, agent placement and the ADMT equivalent are identified; dependencies are done; one PR, one concern, at most 5 criteria, independently shippable, about 2 days or less. |
+| `needs-assessment` (new item) | `ready` | The pre-start assessment is recorded as a comment and passes: the outcome and criteria are clear; no open questions remain; connectors, phases, agent placement and the ADMT equivalent are identified; dependencies are done; one PR, one concern, at most 5 criteria, independently shippable, about 2 days or less; and a live scenario is named for each of the two end-to-end paths (REST → REST and Object Model → REST). |
 | `needs-assessment` | `blocked` | An open question is raised as a linked Decision issue. |
-| `needs-assessment` | `broken-down` | Vertical-slice sub-issues exist (`gh issue create --parent`) and every acceptance criterion is covered by one of them. |
+| `needs-assessment` | `broken-down` | Vertical-slice sub-issues exist (`gh issue create --parent`) and every acceptance criterion is covered by one of them. Each slice is a complete vertical slice: on its own it can be shipped to production and gives an operator value, and the breakdown names that value and the slice's own two live end-to-end scenarios. A split by layer or by phase is not a breakdown. A slice that only prepares for another is allowed only when shipping them together would fail, and the breakdown writes that reason on it. |
 | `blocked` | `needs-assessment` | Every linked Decision is ruled. The item is then assessed again. |
 | `ready` | `in-progress` | Every dependency is closed and its PR is merged to `main`; the item touches no code area of another item in progress; the worker is assigned. |
 | `in-progress` | closed | The PR closes the issue and is merged, and its completion report shows the three levels below. |
@@ -45,7 +45,11 @@ To close an item, the PR must show:
   - up to date with `main`;
   - builds;
   - the full suite passes, with RED → GREEN evidence;
-  - **a full end-to-end migration** on the live test organisations, with the target state inspected;
+  - **a full end-to-end migration**: a real migration on Azure DevOps Services as both source and
+    target, on at least two paths, **REST → REST** (the AzureDevOpsServices connector at both ends)
+    and **Object Model → REST** (the TeamFoundationServer connector reading through the TFS Object
+    Model). The completion report gives each run's id (`adpe2e-<issue>-<slot>`), its scenario, that
+    it passed, and what was inspected on the target. A ticked checkbox is not proof;
   - architecture compliance;
   - checked against the original ask;
   - cleaned up.

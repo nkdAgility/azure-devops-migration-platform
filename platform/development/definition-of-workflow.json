@@ -21,7 +21,9 @@
       "from": "needs-assessment",
       "to": "ready",
       "checks": [
-        { "type": "pattern", "pattern": "(?im)^\\*\\*Result:\\*\\*\\s*ready\\s*$", "message": "no pre-start assessment recording the result ready" }
+        { "type": "pattern", "pattern": "(?im)^\\*\\*Result:\\*\\*\\s*ready\\s*$", "message": "no pre-start assessment recording the result ready" },
+        { "type": "pattern", "pattern": "(?im)^\\s*-\\s*REST\\s*(->|→)\\s*REST:\\s*scenarios/\\S+\\.json", "message": "no live REST -> REST scenario named" },
+        { "type": "pattern", "pattern": "(?im)^\\s*-\\s*Object Model\\s*(->|→)\\s*REST:\\s*scenarios/\\S+\\.json", "message": "no live Object Model -> REST scenario named" }
       ]
     },
     {
@@ -37,7 +39,8 @@
       "from": "needs-assessment",
       "to": "broken-down",
       "checks": [
-        { "type": "pattern", "pattern": "(?i)broken down into\\s*#\\d+", "message": "no sub-issues listed" }
+        { "type": "pattern", "pattern": "(?i)broken down into\\s*#\\d+", "message": "no sub-issues listed" },
+        { "type": "pattern", "pattern": "(?ms)\\A(?!.*^- #\\d+(?![^\\n]*: (value|prepares): [^;\\n]+; REST\\s*(->|→)\\s*REST: scenarios/\\S+\\.json; Object Model\\s*(->|→)\\s*REST: scenarios/\\S+\\.json)).*^- #\\d+: (value|prepares): ", "message": "a slice does not name the value it ships (or, for a preparing slice, why shipping together would fail) and its own two live end-to-end scenarios" }
       ]
     },
     {
@@ -64,7 +67,8 @@
       "records": ["closed"],
       "checks": [
         { "type": "pattern", "pattern": "(?i)\\bmerged\\b", "message": "the pull request is not merged" },
-        { "type": "pattern", "pattern": "(?im)^\\s*-\\s*\\[x\\][^\\n]*end-to-end migration", "message": "no full end-to-end migration ticked as done" },
+        { "type": "pattern", "pattern": "(?im)^Live E2E \\(REST\\s*(->|→)\\s*REST\\): run adpe2e-\\d+-\\S+, scenarios/\\S+\\.json, passed; target inspected: \\S", "message": "no live REST -> REST migration run, passed, with the target inspected" },
+        { "type": "pattern", "pattern": "(?im)^Live E2E \\(Object Model\\s*(->|→)\\s*REST\\): run adpe2e-\\d+-\\S+, scenarios/\\S+\\.json, passed; target inspected: \\S", "message": "no live Object Model -> REST migration run, passed, with the target inspected" },
         { "type": "pattern", "pattern": "(?im)^\\s*-\\s*\\[x\\][^\\n]*migration tools mapping", "message": "no ADMT comparison ticked as done" },
         { "type": "pattern", "pattern": "(?i)confidence[^\\n]*\\b\\d{1,3}\\s*%", "message": "no completion report with a confidence" }
       ]
@@ -76,7 +80,9 @@
       "records": ["closed"],
       "checks": [
         { "type": "pattern", "pattern": "(?im)^\\s*-\\s*\\[x\\][^\\n]*all sub-issues (are )?closed", "message": "not every sub-issue is ticked as closed" },
-        { "type": "pattern", "pattern": "(?im)^\\s*-\\s*\\[x\\][^\\n]*final live end-to-end migration", "message": "no final end-to-end migration of the whole outcome ticked as done" }
+        { "type": "pattern", "pattern": "(?im)^\\s*-\\s*\\[x\\][^\\n]*final live end-to-end migration", "message": "no final end-to-end migration of the whole outcome ticked as done" },
+        { "type": "pattern", "pattern": "(?im)^Live E2E \\(REST\\s*(->|→)\\s*REST\\): run adpe2e-\\d+-\\S+, scenarios/\\S+\\.json, passed; target inspected: \\S", "message": "no live REST -> REST migration of the whole outcome, passed, with the target inspected" },
+        { "type": "pattern", "pattern": "(?im)^Live E2E \\(Object Model\\s*(->|→)\\s*REST\\): run adpe2e-\\d+-\\S+, scenarios/\\S+\\.json, passed; target inspected: \\S", "message": "no live Object Model -> REST migration of the whole outcome, passed, with the target inspected" }
       ]
     }
   ]
