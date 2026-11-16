@@ -55,3 +55,12 @@ skills) changes only once Martin approves its exact wording.
   along with what they do, including any Python they use. The rule is that the agent never creates
   Python: "Leave Spec Kit and any other plugin along with what it does. YOU are never to create any
   python".
+
+## 2026-11-16
+
+- The full end-to-end proof is a real migration, and it covers at least two paths: REST → REST
+  (the AzureDevOpsServices connector at both ends), and Object Model → REST (the
+  TeamFoundationServer connector reading through the TFS Object Model, writing through REST).
+  Azure DevOps Services is always used as both source and target, including for the Object Model
+  path: "We also need at least: 1) REST -> REST 2) ObjectModel -> REST. Its ok to always use ADO
+  Service as teh soruce and targets".
