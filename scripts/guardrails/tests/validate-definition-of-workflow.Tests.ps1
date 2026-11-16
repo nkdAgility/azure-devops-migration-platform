@@ -9,7 +9,8 @@ BeforeAll {
     $script:template = Join-Path $repo '.github\ISSUE_TEMPLATE\backlog-item.md'
     function New-Definition([string]$readyPattern) {
         $d = Get-Content (Join-Path $repo 'platform\development\definition-of-workflow.json') -Raw | ConvertFrom-Json
-        ($d.shifts | Where-Object name -eq 'Ready').checks[0].pattern = $readyPattern
+        $ready = $d.shifts | Where-Object name -eq 'Ready'
+        $ready.checks = @([pscustomobject]@{ type = 'pattern'; pattern = $readyPattern; message = 'placeholder' })
         $p = Join-Path $TestDrive "dow-$([guid]::NewGuid()).json"
         $d | ConvertTo-Json -Depth 20 | Set-Content $p -Encoding utf8
         $p
@@ -31,7 +32,8 @@ Describe 'validate-definition-of-workflow.ps1' {
 
     It 'still lets a fully ticked item meet the Ready shift' {
         $ticked = Join-Path $TestDrive 'ticked.md'
-        (Get-Content $template -Raw) -replace '\*\*Result:\*\*[^\r\n]*', '**Result:** ready' | Set-Content $ticked -Encoding utf8
+        $named = "**Result:** ready`n- REST -> REST: scenarios/a.json`n- Object Model -> REST: scenarios/b.json"
+        (Get-Content $template -Raw) -replace '\*\*Result:\*\*[^\r\n]*', $named | Set-Content $ticked -Encoding utf8
         $out = & pwsh -NoProfile -File $tool -Template $ticked 2>&1
         ($out -join "`n") | Should -Match 'shift Ready'
     }

@@ -41,6 +41,16 @@ labels: ["backlog-item", "needs-assessment"]
 - Decisions:
 - Spec: <!-- specs/NNN-name/, if any -->
 
+## Live end-to-end proof
+
+<!-- A real migration on Azure DevOps Services, as both source and target, on at least two paths.
+     At pre-start, name a live scenario for each path as a list line:
+       - REST -> REST: scenarios/<file>.json
+       - Object Model -> REST: scenarios/<file>.json
+     At done, the completion report adds one line for each path:
+       Live E2E (REST -> REST): run adpe2e-<issue>-<slot>, scenarios/<file>.json, passed; target inspected: <what was checked>
+       Live E2E (Object Model -> REST): run adpe2e-<issue>-<slot>, scenarios/<file>.json, passed; target inspected: <what was checked> -->
+
 ---
 
 ## Pre-start assessment
