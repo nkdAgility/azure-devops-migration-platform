@@ -64,3 +64,31 @@ skills) changes only once Martin approves its exact wording.
   Azure DevOps Services is always used as both source and target, including for the Object Model
   path: "We also need at least: 1) REST -> REST 2) ObjectModel -> REST. Its ok to always use ADO
   Service as teh soruce and targets".
+- #220 (Object Model → REST live scenario) is the most important item; it was created as the
+  missing end-to-end item.
+- Rulings on the #220 pre-start (blocked) questions:
+  - Shape: #220 depends on #169 (one TFS → ADO job across both agents) and keeps a single migrate
+    scenario file. It is not split into two sequential scenario files.
+  - Per-run projects: #220 builds the minimal create, seed and clean-up of its own
+    `adpe2e-<issue>-<slot>` projects; #176 later moves the other scenarios onto it.
+  - TFS auth: the Object Model export signs in with the `az login` / CI federated-identity bearer
+    token, as REST does; connector support for that is checked within #220.
+- Ruling on Decision #192 (blocks #169, and so #220): option A. One TFS → Azure DevOps job carries
+  per-phase connector demand, and the Control Plane re-routes that same job between capable
+  agents phase by phase. The package is the hand-off, and the operator sees one job ID and status.
+- Martin said #169 must be started, since #220 depends on it.
+- Ruling on how the new Ready rule (two scenario lines) applies: "Hold all ready verdicts". No item
+  moves to `ready` until the Object Model → REST scenario exists and the item names its two
+  scenarios. That holds the sub-issue verdicts 200, 202, 204, 206, 207, 208, 212, 213 and 215.
+  No-migration items are not exempted.
+- **Correction:** Martin updated his Decision #192 ruling at 14:18 on 2026-11-16, replacing Option
+  A (recorded above) with sub-jobs. A migration whose source and target need different
+  connectors runs as one parent job with two child jobs on the same package: an Export child
+  (source connector only) and an Import child (target connector only) that depends on it. The CLI
+  splits the job; the Control Plane routes each child by its own connectors and only holds the
+  Import child until the Export child completes. The operator sees one parent job ID. (Recorded as
+  his ruling in the #192 comment of 2026-11-16 14:18; ADR-0035.)
+- A delivery slice is only valid when it is a complete vertical slice of work that can be shipped
+  to production and delivers value. #169's first pre-start proposal split one piece of work into
+  three delivery slices: "Delivery slices are only valid when they are complete vertica lslices of
+  work that can be shiopped to production and oproce value."
