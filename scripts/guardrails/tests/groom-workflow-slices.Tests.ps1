@@ -48,6 +48,19 @@ Describe 'Groom workflow slice check' {
         $r = Invoke-Groom @($good, ($good.Clone()))
         ($r.calls | Where-Object { $_ -like 'apply:*' }) | Should -Not -BeNullOrEmpty
     }
+    It 'allows a preparing slice when shipping together would fail, with the reason written' {
+        $prep = $good.Clone(); $prep.title = 'Add the child-job columns to the job store'
+        $prep.shipsAlone = $false; $prep.operatorValue = ''; $prep.dependsOnSlices = @()
+        $prep.preparesBecause = 'the schema migration and the routing change cannot deploy in one release without downtime'
+        $after = $good.Clone(); $after.dependsOnSlices = @('Add the child-job columns to the job store')
+        $r = Invoke-Groom @($prep, $after)
+        ($r.calls | Where-Object { $_ -like 'apply:*' }) | Should -Not -BeNullOrEmpty
+    }
+    It 'still refuses a preparing slice with no written reason' {
+        $prep = $good.Clone(); $prep.shipsAlone = $false; $prep.operatorValue = ''; $prep.preparesBecause = ' '
+        $r = Invoke-Groom @($prep, $good)
+        ($r.calls | Where-Object { $_ -like 'apply:*' }) | Should -BeNullOrEmpty
+    }
     It 'refuses a slice missing either live scenario' {
         $bad = $good.Clone(); $bad.liveScenarios = @{ restToRest = 'scenarios/a.json' }
         $r = Invoke-Groom @($good, $bad)

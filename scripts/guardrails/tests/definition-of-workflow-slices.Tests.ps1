@@ -22,6 +22,10 @@ Describe 'BrokenDown needs every slice shippable alone' {
     It 'is not met when one slice lacks its scenarios' {
         Test-BrokenDown ("Broken down into #301, #302`n" + (& $line 301) + "`n- #302: value: the Control Plane holds the Import child") | Should -BeFalse
     }
+    It 'is met when a preparing slice writes why shipping together would fail' {
+        $prep = "- #302: prepares: shipping with #301 would fail because the schema and routing cannot deploy together; REST -> REST: scenarios/a.json; Object Model -> REST: scenarios/b.json"
+        Test-BrokenDown ("Broken down into #301, #302`n" + (& $line 301) + "`n" + $prep) | Should -BeTrue
+    }
     It 'is not met when one slice names no value' {
         Test-BrokenDown ("Broken down into #301, #302`n" + (& $line 301) + "`n- #302: REST -> REST: scenarios/a.json; Object Model -> REST: scenarios/b.json") | Should -BeFalse
     }

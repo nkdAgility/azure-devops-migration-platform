@@ -39,7 +39,7 @@ const PRESTART_SCHEMA = {
     slices: { type: 'array', items: { type: 'object', properties: {
       title: { type: 'string' }, acceptanceCriteria: { type: 'array', items: { type: 'string' } },
       likelyTooBig: { type: 'boolean' },
-      operatorValue: { type: 'string' }, shipsAlone: { type: 'boolean' },
+      operatorValue: { type: 'string' }, shipsAlone: { type: 'boolean' }, preparesBecause: { type: 'string' },
       dependsOnSlices: { type: 'array', items: { type: 'string' } },
       liveScenarios: { type: 'object', properties: { restToRest: { type: 'string' }, objectModelToRest: { type: 'string' } } } },
       required: ['title', 'acceptanceCriteria', 'operatorValue', 'shipsAlone', 'liveScenarios'] } },
@@ -62,18 +62,26 @@ ${m === 'apply'
   : 'Assess mode: read-only. Do NOT modify GitHub.'}
 Return the skill's output schema.`
 
-// Martin, 2026-11-16: a delivery slice is only valid when it is a complete vertical slice that can be
-// shipped to production and delivers value. Checked here, in code, before any slice is created.
-const notShippable = (slices = []) => slices
-  .map(s => {
-    const why = []
-    if (s.shipsAlone !== true) why.push('does not ship alone')
-    if (!s.operatorValue || !String(s.operatorValue).trim()) why.push('names no operator value')
-    if ((s.dependsOnSlices ?? []).length) why.push(`only works once ${s.dependsOnSlices.join(', ')} ships`)
-    if (!s.liveScenarios?.restToRest || !s.liveScenarios?.objectModelToRest) why.push('lacks its two live end-to-end scenarios')
-    return why.length ? `${s.title}: ${why.join('; ')}` : null
-  })
-  .filter(Boolean)
+// Martin, 2026-11-16 ("Q2 A", the plugin-level rule): every delivery slice is valuable on its own;
+// a slice that only prepares for another is allowed only when shipping them together would fail,
+// with the reason written on it (preparesBecause). Checked here, in code, before any slice is created.
+const written = (v) => typeof v === 'string' && v.trim().length > 0
+const notShippable = (slices = []) => {
+  const preparing = new Set(slices.filter(s => written(s.preparesBecause)).map(s => s.title))
+  return slices
+    .map(s => {
+      const why = []
+      if (!preparing.has(s.title)) {
+        if (s.shipsAlone !== true) why.push('does not ship alone')
+        if (!written(s.operatorValue)) why.push('names no operator value')
+      }
+      const waitsOn = (s.dependsOnSlices ?? []).filter(d => !preparing.has(d))
+      if (waitsOn.length) why.push(`only works once ${waitsOn.join(', ')} ships, which is not a preparing slice with a written reason`)
+      if (!s.liveScenarios?.restToRest || !s.liveScenarios?.objectModelToRest) why.push('lacks its two live end-to-end scenarios')
+      return why.length ? `${s.title}: ${why.join('; ')}` : null
+    })
+    .filter(Boolean)
+}
 
 // ── Select ────────────────────────────────────────────────────────────────
 phase('Select')

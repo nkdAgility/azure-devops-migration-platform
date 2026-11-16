@@ -92,3 +92,14 @@ skills) changes only once Martin approves its exact wording.
   to production and delivers value. #169's first pre-start proposal split one piece of work into
   three delivery slices: "Delivery slices are only valid when they are complete vertica lslices of
   work that can be shiopped to production and oproce value."
+- **Decision (in CONTROL-HUB, replacing this repo's stricter slice rule):** one plugin-level rule
+  for every repository. Every delivery slice is valuable on its own; a slice that only prepares for
+  another is allowed only when shipping them together would fail, with the reason written on it.
+  Martin: "Q2 A", choosing "Delivery Slices should be valuable on their own. The only time
+  staggered delivery of value is allowed is if there would be some kind of failure if we don't",
+  and "this should be plugin level stuff". Recorded in the Hub at
+  `platform/development/decision-log/2026-11-16-preparing-slice-only-when-together-would-fail.md`.
+- Martin approved applying the blocked sub-issue verdicts ("Yes, apply blocked"). Items 201, 203,
+  205, 209, 210, 211, 214, 216, 217, 218 and 219 moved to `blocked` with their assessment comments.
+  Decision #221 (what TFS "export comments" means: System.History mapping or an exemption) was
+  raised for #217.

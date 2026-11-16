@@ -40,7 +40,7 @@
       "to": "broken-down",
       "checks": [
         { "type": "pattern", "pattern": "(?i)broken down into\\s*#\\d+", "message": "no sub-issues listed" },
-        { "type": "pattern", "pattern": "(?ms)\\A(?!.*^- #\\d+(?![^\\n]*: value: [^;\\n]+; REST\\s*(->|→)\\s*REST: scenarios/\\S+\\.json; Object Model\\s*(->|→)\\s*REST: scenarios/\\S+\\.json)).*^- #\\d+: value: ", "message": "a slice does not name the value it ships and its own two live end-to-end scenarios" }
+        { "type": "pattern", "pattern": "(?ms)\\A(?!.*^- #\\d+(?![^\\n]*: (value|prepares): [^;\\n]+; REST\\s*(->|→)\\s*REST: scenarios/\\S+\\.json; Object Model\\s*(->|→)\\s*REST: scenarios/\\S+\\.json)).*^- #\\d+: (value|prepares): ", "message": "a slice does not name the value it ships (or, for a preparing slice, why shipping together would fail) and its own two live end-to-end scenarios" }
       ]
     },
     {
