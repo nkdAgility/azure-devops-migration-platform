@@ -38,7 +38,11 @@ const PRESTART_SCHEMA = {
       title: { type: 'string' }, question: { type: 'string' } }, required: ['title', 'question'] } },
     slices: { type: 'array', items: { type: 'object', properties: {
       title: { type: 'string' }, acceptanceCriteria: { type: 'array', items: { type: 'string' } },
-      likelyTooBig: { type: 'boolean' } }, required: ['title', 'acceptanceCriteria'] } },
+      likelyTooBig: { type: 'boolean' },
+      operatorValue: { type: 'string' }, shipsAlone: { type: 'boolean' }, preparesBecause: { type: 'string' },
+      dependsOnSlices: { type: 'array', items: { type: 'string' } },
+      liveScenarios: { type: 'object', properties: { restToRest: { type: 'string' }, objectModelToRest: { type: 'string' } } } },
+      required: ['title', 'acceptanceCriteria', 'operatorValue', 'shipsAlone', 'liveScenarios'] } },
     dropped: { type: 'array', items: { type: 'object', properties: {
       criterion: { type: 'string' }, reason: { type: 'string' } }, required: ['criterion', 'reason'] } },
     areas:   { type: 'array', items: { type: 'string' } },
@@ -57,6 +61,27 @@ ${m === 'apply'
   ? 'Apply mode. Before ANY GitHub mutation, verify the standing authorisation is in effect: `git show origin/main:.agents/10-contracts/consent-policy.yaml` must contain standing_authorisations.backlog-automation. If it does not (for example, still on an unmerged branch), make NO changes and return applied=false with reason "standing authorisation not in effect on main; needs operator approval". When it is in effect: create sub-issues with gh issue create --parent, keep the parent open labelled broken-down, and return createdIssues with the numbers of every issue you created (slices and Decisions).'
   : 'Assess mode: read-only. Do NOT modify GitHub.'}
 Return the skill's output schema.`
+
+// Martin, 2026-11-16 ("Q2 A", the plugin-level rule): every delivery slice is valuable on its own;
+// a slice that only prepares for another is allowed only when shipping them together would fail,
+// with the reason written on it (preparesBecause). Checked here, in code, before any slice is created.
+const written = (v) => typeof v === 'string' && v.trim().length > 0
+const notShippable = (slices = []) => {
+  const preparing = new Set(slices.filter(s => written(s.preparesBecause)).map(s => s.title))
+  return slices
+    .map(s => {
+      const why = []
+      if (!preparing.has(s.title)) {
+        if (s.shipsAlone !== true) why.push('does not ship alone')
+        if (!written(s.operatorValue)) why.push('names no operator value')
+      }
+      const waitsOn = (s.dependsOnSlices ?? []).filter(d => !preparing.has(d))
+      if (waitsOn.length) why.push(`only works once ${waitsOn.join(', ')} ships, which is not a preparing slice with a written reason`)
+      if (!s.liveScenarios?.restToRest || !s.liveScenarios?.objectModelToRest) why.push('lacks its two live end-to-end scenarios')
+      return why.length ? `${s.title}: ${why.join('; ')}` : null
+    })
+    .filter(Boolean)
+}
 
 // ── Select ────────────────────────────────────────────────────────────────
 phase('Select')
@@ -89,6 +114,14 @@ for (let depth = 0; depth <= maxDepth && queue.length; depth++) {
       { label: `assess:#${item.number}`, phase: 'Assess', schema: PRESTART_SCHEMA }),
     assessed => {
       if (!assessed || mode !== 'apply' || assessed.verdict === 'skip') return assessed
+      if (assessed.verdict === 'too-big') {
+        const refused = notShippable(assessed.slices)
+        if (refused.length) {
+          log(`#${assessed.issue}: breakdown refused, slices not shippable alone. Nothing created. ${refused.join(' | ')}`)
+          return { ...assessed, applied: false, refusedSlices: refused,
+            reasons: [...(assessed.reasons ?? []), 'breakdown refused: every slice must ship to production alone and deliver value'] }
+        }
+      }
       return agent(prestartPrompt(assessed.issue, 'apply'),
         { label: `apply:#${assessed.issue}`, phase: 'Apply', schema: PRESTART_SCHEMA })
     })

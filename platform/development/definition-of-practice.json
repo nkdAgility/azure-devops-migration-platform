@@ -1,0 +1,599 @@
+{
+  "$schema": "https://github.com/nkdAgility/NKDAEngineering-Delivery/plugins/nkda-engineering-practice/reference/definition-of-practice.schema.json",
+  "version": 1,
+  "rules": {
+    "constitution": ".specify/memory/constitution.md",
+    "testingRules": ".agents/20-guardrails/workflow/testing-rules.md",
+    "testingGuide": "docs/testing-guide.md",
+    "codingStandards": ".agents/20-guardrails/core/coding-standards.md",
+    "architectureBoundaries": ".agents/20-guardrails/core/architecture-boundaries.md",
+    "observability": ".agents/20-guardrails/domains/observability-requirements.md",
+    "definitionOfDone": ".agents/20-guardrails/workflow/definition-of-done.md",
+    "surfaceCatalog": ".agents/10-contracts/surface-catalog.yaml",
+    "seamCatalog": ".agents/10-contracts/seam-catalog.yaml",
+    "capabilityEthos": ".agents/20-guardrails/core/capability-ethos-rules.md",
+    "agentConstitution": "AGENTS.md",
+    "manifest": ".agents/00-entry/manifest.yaml",
+    "taskProfiles": ".agents/00-entry/task-profiles.yaml",
+    "readingOrder": ".agents/00-entry/reading-order.md",
+    "failingTestsProcedure": ".agents/20-guardrails/workflow/failing-tests-workflow.md",
+    "testFirst": ".agents/20-guardrails/workflow/test-first-workflow.md",
+    "taxonomy": ".agents/20-guardrails/core/taxonomy-naming.md",
+    "changeGovernance": ".agents/20-guardrails/core/change-governance.md",
+    "configuration": ".agents/20-guardrails/domains/configuration-rules.md",
+    "security": ".agents/20-guardrails/domains/security-rules.md",
+    "nonFunctional": ".agents/20-guardrails/workflow/engineering-nonfunctional-rules.md",
+    "documentation": ".agents/20-guardrails/workflow/documentation-rules.md"
+  },
+  "architecture": {
+    "rootNamespace": "DevOpsMigrationPlatform",
+    "subsystemDocs": ".agents/30-context/architecture/",
+    "innerRing": [
+      "DevOpsMigrationPlatform.Abstractions",
+      "DevOpsMigrationPlatform.Abstractions.Agent",
+      "DevOpsMigrationPlatform.Abstractions.ControlPlane",
+      "DevOpsMigrationPlatform.Abstractions.Storage"
+    ],
+    "sharedContracts": [
+      "DevOpsMigrationPlatform.Abstractions"
+    ],
+    "infrastructure": [
+      "DevOpsMigrationPlatform.Infrastructure",
+      "DevOpsMigrationPlatform.Infrastructure.Agent",
+      "DevOpsMigrationPlatform.Infrastructure.AzureDevOps",
+      "DevOpsMigrationPlatform.Infrastructure.ControlPlane",
+      "DevOpsMigrationPlatform.Infrastructure.Simulated",
+      "DevOpsMigrationPlatform.Infrastructure.Storage.AzureBlob",
+      "DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem",
+      "DevOpsMigrationPlatform.Infrastructure.TfsObjectModel"
+    ],
+    "hosts": [
+      "DevOpsMigrationPlatform.AppHost",
+      "DevOpsMigrationPlatform.ServiceDefaults",
+      "DevOpsMigrationPlatform.CLI.Migration",
+      "DevOpsMigrationPlatform.ControlPlaneHost",
+      "DevOpsMigrationPlatform.MigrationAgent",
+      "DevOpsMigrationPlatform.TfsMigrationAgent"
+    ],
+    "stores": [
+      "IPackageAccess",
+      "IStateStore"
+    ],
+    "forbiddenTypes": [
+      "Microsoft.TeamFoundation",
+      "Microsoft.VisualStudio.Services",
+      "Azure.Storage",
+      "WorkItemTrackingHttpClient",
+      "VssConnection",
+      "TfsTeamProjectCollection"
+    ],
+    "boundaryTerms": [
+      "Abstractions",
+      "Infrastructure",
+      "CLI",
+      "AppHost",
+      "ServiceDefaults",
+      "ControlPlane",
+      "ControlPlaneHost",
+      "SchemaGenerator"
+    ],
+    "stateKeyRule": "Every key includes the operation type (export or import) and a job or session scope.",
+    "extensionPort": "IModuleExtension"
+  },
+  "tests": {
+    "suites": [
+      {
+        "name": "unit",
+        "command": "pwsh ./build.ps1 Test"
+      },
+      {
+        "name": "simulated",
+        "command": "pwsh ./build.ps1 SystemTest_Simulated"
+      },
+      {
+        "name": "live",
+        "command": "pwsh ./build.ps1 SystemTest_Live"
+      }
+    ],
+    "behaviouralCategory": "DomainTests",
+    "systemCategory": "SystemTest",
+    "scenario": {
+      "marker": "DevOpsMigrationPlatform.Testing.Dsl"
+    },
+    "fileGlob": "tests/**/*Tests.cs",
+    "build": "dotnet build",
+    "ladder": [
+      {
+        "name": "UnitTests",
+        "marker": "[TestCategory(\"UnitTests\")]",
+        "family": "CodeTest",
+        "budgetMs": 50,
+        "needs": "A single class or method in isolation; all dependencies mocked; no I/O, no real infrastructure."
+      },
+      {
+        "name": "DomainTests",
+        "marker": "[TestCategory(\"DomainTests\")]",
+        "family": "CodeTest",
+        "budgetMs": 500,
+        "needs": "Business behaviour across real domain objects through the internal DSL (DevOpsMigrationPlatform.Testing builders, runners, assertions); no connectors or infrastructure."
+      },
+      {
+        "name": "IntegrationTests",
+        "marker": "[TestCategory(\"IntegrationTests\")]",
+        "family": "CodeTest",
+        "budgetMs": 30000,
+        "needs": "Real infrastructure components (retry policies, HTTP clients, serialisers) wired together in-process; no file system, network or connector."
+      },
+      {
+        "name": "SystemTest_Simulated",
+        "marker": "[TestCategory(\"SystemTest_Simulated\")]",
+        "family": "SystemTest",
+        "budgetMs": 60000,
+        "needs": "The full system active, end to end with the Simulated connector; no network."
+      },
+      {
+        "name": "SystemTest_Live",
+        "marker": "[TestCategory(\"SystemTest_Live\")]",
+        "family": "SystemTest",
+        "budgetMs": 300000,
+        "needs": "The full system active against live Azure DevOps or TFS; environment-gated."
+      }
+    ],
+    "dualTagRule": "Every test carries both its parent family tag (CodeTest or SystemTest) and its specific category tag (testing-rules.md). SystemTest_Smoke is operator-designated and is not a promotion level.",
+    "extraWastePatterns": [
+      "Export test (ExportAsync) with no check that IPackageAccess holds the expected path",
+      "Export test with no check that the written file is non-empty (length > 0 / line count > 0)",
+      "Import test (ImportAsync) with no check on Simulated*Target state (for example .Teams.Count, .NodesCreated)",
+      "Import test that asserts targetState.Count >= 0"
+    ],
+    "evidenceSources": [
+      {
+        "what": "Test results and runner output",
+        "where": "TestResults\\*.trx and the test runner console output",
+        "required": true
+      },
+      {
+        "what": "errors.json: the migration's structured error report (absent if the job died before writing it)",
+        "where": ".output\\workingtests\\<TestName>-<ts>\\errors.json",
+        "required": true
+      },
+      {
+        "what": "Per-process OTel logs: where the real exception is (the CLI only reports that the job failed on the agent)",
+        "where": ".output\\workingtests\\<TestName>-<ts>\\.otel-diagnostics\\<ts>\\{MigrationAgent,TfsMigrationAgent,ControlPlaneHost,CLI}-logs.log",
+        "required": true
+      },
+      {
+        "what": "OTel traces",
+        "where": ".output\\workingtests\\<TestName>-<ts>\\.otel-diagnostics\\<ts>\\*-traces.log",
+        "required": false
+      },
+      {
+        "what": "Raw payloads",
+        "where": ".output\\workingtests\\<TestName>-<ts>\\.otel-diagnostics\\inbox\\",
+        "required": false
+      },
+      {
+        "what": "Package output",
+        "where": ".output\\workingtests\\<TestName>-<ts>\\<org>\\<project>\\",
+        "required": false
+      },
+      {
+        "what": "The job that ran",
+        "where": ".output\\workingtests\\<TestName>-<ts>\\.migration\\runs\\<runId>\\{config,job}.json",
+        "required": false
+      }
+    ],
+    "projects": [
+      "tests/DevOpsMigrationPlatform.Abstractions.Tests",
+      "tests/DevOpsMigrationPlatform.CLI.Migration.Tests",
+      "tests/DevOpsMigrationPlatform.ControlPlane.Tests",
+      "tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests",
+      "tests/DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Tests",
+      "tests/DevOpsMigrationPlatform.Infrastructure.ControlPlane.Tests",
+      "tests/DevOpsMigrationPlatform.Infrastructure.Simulated.Tests",
+      "tests/DevOpsMigrationPlatform.Infrastructure.Tests",
+      "tests/DevOpsMigrationPlatform.MigrationAgent.Tests",
+      "tests/DevOpsMigrationPlatform.SchemaGenerator.Tests",
+      "tests/DevOpsMigrationPlatform.TfsMigrationAgent.Tests"
+    ],
+    "categoryGuide": [
+      ".agents/20-guardrails/workflow/testing-rules.md",
+      "docs/testing-guide.md"
+    ],
+    "classTags": "required",
+    "sessionEvidence": {
+      "dir": "Logs/atdd-sessions",
+      "schema": ".agents/50-evidence/session-evidence.schema.json",
+      "validate": "python scripts/guardrails/validate-evidence.py"
+    },
+    "runOne": "pwsh ./build.ps1 RunTest \"<TestName>\""
+  },
+  "changeClasses": {
+    "file": ".agents/10-contracts/change-classes.yaml",
+    "consent": ".agents/10-contracts/consent-policy.yaml"
+  },
+  "variants": {
+    "items": [
+      {
+        "name": "Simulated",
+        "runtime": "net10",
+        "api": "in-process, deterministic, no external connectivity",
+        "alwaysRequired": true,
+        "registrationPattern": "AddSimulated*"
+      },
+      {
+        "name": "AzureDevOpsServices",
+        "runtime": "net10",
+        "api": "Azure DevOps REST API",
+        "alwaysRequired": true,
+        "registrationPattern": "AddAzureDevOps*"
+      },
+      {
+        "name": "TeamFoundationServer",
+        "runtime": "net481",
+        "api": "TFS Object Model",
+        "alwaysRequired": false,
+        "registrationPattern": "AddTfs*"
+      }
+    ],
+    "abstractions": [
+      "IModule"
+    ],
+    "capabilityDocs": [
+      "docs/capabilities-guide.md",
+      "docs/agent-hosting.md"
+    ],
+    "sectionTitle": "Connector Coverage",
+    "stubPatterns": [
+      "NotImplementedException",
+      "NotSupportedException(\"not yet\")"
+    ],
+    "exemptionRule": {
+      "variants": [
+        "TeamFoundationServer"
+      ],
+      "when": "TFS uses the TFS Object Model only, with no minimum TFS version. A capability is implemented on TFS as far as the Object Model supports it, and no further. TFS is exempt from a capability only where the TFS Object Model does not expose it. Do not propose REST or a version floor for TFS.",
+      "behaviour": [
+        "Emit a warning ProgressEvent explaining the unsupported capability.",
+        "Log a structured warning at Warning level.",
+        "Never throw (no NotImplementedException); skip the operation gracefully.",
+        "Document the exemption, with the specific Object Model limitation as its rationale, in the spec's Connector Coverage section."
+      ],
+      "notApplicable": "A capability that does not apply to a connector's role (for example an import-only capability for an export-only connector) is N/A, not exempt."
+    }
+  },
+  "observability": {
+    "model": ".agents/30-context/domains/telemetry-model.md",
+    "nameRegistries": [
+      "src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownActivitySourceNames.cs",
+      "src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownMeterNames.cs",
+      "src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownAgentMetricNames.cs",
+      "src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownCliMetricNames.cs",
+      "src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownControlPlaneMetricNames.cs",
+      "src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownTagNames.cs"
+    ],
+    "queryLanguage": "KQL",
+    "operationTypes": [
+      "IModule"
+    ],
+    "tracing": "ActivitySource.StartActivity",
+    "logging": "ILogger<T>",
+    "progressPort": "IProgressSink.EmitAsync",
+    "progressBatchSize": 50,
+    "customerDataRule": "Raw customer data (field values, project names, organisation URLs, attachment paths) is logged only with DataClassification.Customer (src/DevOpsMigrationPlatform.Abstractions/Telemetry/DataClassification.cs); work item IDs are not customer data.",
+    "requiredTags": [
+      "module"
+    ]
+  },
+  "docs": {
+    "map": {
+      "cli-command": [
+        "docs/cli-guide.md",
+        ".agents/30-context/domains/cli-commands.md"
+      ],
+      "configuration": [
+        "docs/configuration-reference.md"
+      ],
+      "module": [
+        "docs/module-development-guide.md"
+      ],
+      "job-or-worker": [
+        "docs/agent-hosting.md",
+        ".agents/30-context/domains/job-lifecycle.md"
+      ],
+      "connector": [
+        "docs/capabilities-guide.md"
+      ],
+      "package-layout": [
+        ".agents/30-context/domains/migration-package-concept.md"
+      ],
+      "workitems-folder": [
+        ".agents/30-context/domains/workitems-format-summary.md"
+      ],
+      "streaming-import": [
+        ".agents/30-context/domains/import-streaming.md"
+      ],
+      "checkpointing": [
+        ".agents/30-context/domains/checkpointing-summary.md"
+      ],
+      "package-and-state-stores": [
+        ".agents/30-context/domains/package-manager.md"
+      ],
+      "telemetry": [
+        ".agents/30-context/domains/telemetry-model.md"
+      ],
+      "identity-mapping": [
+        ".agents/30-context/domains/identity-and-mapping.md"
+      ],
+      "aspire": [
+        "docs/development-setup.md"
+      ],
+      "control-plane-api": [
+        "docs/control-plane.md"
+      ],
+      "orchestration": [
+        "docs/migration-process-guide.md"
+      ],
+      "tui": [
+        "docs/tui-guide.md"
+      ],
+      "validation": [
+        "docs/validation.md"
+      ],
+      "packaging": [
+        "docs/package-format-reference.md"
+      ],
+      "architecture-decision": [
+        "docs/architecture.md"
+      ],
+      "schema-generation": [
+        "docs/configuration-reference.md"
+      ]
+    },
+    "references": {
+      "commands": ".agents/30-context/domains/cli-commands.md",
+      "configuration": "docs/configuration-reference.md",
+      "architecture": "docs/architecture.md"
+    },
+    "adrFolder": "docs/adr",
+    "enumerations": [
+      {
+        "name": "modules",
+        "find": "classes implementing IModule"
+      },
+      {
+        "name": "commands",
+        "find": "classes with a [Command] attribute or registered in a RootCommand/CommandApp"
+      },
+      {
+        "name": "options",
+        "find": "classes implementing IConfigSection (SectionName and init-only properties)"
+      },
+      {
+        "name": "connectors",
+        "find": "classes named *Source, *Target, *Connector or implementing ISourceEndpointInfo/ITargetEndpointInfo (ConnectorType)"
+      }
+    ],
+    "dataClassification": "Never add real project names, organisation URLs, attachment paths or field values; use placeholders such as <project-name> and <org-url>.",
+    "layout": {
+      "guides": "docs",
+      "context": ".agents/30-context",
+      "guardrails": ".agents/20-guardrails"
+    },
+    "entryFiles": [
+      ".agents/agents.md",
+      ".github/copilot-instructions.md"
+    ],
+    "excluded": [
+      ".agents/skills",
+      ".github/agents",
+      ".specify",
+      "specs"
+    ],
+    "audiences": [
+      "Agents/AI",
+      "Operators",
+      "Advanced Operators",
+      "Contributors"
+    ],
+    "targetMap": ".agents/skills/nkda-archimprove-documentation/DOCUMENTATION-MAP.md",
+    "closeChecks": [
+      "All items in specs/<feature>/discrepancies.md are marked Resolved or N/A.",
+      "If a new CLI command was added: the docs/cli-guide.md Commands table is updated and a .vscode/launch.json entry exists.",
+      "analysis/pending-actions.md is reviewed and newly completed items are removed."
+    ],
+    "indexes": {
+      "guardrails": ".agents/20-guardrails/README.md",
+      "context": ".agents/90-index/context-index.md",
+      "guides": "docs/README.md"
+    },
+    "terminology": ".agents/30-context/primers/terminology.md"
+  },
+  "speckit": {
+    "featuresFolder": "specs",
+    "preflight": "pwsh ./scripts/guardrails/validate-orchestrator.ps1",
+    "gates": {
+      "before": [
+        "/nkda-core-tasks-architecture-compliance",
+        "/speckit.superb.review",
+        "/speckit.superb.tdd"
+      ],
+      "after": [
+        "/nkda-core-implementation-architecture-compliance",
+        "/nkda-core-definition-of-done",
+        "/speckit.superb.verify"
+      ]
+    },
+    "extensionsFile": ".specify/extensions.yml",
+    "commandFolders": [
+      ".agents/commands",
+      ".agents/skills"
+    ],
+    "requiredHooks": [
+      {
+        "hook": "before_implement",
+        "command": "speckit.superb.tdd"
+      },
+      {
+        "hook": "after_implement",
+        "command": "speckit.superb.verify"
+      },
+      {
+        "hook": "after_tasks",
+        "command": "speckit.superb.review"
+      }
+    ],
+    "requiredArtefacts": [
+      ".agents/commands/nkda-tddsn-autonomous.md",
+      ".agents/commands/nkda-core-tasks-architecture-compliance.md",
+      ".agents/commands/nkda-core-implementation-architecture-compliance.md",
+      ".agents/skills/nkda-core-tasks-architecture-compliance/SKILL.md",
+      ".agents/skills/nkda-core-implementation-architecture-compliance/SKILL.md"
+    ]
+  },
+  "runtime": {
+    "targets": [
+      "net10",
+      "net481"
+    ],
+    "boundary": ".agents/20-guardrails/core/runtime-compatibility-net10-net481.md",
+    "constraints": [
+      "TfsObjectModel COM interop must remain in net481-only projects.",
+      "Shared abstractions must remain multi-targeted."
+    ],
+    "parity": "full"
+  },
+  "harness": {
+    "catalogs": [
+      {
+        "file": ".agents/10-contracts/routing-catalog.yaml"
+      },
+      {
+        "file": ".agents/00-entry/task-profiles.yaml"
+      },
+      {
+        "file": ".agents/10-contracts/change-classes.yaml"
+      },
+      {
+        "file": ".agents/10-contracts/consent-policy.yaml"
+      },
+      {
+        "file": ".agents/10-contracts/surface-catalog.yaml"
+      },
+      {
+        "file": ".agents/10-contracts/seam-catalog.yaml"
+      }
+    ],
+    "routingCatalog": ".agents/10-contracts/routing-catalog.yaml",
+    "taskProfiles": ".agents/00-entry/task-profiles.yaml",
+    "adrDigest": {
+      "adrFolder": "docs/adr",
+      "file": ".agents/30-context/domains/decision-records-summary.md",
+      "heading": "^## ADR (\\d{4})"
+    },
+    "contextIndex": {
+      "file": ".agents/90-index/context-index.md",
+      "domainsFolder": ".agents/30-context/domains"
+    },
+    "links": [
+      {
+        "target": ".agents/agents.md",
+        "links": [
+          "AGENTS.md",
+          "CLAUDE.md",
+          ".github/copilot-instructions.md"
+        ]
+      }
+    ],
+    "stubs": [
+      {
+        "stub": ".agents/40-stubs/controlplane.md",
+        "folders": [
+          "src/DevOpsMigrationPlatform.ControlPlane",
+          "src/DevOpsMigrationPlatform.ControlPlaneHost"
+        ]
+      },
+      {
+        "stub": ".agents/40-stubs/cli.md",
+        "folders": [
+          "src/DevOpsMigrationPlatform.CLI.Migration"
+        ]
+      },
+      {
+        "stub": ".agents/40-stubs/infrastructure-agent.md",
+        "folders": [
+          "src/DevOpsMigrationPlatform.Infrastructure.Agent"
+        ]
+      },
+      {
+        "stub": ".agents/40-stubs/migration-agent.md",
+        "folders": [
+          "src/DevOpsMigrationPlatform.MigrationAgent"
+        ]
+      },
+      {
+        "stub": ".agents/40-stubs/net481.md",
+        "folders": [
+          "src/DevOpsMigrationPlatform.TfsMigrationAgent",
+          "src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel"
+        ]
+      },
+      {
+        "stub": ".agents/40-stubs/simulated-connector.md",
+        "folders": [
+          "src/DevOpsMigrationPlatform.Infrastructure.Simulated"
+        ]
+      },
+      {
+        "stub": ".agents/40-stubs/storage-adapters.md",
+        "folders": [
+          "src/DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem",
+          "src/DevOpsMigrationPlatform.Infrastructure.Storage.AzureBlob"
+        ]
+      },
+      {
+        "stub": ".agents/40-stubs/azuredevops-connector.md",
+        "folders": [
+          "src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps"
+        ]
+      },
+      {
+        "stub": ".agents/40-stubs/abstractions.md",
+        "folders": [
+          "src/DevOpsMigrationPlatform.Abstractions",
+          "src/DevOpsMigrationPlatform.Abstractions.Agent",
+          "src/DevOpsMigrationPlatform.Abstractions.ControlPlane",
+          "src/DevOpsMigrationPlatform.Abstractions.Storage"
+        ]
+      },
+      {
+        "stub": ".agents/40-stubs/tests.md",
+        "folders": [
+          "tests"
+        ]
+      }
+    ],
+    "exemptFolders": [
+      {
+        "folder": "src/DevOpsMigrationPlatform.AppHost",
+        "reason": "Aspire dev-host wiring only; no domain rules beyond the constitution."
+      },
+      {
+        "folder": "src/DevOpsMigrationPlatform.Infrastructure",
+        "reason": "Shared base infrastructure; governed by the core guardrails loaded via routing."
+      },
+      {
+        "folder": "src/DevOpsMigrationPlatform.Infrastructure.ControlPlane",
+        "reason": "Covered by the control-plane rules; the controlplane stub sits on the ControlPlane and Host projects."
+      },
+      {
+        "folder": "src/DevOpsMigrationPlatform.SchemaGenerator",
+        "reason": "Build-time tool; its one blocking rule is CI-enforced in main.yml."
+      },
+      {
+        "folder": "src/DevOpsMigrationPlatform.ServiceDefaults",
+        "reason": "Aspire service-defaults boilerplate; no migration logic."
+      }
+    ]
+  }
+}

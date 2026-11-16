@@ -1,0 +1,38 @@
+{
+  "session_id": "2026-11-14-pr186-aspire-advisory-ci-gating",
+  "started_at": "2026-11-13T15:30:00Z",
+  "completed_at": "2026-11-14T18:47:25Z",
+  "requirement": "PR #186: (1) Restore failed under NuGet audit (NU1903) because Aspire 13.4.2 is affected by GHSA-f7vh-h5g3-7jrh. Move Aspire to 13.6.5, plus the Microsoft.Extensions, OpenTelemetry and Azure Monitor versions it requires. (2) The Azure Monitor 1.6.0 upgrade changed the default trace sampling to 5 traces per second, so keep every trace as before. (3) main.yml builds and publishes only when product files change, and builds anyway if the change classifier fails.",
+  "change_class": "A",
+  "activity": "harness",
+  "files_changed": [
+    "Directory.Packages.props",
+    "src/DevOpsMigrationPlatform.ServiceDefaults/Extensions.cs",
+    "tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/OtelCloudExportTests.cs",
+    ".github/workflows/main.yml",
+    "scripts/guardrails/validate-definition-of-workflow.ps1",
+    "scripts/guardrails/tests/validate-definition-of-workflow.Tests.ps1",
+    "Logs/atdd-sessions/2026-11-14-pr186-aspire-advisory-ci-gating.json"
+  ],
+  "suites": [
+    { "suite": "UnitTests", "run": true, "passed": 1006, "failed": 0 },
+    { "suite": "DomainTests", "run": true, "passed": 44, "failed": 0 },
+    { "suite": "IntegrationTests", "run": true, "passed": 646, "failed": 0 },
+    { "suite": "SystemTest_Smoke", "run": true, "passed": 1, "failed": 0 },
+    { "suite": "SystemTest_Simulated", "run": true, "passed": 48, "failed": 0 },
+    { "suite": "SystemTest_Live", "run": false, "not_run_reason": "No live test credentials in this local session; runs in CI under the integration-tests environment." }
+  ],
+  "assumptions": [
+    "Each suite was run with `dotnet test DevOpsMigrationPlatform.slnx -c Release --no-build --filter TestCategory=<suite>` on 73655b90, after a Release build. build.ps1 could not run locally: GitVersion fails on an over-long refs/codex checkpoint ref in the local .git, which is a problem on this machine, not in the repo.",
+    "Telemetry sampling: OtelCloudExportTests.AzureMonitor_KeepsEveryTrace_WhenConnectionStringIsConfigured failed (TracesPerSecond was not null) before the Extensions.cs change and passed after it.",
+    "Workflow validator: the four new Pester cases (empty definition, null shift entry, shift with no checks, unreachable from-state) failed before the fix and passed after it. Pester 25 passed, 0 failed.",
+    "main.yml change classifier: its patterns were checked against five file lists (this PR, workflow and agents only, tests only, src, props), and each gave the expected result. It has not yet run on GitHub.",
+    "Azure Monitor 1.6.0 and 1.8.3 are the newest versions whose OpenTelemetry dependency range includes 1.17.0, the version that Aspire 13.6.5 requires."
+  ],
+  "deviations": [],
+  "risks": [
+    "Azure Monitor and OpenTelemetry moved together; Directory.Packages.props warns that a mismatch loses telemetry silently. Only DI and options were verified, not export to Application Insights."
+  ],
+  "docs_updated": [],
+  "outcome": "SUCCESS"
+}

@@ -20,6 +20,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Telemetry;
 /// the SnapshotMetricExporter is always present when ControlPlane telemetry services are added.
 /// </summary>
 [TestClass]
+[TestCategory("CodeTest")]
+[TestCategory("IntegrationTests")]
 public class OtelCloudExportTests
 {
     // ─────────────────────────────────────────────────────────────────────────
@@ -87,6 +89,27 @@ public class OtelCloudExportTests
 
         Assert.IsTrue(hasAzureMonitorDescriptor,
             "Azure Monitor service descriptors should be present when AzureMonitorConnectionString is configured.");
+    }
+
+    // Azure.Monitor.OpenTelemetry.AspNetCore 1.5+ defaults to 5 traces per second; we keep every trace.
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
+    [TestMethod]
+    public void AzureMonitor_KeepsEveryTrace_WhenConnectionStringIsConfigured()
+    {
+        var builder = Host.CreateApplicationBuilder();
+        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Telemetry:AzureMonitorConnectionString"] = "InstrumentationKey=00000000-0000-0000-0000-000000000000"
+        });
+
+        builder.ConfigureOpenTelemetry();
+        using var sp = builder.Services.BuildServiceProvider();
+        var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<Azure.Monitor.OpenTelemetry.AspNetCore.AzureMonitorOptions>>()
+            .Get(Microsoft.Extensions.Options.Options.DefaultName);
+
+        Assert.AreEqual(1.0f, options.SamplingRatio, "Every trace should be sampled.");
+        Assert.IsNull(options.TracesPerSecond, "Rate-limited sampling should be off.");
     }
 
     // ─────────────────────────────────────────────────────────────────────────

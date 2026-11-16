@@ -9,9 +9,61 @@ on:
     types: [published]
 
 jobs:
+  # ── What changed: only product changes build, test or release ──────────────
+  # Workflow, agent, docs and spec changes (.github, .agents, .claude, docs, specs, platform, ...)
+  # build nothing. Test-only changes build and test but publish no version.
+  # Martin, 2026-11-14: "only the things that affect the product result in a new version".
+  changes:
+    name: Detect product changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      product: ${{ steps.diff.outputs.product }}
+      tests: ${{ steps.diff.outputs.tests }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Classify changed files
+        id: diff
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        run: |
+          # Files that change what ships: building, versioning or packaging the product.
+          product='^(src/|\.build/|\.config/|build\.ps1$|[^/]+\.slnx$|Directory\.[^/]+$|global\.json$|stylecop\.json$|\.editorconfig$)'
+          # Files that change only how the product is verified.
+          tests='^(tests/|scenarios/|default\.runsettings$)'
+          if [ "$EVENT" = "release" ] || [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+            echo "product=true" >> "$GITHUB_OUTPUT"; echo "tests=true" >> "$GITHUB_OUTPUT"
+            echo "Release, or no base commit to compare: treat as a product change."; exit 0
+          fi
+          # --no-renames: a move out of src/ must count as a change to src/.
+          # core.quotePath=false: non-ASCII paths come out raw, not quoted, so the anchors still match.
+          # Paths with a double quote, tab or newline are still quoted by git, so strip the
+          # surrounding quotes; only the leading directory or file name is matched.
+          files=$(git -c core.quotePath=false diff --name-only --no-renames "$BASE" "$HEAD")
+          files=$(sed -e 's/^"//' -e 's/"$//' <<< "$files")
+          echo "$files"
+          p=false; t=false
+          # Here-strings, not pipes: grep -q exiting early must not fail a writer under pipefail.
+          if grep -Eq "$product" <<< "$files"; then p=true; fi
+          if grep -Eq "$tests" <<< "$files"; then t=true; fi
+          echo "product=$p" >> "$GITHUB_OUTPUT"; echo "tests=$t" >> "$GITHUB_OUTPUT"
+          echo "product=$p tests=$t"
+
   # ── Single CI job: one build per event ──────────────────────────────────────
   ci:
     name: Build and Test
+    needs: changes
+    # Skipped only when the classifier succeeded and found no product or test change. A skipped job
+    # still satisfies the required "Build and Test" check. If the classifier fails, this job runs and
+    # fails at once, so the required check blocks the PR instead of passing on an unclassified diff.
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.product == 'true' || needs.changes.outputs.tests == 'true') }}
     # net481 targets require Windows; build.ps1 is the single entry point
     runs-on: windows-latest
     # The integration-tests environment is the federated-credential subject of the shared Entra test
@@ -27,6 +79,13 @@ jobs:
       semver: ${{ steps.version.outputs.semVer }}
 
     steps:
+      - name: Fail when change detection failed
+        if: needs.changes.result != 'success'
+        shell: pwsh
+        run: |
+          Write-Output "::error title=Change detection failed::'Detect product changes' ended '${{ needs.changes.result }}', so it is unknown whether the product changed. Re-run the workflow."
+          exit 1
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -106,7 +165,7 @@ jobs:
           exit $code
 
       - name: Package
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && needs.changes.outputs.product == 'true'
         run: pwsh ./build.ps1 -Mode Package
 
       - name: Upload test results
@@ -126,7 +185,7 @@ jobs:
 
       - name: Upload release packages
         uses: actions/upload-artifact@v4
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && needs.changes.outputs.product == 'true'
         with:
           name: release-packages
           path: '.output/build/MigrationTools-*.zip'
@@ -135,8 +194,9 @@ jobs:
   # ── Preview release: auto-create on main push ──────────────────────────────
   preview-release:
     name: Create Preview Release
-    needs: ci
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [changes, ci]
+    # A new version is published only when the product itself changed.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.product == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
