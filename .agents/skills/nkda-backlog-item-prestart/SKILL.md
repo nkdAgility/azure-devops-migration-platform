@@ -85,8 +85,9 @@ Estimate against the codebase, not against the issue text alone.
 
 ### 5. Break down (only when the verdict is `too-big`)
 
-1. **Slice vertically.** Use connector, phase, data type, or happy path versus edge cases as the split. Do not split by layer.
+1. **Slice vertically.** Every slice is a complete vertical slice: on its own it can be shipped to production and gives an operator value they can use. Split by connector, data type, or happy path versus edge cases, never by layer or by phase. A slice that only works once a sibling ships is not a slice: keep the item whole.
 2. **Check every slice.**
+   - It names the value an operator gets when it ships, and it has its own two live end-to-end scenarios.
    - It has no more than 5 acceptance criteria.
    - It has one concern.
    - It carries its share of the scope and of the Migration Tools mapping rows.
@@ -108,7 +109,7 @@ Each verdict **replaces** the previous verdict labels. An item never carries bot
 | --- | --- |
 | `ready` | 1. Post the comment.<br>2. Add `ready`.<br>3. Remove `needs-assessment` and `blocked`. |
 | `blocked` | 1. Find the Decision issues already linked from this item (its body, comments and `Decisions:` line). Reuse them, and create only the Decisions that are not already linked, using `nkda-backlog-item-create`.<br>2. Post the comment with links to all of them.<br>3. Add `blocked`.<br>4. Remove `needs-assessment` and `ready`. |
-| `too-big` | 1. Create the slices using `nkda-backlog-item-create` in create mode with `--parent <n>`, reusing any existing sub-issues. Each slice is labelled `needs-assessment`.<br>2. Post the comment with `Broken down into #a, #b, #c` and the coverage map.<br>3. Add `broken-down`.<br>4. Remove `needs-assessment`, `ready` and `blocked`.<br>5. **Leave the parent open.** |
+| `too-big` | 1. Create the slices using `nkda-backlog-item-create` in create mode with `--parent <n>`, reusing any existing sub-issues. Each slice is labelled `needs-assessment`.<br>2. Post the comment with `Broken down into #a, #b, #c`, the coverage map, and one line for each slice: `- #a: value: <what an operator gets>; REST -> REST: scenarios/<file>.json; Object Model -> REST: scenarios/<file>.json`.<br>3. Add `broken-down`.<br>4. Remove `needs-assessment`, `ready` and `blocked`.<br>5. **Leave the parent open.** |
 
 ## Output schema (returned when called from a workflow)
 
@@ -116,7 +117,8 @@ Each verdict **replaces** the previous verdict labels. An item never carries bot
 { "issue": 0, "verdict": "ready|blocked|too-big|skip", "reasons": [],
   "checks": [ { "name": "", "pass": true, "reason": "" } ],
   "proposedDecisions": [ { "title": "", "question": "" } ],
-  "slices": [ { "title": "", "acceptanceCriteria": [], "connectors": [], "phases": [], "dependsOnSlices": [], "likelyTooBig": false } ],
+  "slices": [ { "title": "", "acceptanceCriteria": [], "connectors": [], "phases": [], "dependsOnSlices": [], "likelyTooBig": false,
+                "operatorValue": "", "shipsAlone": true, "liveScenarios": { "restToRest": "", "objectModelToRest": "" } } ],
   "coverage": [ { "criterion": "", "slices": [] } ],
   "dropped": [ { "criterion": "", "reason": "" } ],
   "areas": [], "applied": false, "createdIssues": [] }
