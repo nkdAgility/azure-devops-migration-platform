@@ -10,6 +10,15 @@
             "command": "pwsh -NoProfile -NonInteractive -File \"${CLAUDE_PROJECT_DIR}/.claude/hooks/Deny-Python.ps1\""
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh -NoProfile -NonInteractive -File \"${CLAUDE_PROJECT_DIR}/.claude/hooks/Deny-ProductEditInMainCheckout.ps1\""
+          }
+        ]
       }
     ]
   }
