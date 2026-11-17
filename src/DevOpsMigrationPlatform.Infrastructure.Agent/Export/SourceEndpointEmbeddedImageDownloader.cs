@@ -46,25 +46,52 @@ public sealed class SourceEndpointEmbeddedImageDownloader : IEmbeddedImageDownlo
         var token = _source.ToOrganisationEndpoint().Authentication?.ResolvedAccessToken;
         try
         {
+            // Redirects are followed here, not by the handler, so every hop is checked against the
+            // source endpoint and credentials never reach another host.
             var handler = _handlerFactory?.Invoke()
-                ?? new HttpClientHandler { UseDefaultCredentials = string.IsNullOrEmpty(token) };
+                ?? new HttpClientHandler { UseDefaultCredentials = string.IsNullOrEmpty(token), AllowAutoRedirect = false };
             using var client = new HttpClient(handler, disposeHandler: _handlerFactory is null);
-            using var request = new HttpRequestMessage(HttpMethod.Get, imageUrl);
-            if (!string.IsNullOrEmpty(token))
-                request.Headers.Authorization = new AuthenticationHeaderValue(
-                    "Basic", Convert.ToBase64String(Encoding.ASCII.GetBytes(":" + token)));
 
-            using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
-            var mediaType = response.Content?.Headers.ContentType?.MediaType;
-            if (!response.IsSuccessStatusCode || mediaType is null || !mediaType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+            var url = imageUrl;
+            for (var hop = 0; hop <= MaxRedirects; hop++)
             {
-                using (DataClassificationScope.Begin(DataClassification.Customer))
-                    _logger.LogWarning("Embedded image {Url} not downloaded: {Status} {MediaType}.", imageUrl, (int)response.StatusCode, mediaType);
-                return null;
+                using var request = new HttpRequestMessage(HttpMethod.Get, url);
+                if (!string.IsNullOrEmpty(token))
+                    request.Headers.Authorization = new AuthenticationHeaderValue(
+                        "Basic", Convert.ToBase64String(Encoding.ASCII.GetBytes(":" + token)));
+
+                using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+                if (IsRedirect(response.StatusCode) && response.Headers.Location is { } location)
+                {
+                    var next = location.IsAbsoluteUri ? location : new Uri(new Uri(url), location);
+                    if (!IsOnSourceEndpoint(next.AbsoluteUri))
+                    {
+                        using (DataClassificationScope.Begin(DataClassification.Customer))
+                            _logger.LogWarning("Embedded image {Url} not downloaded: it redirects off the source endpoint.", imageUrl);
+                        return null;
+                    }
+                    url = next.AbsoluteUri;
+                    continue;
+                }
+
+                var mediaType = response.Content?.Headers.ContentType?.MediaType;
+                var bytes = response.IsSuccessStatusCode && response.Content is not null
+                    ? await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false)
+                    : null;
+                var extension = bytes is null ? null : ImageExtension(mediaType, bytes);
+                if (extension is null)
+                {
+                    using (DataClassificationScope.Begin(DataClassification.Customer))
+                        _logger.LogWarning("Embedded image {Url} not downloaded: {Status} {MediaType}.", imageUrl, (int)response.StatusCode, mediaType);
+                    return null;
+                }
+
+                return new EmbeddedImageDownloadResult { Bytes = bytes!, Extension = extension };
             }
 
-            var bytes = await response.Content!.ReadAsByteArrayAsync().ConfigureAwait(false);
-            return new EmbeddedImageDownloadResult { Bytes = bytes, Extension = ExtensionFor(mediaType) };
+            using (DataClassificationScope.Begin(DataClassification.Customer))
+                _logger.LogWarning("Embedded image {Url} not downloaded: too many redirects.", imageUrl);
+            return null;
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
         {
@@ -85,6 +112,35 @@ public sealed class SourceEndpointEmbeddedImageDownloader : IEmbeddedImageDownlo
         return string.Equals(image.Scheme, source.Scheme, StringComparison.OrdinalIgnoreCase)
             && string.Equals(image.Authority, source.Authority, StringComparison.OrdinalIgnoreCase)
             && (image.AbsolutePath + "/").StartsWith(sourcePath, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private const int MaxRedirects = 5;
+
+    private static bool IsRedirect(System.Net.HttpStatusCode status) => (int)status is 301 or 302 or 303 or 307 or 308;
+
+    /// <summary>
+    /// The file extension for an image response, or null when it is not an image. A generic
+    /// binary type (the attachments API may answer <c>application/octet-stream</c>) is accepted
+    /// only when the bytes start with a known image signature.
+    /// </summary>
+    private static string? ImageExtension(string? mediaType, byte[] bytes)
+    {
+        if (mediaType is not null && mediaType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+            return ExtensionFor(mediaType);
+        if (mediaType is not null && !string.Equals(mediaType, "application/octet-stream", StringComparison.OrdinalIgnoreCase))
+            return null;
+        return SniffImageExtension(bytes);
+    }
+
+    private static string? SniffImageExtension(byte[] b)
+    {
+        if (b.Length >= 4 && b[0] == 0x89 && b[1] == 0x50 && b[2] == 0x4E && b[3] == 0x47) return "png";
+        if (b.Length >= 3 && b[0] == 0xFF && b[1] == 0xD8 && b[2] == 0xFF) return "jpg";
+        if (b.Length >= 4 && b[0] == (byte)'G' && b[1] == (byte)'I' && b[2] == (byte)'F' && b[3] == (byte)'8') return "gif";
+        if (b.Length >= 12 && b[0] == (byte)'R' && b[1] == (byte)'I' && b[2] == (byte)'F' && b[3] == (byte)'F'
+            && b[8] == (byte)'W' && b[9] == (byte)'E' && b[10] == (byte)'B' && b[11] == (byte)'P') return "webp";
+        if (b.Length >= 2 && b[0] == (byte)'B' && b[1] == (byte)'M') return "bmp";
+        return null;
     }
 
     private static string ExtensionFor(string mediaType) => mediaType.ToLowerInvariant() switch

@@ -1,11 +1,12 @@
 {
   "session_id": "2026-11-16-cross-agent-sub-jobs-169",
   "started_at": "2026-11-16T09:00:00Z",
-  "completed_at": "2026-11-17T12:00:00Z",
+  "completed_at": "2026-11-17T14:00:00Z",
   "requirement": "Backlog Item #169 (with #154 folded in): one TFS -> Azure DevOps migration runs as one parent job with dependent Export -> Prepare -> Import sub-jobs across the two agents (Decision #192, ADR-0035); one source revision = one target save; embedded images exported and re-hosted.",
   "change_class": "B",
   "activity": "agent",
   "files_changed": [
+    "Logs/atdd-sessions/2026-11-16-cross-agent-sub-jobs-169.json",
     "src/DevOpsMigrationPlatform.Abstractions.Agent/Attachments/IEmbeddedImageExportService.cs",
     "src/DevOpsMigrationPlatform.Abstractions.Agent/Export/IWorkItemExportOrchestratorFactory.cs",
     "src/DevOpsMigrationPlatform.Abstractions.Agent/WorkItems/CreatedAttachment.cs",
@@ -97,14 +98,13 @@
     "tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/OtelCloudExportTests.cs",
     "tests/DevOpsMigrationPlatform.TfsMigrationAgent.Tests/TfsFieldValueFormatterTests.cs",
     "tests/DevOpsMigrationPlatform.TfsMigrationAgent.Tests/TfsObjectModelExportDefectTests.cs",
-    "tests/DevOpsMigrationPlatform.TfsMigrationAgent.Tests/TfsSourceEndpointInfoTests.cs",
-    "Logs/atdd-sessions/2026-11-16-cross-agent-sub-jobs-169.json"
+    "tests/DevOpsMigrationPlatform.TfsMigrationAgent.Tests/TfsSourceEndpointInfoTests.cs"
   ],
   "suites": [
     {
       "suite": "UnitTests",
       "run": true,
-      "passed": 1117,
+      "passed": 1124,
       "failed": 0
     },
     {
@@ -140,7 +140,8 @@
     "Counts are from TestCategory-filtered solution runs after the last code change.",
     "Each behaviour change was test-first; the failing test was seen RED before the fix.",
     "PR #222 review fix 1: JobStoreUnservableJobTests.FailUnservableJobs_CapableAgentBusyOnALongJob_LeavesJobQueued failed (RED), then passed once an unfinished lease counts its agent as connected.",
-    "PR #222 review fix 2: ProcessAsync_WhenCreatingWithAttachments_PersistsAttachmentMappings failed to compile (RED: CreatedAttachment missing), then passed; all three targets report stored attachments."
+    "PR #222 review fix 2: ProcessAsync_WhenCreatingWithAttachments_PersistsAttachmentMappings failed to compile (RED: CreatedAttachment missing), then passed; all three targets report stored attachments.",
+    "PR #222 CodeRabbit round: RED then GREEN for redirect-within-source, octet-stream image bytes, empty-capability agent and client-local window end. SubmitAllAsync was written with its test in one step, so its RED was not observed separately. The lease-versus-failure race (TryClaim) has no deterministic test; the existing JobStore tests pass."
   ],
   "deviations": [
     "Decision #192 was first ruled Option A, then re-ruled to sub-jobs after an architecture check; ADR-0035 records the final ruling.",
@@ -150,7 +151,8 @@
     "An agent that dies mid-job keeps its lease unfinished, so queued jobs for its connectors wait instead of failing fast.",
     "Related links still carry source work item IDs.",
     "The TFS target saves once per attachment when updating an existing item.",
-    "The CLI import summary reports 0 work items imported."
+    "The CLI import summary reports 0 work items imported.",
+    "Explicit null clears on update, related-link ID remapping, multi-project Import source scoping, transient image retry, images in edited comments and the window-shrink floor are deferred for a ruling or live verification."
   ],
   "docs_updated": [
     "docs/adr/0035-cross-agent-jobs-as-parent-with-dependent-sub-jobs.md",

@@ -35,6 +35,32 @@ public class MigrateChildJobsTests
         CollectionAssert.AreEqual(new[] { ConnectorType.AzureDevOps }, jobs.Import.Connectors);
     }
 
+    private sealed class RecordingSubmitter : DevOpsMigrationPlatform.Abstractions.Jobs.IJobSubmissionClient
+    {
+        public System.Collections.Generic.List<string> Submitted { get; } = new();
+
+        public System.Threading.Tasks.Task<Guid> SubmitAsync(DevOpsMigrationPlatform.Abstractions.Jobs.Job job, System.Threading.CancellationToken ct = default)
+        {
+            Submitted.Add(job.JobId);
+            return System.Threading.Tasks.Task.FromResult(Guid.Parse(job.JobId));
+        }
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async System.Threading.Tasks.Task SubmitAllAsync_RegistersEveryChildBeforeAnyIsFollowed()
+    {
+        // PR #222 review: submitting Prepare and Import only after Export finished let the parent
+        // read Completed after Export alone, and a Ctrl-C in between left them never submitted.
+        var jobs = MigrateChildJobs.Build(Config("TeamFoundationServer", "AzureDevOpsServices"));
+        var client = new RecordingSubmitter();
+
+        await jobs.SubmitAllAsync(client, System.Threading.CancellationToken.None);
+
+        CollectionAssert.AreEqual(new[] { jobs.Export.JobId, jobs.Prepare.JobId, jobs.Import.JobId }, client.Submitted);
+    }
+
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]

@@ -25,11 +25,27 @@ public class TfsObjectModelExportDefectTests
     {
         var now = new DateTime(2026, 11, 16, 16, 5, 0, DateTimeKind.Utc);
 
-        var end = WorkItemStoreExtensions.FirstCreatedDateWindowEnd(now);
+        var end = WorkItemStoreExtensions.FirstCreatedDateWindowEnd(now, TimeZoneInfo.Utc);
 
         // WIQL compares CreatedDate by day: the window must end after today, not at today 00:00.
         Assert.AreEqual(new DateTime(2026, 11, 17), end.Date);
         Assert.IsTrue(end > now);
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public void FirstCreatedDateWindowEnd_UsesTheClientsLocalDay()
+    {
+        // PR #222 review: WIQL reads an unzoned date literal in the client's local time zone.
+        // At 20:00 UTC on 16 November it is already 17 November on a UTC+10 client, so the
+        // window must end at local midnight starting 18 November.
+        var utcNow = new DateTime(2026, 11, 16, 20, 0, 0, DateTimeKind.Utc);
+        var utcPlus10 = TimeZoneInfo.CreateCustomTimeZone("UTC+10", TimeSpan.FromHours(10), "UTC+10", "UTC+10");
+
+        var end = WorkItemStoreExtensions.FirstCreatedDateWindowEnd(utcNow, utcPlus10);
+
+        Assert.AreEqual(new DateTime(2026, 11, 18), end);
     }
 
     private static XmlElement NodesXml(string xml)

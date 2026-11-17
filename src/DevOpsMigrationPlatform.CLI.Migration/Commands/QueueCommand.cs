@@ -265,7 +265,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         if (!shouldFollow)
         {
-            var jobId = await client.SubmitAsync(job, cancellationToken);
+            var jobId = await SubmitOrReuseAsync(client, job, cancellationToken);
             PrintJobSubmitted(console, jobId, GetControlPlaneUrl());
             console.MarkupLine($"[grey]Use [blue]manage status --job {jobId}[/] to check progress.[/]");
             return 0;
@@ -274,7 +274,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         Guid parsedJobId;
         try
         {
-            parsedJobId = await client.SubmitAsync(job, cancellationToken);
+            parsedJobId = await SubmitOrReuseAsync(client, job, cancellationToken);
             PrintJobSubmitted(console, parsedJobId, GetControlPlaneUrl());
         }
         catch (Exception ex)
@@ -392,6 +392,12 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         return 1;
     }
 
+    // Children ExecuteMigrateAsync already submitted; the per-phase runners only follow them.
+    private readonly HashSet<string> _preSubmitted = new(StringComparer.OrdinalIgnoreCase);
+
+    private async Task<Guid> SubmitOrReuseAsync(ControlPlaneClient client, Job job, CancellationToken cancellationToken) =>
+        _preSubmitted.Contains(job.JobId) ? Guid.Parse(job.JobId) : await client.SubmitAsync(job, cancellationToken);
+
     private async Task<int> ExecuteMigrateAsync(string rawJson, QueueCommandSettings settings, CancellationToken cancellationToken)
     {
         // ADR-0035: one parent job submitted as Export -> Prepare -> Import children. Each child
@@ -401,7 +407,21 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             rawJson,
             new JobDiagnostics { MinimumLevel = settings.Level },
             settings.ForceFresh ? new JobResume { Mode = ResumeMode.ForceFresh } : null);
-        GetRequiredService<IAnsiConsole>().MarkupLine($"[blue]ℹ[/] Migration job [bold]{children.ParentJobId}[/] (Export → Prepare → Import)");
+        var console = GetRequiredService<IAnsiConsole>();
+        console.MarkupLine($"[blue]ℹ[/] Migration job [bold]{children.ParentJobId}[/] (Export → Prepare → Import)");
+
+        // Register all three children before following any, so the parent's state covers the
+        // whole migration and detaching leaves it running (PR #222 review).
+        try
+        {
+            await children.SubmitAllAsync(GetRequiredService<ControlPlaneClient>(), cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            ShowError(console, $"Failed to submit job: {ex.Message}");
+            return 1;
+        }
+        _preSubmitted.UnionWith(new[] { children.Export.JobId, children.Prepare.JobId, children.Import.JobId });
 
         var exportResult = await ExecuteExportAsync(rawJson, settings, cancellationToken, children.Export);
         if (exportResult != 0)
@@ -447,7 +467,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         if (!shouldFollow)
         {
-            var jobId = await client.SubmitAsync(job, cancellationToken);
+            var jobId = await SubmitOrReuseAsync(client, job, cancellationToken);
             PrintJobSubmitted(console, jobId, GetControlPlaneUrl());
             console.MarkupLine($"[grey]Use [blue]manage status --job {jobId}[/] to check progress.[/]");
             return 0;
@@ -456,7 +476,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         Guid parsedJobId;
         try
         {
-            parsedJobId = await client.SubmitAsync(job, cancellationToken);
+            parsedJobId = await SubmitOrReuseAsync(client, job, cancellationToken);
             PrintJobSubmitted(console, parsedJobId, GetControlPlaneUrl());
         }
         catch (Exception ex)
@@ -660,7 +680,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         if (!shouldFollow)
         {
-            var jobId = await client.SubmitAsync(job, cancellationToken);
+            var jobId = await SubmitOrReuseAsync(client, job, cancellationToken);
             PrintJobSubmitted(console, jobId, GetControlPlaneUrl());
             console.MarkupLine($"[grey]Use [blue]manage status --job {jobId}[/] to check progress.[/]");
             return 0;
@@ -669,7 +689,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         Guid parsedJobId;
         try
         {
-            parsedJobId = await client.SubmitAsync(job, cancellationToken);
+            parsedJobId = await SubmitOrReuseAsync(client, job, cancellationToken);
             PrintJobSubmitted(console, parsedJobId, GetControlPlaneUrl());
         }
         catch (Exception ex)
@@ -794,7 +814,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         if (!shouldFollow)
         {
-            var jobId = await client.SubmitAsync(job, cancellationToken);
+            var jobId = await SubmitOrReuseAsync(client, job, cancellationToken);
             PrintJobSubmitted(console, jobId, GetControlPlaneUrl());
             console.MarkupLine($"[grey]Use [blue]manage status --job {jobId}[/] to check progress.[/]");
             return 0;
@@ -815,7 +835,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         try
         {
-            parsedJobId = await client.SubmitAsync(job, cancellationToken);
+            parsedJobId = await SubmitOrReuseAsync(client, job, cancellationToken);
             PrintJobSubmitted(console, parsedJobId, GetControlPlaneUrl());
         }
         catch (Exception ex)
@@ -1121,7 +1141,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         Guid jobId;
         try
         {
-            jobId = await client.SubmitAsync(job, cancellationToken);
+            jobId = await SubmitOrReuseAsync(client, job, cancellationToken);
             PrintJobSubmitted(console, jobId, GetControlPlaneUrl());
         }
         catch (Exception ex)

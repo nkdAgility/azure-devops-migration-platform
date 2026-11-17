@@ -21,8 +21,11 @@ public static class WorkItemStoreExtensions
     /// End of the first created-date window. WIQL compares <c>[System.CreatedDate]</c> by day,
     /// so a window ending at <c>UtcNow</c> formatted as a date would stop at today 00:00 and miss
     /// every work item created today (#169). The first window therefore ends at tomorrow 00:00.
+    /// WIQL reads an unzoned date literal in the client's local time zone, so "today" is the
+    /// client's local day, and every bound built from this one shares that basis.
     /// </summary>
-    public static DateTime FirstCreatedDateWindowEnd(DateTime utcNow) => utcNow.Date.AddDays(1);
+    public static DateTime FirstCreatedDateWindowEnd(DateTime utcNow, TimeZoneInfo clientZone) =>
+        TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utcNow, DateTimeKind.Utc), clientZone).Date.AddDays(1);
 
     /// <summary>
     /// Iterates over date-range chunks, yielding a running count of matching work items.
@@ -35,7 +38,7 @@ public static class WorkItemStoreExtensions
         TimeSpan? initialChunkSize = null,
         int maxItemsPerQuery = 20000)
     {
-        DateTime endDate = FirstCreatedDateWindowEnd(DateTime.UtcNow);
+        DateTime endDate = FirstCreatedDateWindowEnd(DateTime.UtcNow, TimeZoneInfo.Local);
         TimeSpan chunkSize = initialChunkSize ?? TimeSpan.FromDays(120);
         var status = new WorkItemQueryCountChunk
         {
@@ -123,7 +126,7 @@ public static class WorkItemStoreExtensions
         TimeSpan? initialChunkSize = null,
         int maxItemsPerQuery = 20000)
     {
-        DateTime endDate = FirstCreatedDateWindowEnd(DateTime.UtcNow);
+        DateTime endDate = FirstCreatedDateWindowEnd(DateTime.UtcNow, TimeZoneInfo.Local);
         TimeSpan chunkSize = initialChunkSize ?? TimeSpan.FromDays(120);
         int queryIndex = 0;
 

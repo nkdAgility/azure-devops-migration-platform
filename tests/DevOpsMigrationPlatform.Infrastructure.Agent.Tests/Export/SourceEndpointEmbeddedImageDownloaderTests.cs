@@ -101,6 +101,69 @@ public class SourceEndpointEmbeddedImageDownloaderTests
         Assert.IsNull(await sut.TryDownloadAsync($"{SourceUrl}/guid/_apis/wit/attachments/abc", CancellationToken.None));
     }
 
+    private static HttpResponseMessage Redirect(string location) => new(HttpStatusCode.Found)
+    {
+        Headers = { Location = new Uri(location) }
+    };
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task TryDownloadAsync_RedirectOffTheSource_IsNotFollowed()
+    {
+        // PR #222 review: a redirect must not carry the request (and its credentials) to another host.
+        var handler = new RecordingHandler(_ => Redirect("https://evil.example.com/x.png"));
+        var sut = new SourceEndpointEmbeddedImageDownloader(Source("tok"), NullLogger<SourceEndpointEmbeddedImageDownloader>.Instance, () => handler);
+
+        Assert.IsNull(await sut.TryDownloadAsync($"{SourceUrl}/guid/_apis/wit/attachments/abc", CancellationToken.None));
+        Assert.AreEqual(1, handler.Requests.Count);
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task TryDownloadAsync_RedirectWithinTheSource_IsFollowed()
+    {
+        var handler = new RecordingHandler(r => r.RequestUri!.AbsolutePath.EndsWith("/abc") ? Redirect($"{SourceUrl}/guid/_apis/wit/attachments/def") : Image());
+        var sut = new SourceEndpointEmbeddedImageDownloader(Source("tok"), NullLogger<SourceEndpointEmbeddedImageDownloader>.Instance, () => handler);
+
+        Assert.IsNotNull(await sut.TryDownloadAsync($"{SourceUrl}/guid/_apis/wit/attachments/abc", CancellationToken.None));
+        Assert.AreEqual(2, handler.Requests.Count);
+        Assert.IsNotNull(handler.Requests[1].Headers.Authorization);
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task TryDownloadAsync_OctetStreamWithImageBytes_IsAccepted()
+    {
+        // PR #222 review: the attachments API may answer application/octet-stream for an image.
+        var handler = new RecordingHandler(_ => Image("application/octet-stream"));
+        var sut = new SourceEndpointEmbeddedImageDownloader(Source("tok"), NullLogger<SourceEndpointEmbeddedImageDownloader>.Instance, () => handler);
+
+        var result = await sut.TryDownloadAsync($"{SourceUrl}/guid/_apis/wit/attachments/abc", CancellationToken.None);
+
+        Assert.IsNotNull(result);
+        Assert.AreEqual("png", result.Extension);
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task TryDownloadAsync_OctetStreamWithoutImageBytes_IsRejected()
+    {
+        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new ByteArrayContent(Encoding.UTF8.GetBytes("<html>Sign in</html>"))
+            {
+                Headers = { ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream") }
+            }
+        });
+        var sut = new SourceEndpointEmbeddedImageDownloader(Source("tok"), NullLogger<SourceEndpointEmbeddedImageDownloader>.Instance, () => handler);
+
+        Assert.IsNull(await sut.TryDownloadAsync($"{SourceUrl}/guid/_apis/wit/attachments/abc", CancellationToken.None));
+    }
+
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]

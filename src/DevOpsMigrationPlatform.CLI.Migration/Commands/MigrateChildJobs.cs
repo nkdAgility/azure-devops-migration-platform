@@ -3,6 +3,8 @@
 
 using System;
 using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 
@@ -42,6 +44,18 @@ internal sealed record MigrateChildJobs(string ParentJobId, Job Export, Job Prep
         var prepare = Child(JobKind.Prepare, target, export.JobId);
         var import = Child(JobKind.Import, target, prepare.JobId);
         return new MigrateChildJobs(parentId, export, prepare, import);
+    }
+
+    /// <summary>
+    /// Submits every child before any is followed, in order, so the Control Plane knows the whole
+    /// parent at once: it holds Prepare and Import until the job each depends on completes, the
+    /// parent's state covers all three children, and a detached CLI leaves the migration running.
+    /// </summary>
+    internal async Task SubmitAllAsync(IJobSubmissionClient client, CancellationToken cancellationToken)
+    {
+        await client.SubmitAsync(Export, cancellationToken).ConfigureAwait(false);
+        await client.SubmitAsync(Prepare, cancellationToken).ConfigureAwait(false);
+        await client.SubmitAsync(Import, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Maps a config connector type name to the connector an agent advertises.</summary>

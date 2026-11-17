@@ -69,7 +69,11 @@ public sealed class JobStore : IJobStore
 
         var jobId = Guid.Parse(job.JobId);
         _all[jobId] = job;
-        _states[jobId] = "Queued";
+        lock (_claimLock)
+        {
+            _states[jobId] = "Queued";
+            _claimed.Remove(jobId);
+        }
         _submittedAt[jobId] = DateTimeOffset.UtcNow;
         EnqueueOrHold(jobId, job);
 
@@ -91,7 +95,7 @@ public sealed class JobStore : IJobStore
         if (!await _pendingSignal.WaitAsync(timeout, cancellationToken).ConfigureAwait(false))
             return null;
 
-        if (_pending.TryDequeue(out var jobId) && _all.TryGetValue(jobId, out var job) && IsLeasable(jobId))
+        if (_pending.TryDequeue(out var jobId) && _all.TryGetValue(jobId, out var job) && TryClaim(jobId))
         {
             _waitingSince.TryRemove(jobId, out _);
             using var activity = ActivitySource.StartActivity("job.dequeue", ActivityKind.Internal);
@@ -136,6 +140,9 @@ public sealed class JobStore : IJobStore
                 var isMatch = job.Connectors.Length == 0 || job.Connectors.All(c => agentConnectors.Contains(c));
                 if (isMatch)
                 {
+                    // Lost to an unservable-job failure between the checks above and here.
+                    if (!TryClaim(jobId))
+                        continue;
                     _waitingSince.TryRemove(jobId, out _);
                     _leasedTo[jobId] = agentConnectors.OrderBy(c => c).ToArray();
                     using var activity = ActivitySource.StartActivity("job.dequeue", ActivityKind.Internal);
@@ -311,11 +318,24 @@ public sealed class JobStore : IJobStore
     private bool IsLeasable(Guid jobId) =>
         _states.TryGetValue(jobId, out var state) && state == "Queued";
 
+    // A queued job is either leased to an agent or failed as unservable, never both: each side
+    // must claim it first, and only the first claim succeeds.
+    private readonly object _claimLock = new();
+    private readonly HashSet<Guid> _claimed = new();
+
+    private bool TryClaim(Guid jobId)
+    {
+        lock (_claimLock)
+            return IsLeasable(jobId) && _claimed.Add(jobId);
+    }
+
     /// <inheritdoc />
     public void RecordAgentPoll(IReadOnlyList<ConnectorType> capabilities)
     {
         var connectors = capabilities.Distinct().OrderBy(c => c).ToArray();
-        RecordPoll(connectors.Length == 0 ? AnyConnectorKey : string.Join(",", connectors), connectors);
+        // "*" is only for the unrestricted dequeue; an empty advertised set serves only
+        // connector-less jobs, so it is recorded under its own (empty) key.
+        RecordPoll(string.Join(",", connectors), connectors);
     }
 
     private void RecordPoll(string key, ConnectorType[] connectors) =>
@@ -335,7 +355,7 @@ public sealed class JobStore : IJobStore
             if (leaseState is "Completed" or "Failed")
                 _leasedTo.TryRemove(leasedJobId, out _);
             else
-                recentAgents.Add(connectors.Length == 0 ? null : connectors);
+                recentAgents.Add(connectors);
         }
 
         var failed = new List<(Guid JobId, string Reason)>();
@@ -349,6 +369,9 @@ public sealed class JobStore : IJobStore
             if (servable)
                 continue;
 
+            // An agent may have leased the job since the checks above; only one side wins.
+            if (!TryClaim(jobId))
+                continue;
             var reason = UnservableReason(job, timeout);
             _waitingSince.TryRemove(jobId, out _);
             FailWithoutRunning(jobId, reason);

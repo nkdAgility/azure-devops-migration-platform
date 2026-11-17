@@ -149,6 +149,26 @@ public class JobStoreUnservableJobTests
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
+    public async Task FailUnservableJobs_AgentAdvertisingNoConnectors_DoesNotKeepAConnectorJobQueued()
+    {
+        // PR #222 review: an agent polling with an empty capability list can lease only
+        // connector-less jobs, so it must not count as able to serve a TFS job.
+        var time = new ManualTime();
+        var store = new JobStore(timeProvider: time);
+        var job = TfsExport();
+        store.Enqueue(job);
+
+        time.Now += Timeout + TimeSpan.FromSeconds(1);
+        await Poll(store, []);
+        var failed = store.FailUnservableJobs(Timeout);
+
+        Assert.AreEqual(1, failed.Count);
+        Assert.AreEqual("Failed", StateOf(store, job));
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
     public void FailUnservableJobs_HeldDependentJob_IsNotFailedWhileWaiting()
     {
         var time = new ManualTime();
