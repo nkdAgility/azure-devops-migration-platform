@@ -25,7 +25,6 @@ public sealed class TfsWorkItemTarget : IWorkItemTarget
     private static readonly HashSet<string> s_excludedFieldReferences = new(StringComparer.OrdinalIgnoreCase)
     {
         "System.TeamProject",
-        "System.State",
         "System.CreatedDate",
         "System.ChangedDate",
         "System.CreatedBy",
@@ -423,6 +422,9 @@ public sealed class TfsWorkItemTarget : IWorkItemTarget
             return Task.FromResult(false);
         }
     }
+
+    /// <summary>True for fields the target writes from the source revision; false for fields TFS computes.</summary>
+    internal static bool IsWritten(string referenceName) => !s_excludedFieldReferences.Contains(referenceName);
 
     private static void ApplyFields(WorkItem workItem, IReadOnlyList<WorkItemField> fields)
     {

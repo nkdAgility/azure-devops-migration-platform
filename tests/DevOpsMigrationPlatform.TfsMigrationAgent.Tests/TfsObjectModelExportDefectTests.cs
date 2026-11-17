@@ -35,6 +35,26 @@ public class TfsObjectModelExportDefectTests
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
+    public void NarrowerWindow_HalvesAWindowLongerThanADay()
+    {
+        Assert.AreEqual(TimeSpan.FromDays(60), WorkItemStoreExtensions.NarrowerWindow(TimeSpan.FromDays(120), "too many work items"));
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public void NarrowerWindow_OneDayWindow_StopsInsteadOfLoopingForEver()
+    {
+        // PR #222 review: WIQL compares CreatedDate by day, so a one-day window cannot get
+        // narrower. Halving it again would loop for ever; the export stops and says why.
+        var ex = Assert.ThrowsExactly<InvalidOperationException>(
+            () => WorkItemStoreExtensions.NarrowerWindow(TimeSpan.FromDays(1), "20000 work items in one day"));
+        StringAssert.Contains(ex.Message, "20000 work items in one day");
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
     public void FirstCreatedDateWindowEnd_UsesTheClientsLocalDay()
     {
         // PR #222 review: WIQL reads an unzoned date literal in the client's local time zone.

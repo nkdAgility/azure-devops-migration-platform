@@ -47,8 +47,12 @@ public class SourceEndpointEmbeddedImageDownloaderTests
             Authentication = new OrganisationEndpointAuthentication { Type = AuthenticationType.AccessToken, ResolvedAccessToken = token }
         });
 
-    // The full 8-byte PNG signature.
-    private static readonly byte[] PngBytes = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+    // A complete 1x1 PNG: signature, IHDR, IDAT and IEND chunks.
+    private static readonly byte[] PngBytes = Convert.FromBase64String(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==");
+
+    // The 8-byte PNG signature alone: a response cut off before any image data.
+    private static readonly byte[] PngSignatureOnly = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
 
     private static HttpResponseMessage Image(string mediaType = "image/png", byte[]? bytes = null) => new(HttpStatusCode.OK)
     {
@@ -164,6 +168,20 @@ public class SourceEndpointEmbeddedImageDownloaderTests
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
+    [DataRow("application/octet-stream")]
+    [DataRow("image/png")]
+    public async Task TryDownloadAsync_PngTruncatedAfterItsSignature_IsRejected(string mediaType)
+    {
+        // PR #222 review: a response cut off after the signature would become a broken image.
+        var handler = new RecordingHandler(_ => Image(mediaType, PngSignatureOnly));
+        var sut = new SourceEndpointEmbeddedImageDownloader(Source("tok"), NullLogger<SourceEndpointEmbeddedImageDownloader>.Instance, () => handler);
+
+        Assert.IsNull(await sut.TryDownloadAsync($"{SourceUrl}/guid/_apis/wit/attachments/abc", CancellationToken.None));
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
     public async Task TryDownloadAsync_OctetStreamWithoutImageBytes_IsRejected()
     {
         var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
@@ -176,6 +194,38 @@ public class SourceEndpointEmbeddedImageDownloaderTests
         var sut = new SourceEndpointEmbeddedImageDownloader(Source("tok"), NullLogger<SourceEndpointEmbeddedImageDownloader>.Instance, () => handler);
 
         Assert.IsNull(await sut.TryDownloadAsync($"{SourceUrl}/guid/_apis/wit/attachments/abc", CancellationToken.None));
+    }
+
+    private static SourceEndpointEmbeddedImageDownloader WithoutDelay(HttpMessageHandler handler) =>
+        new(Source("tok"), NullLogger<SourceEndpointEmbeddedImageDownloader>.Instance, () => handler, retryDelay: _ => TimeSpan.Zero);
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task TryDownloadAsync_TemporaryFailureThenSuccess_IsRetried()
+    {
+        // Martin, 2026-11-17: images that fail temporarily must be retried.
+        var calls = 0;
+        var handler = new RecordingHandler(_ => ++calls == 1 ? new HttpResponseMessage(HttpStatusCode.ServiceUnavailable) : Image());
+
+        var result = await WithoutDelay(handler).TryDownloadAsync($"{SourceUrl}/guid/_apis/wit/attachments/abc", CancellationToken.None);
+
+        Assert.IsNotNull(result);
+        Assert.AreEqual(2, handler.Requests.Count);
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task TryDownloadAsync_TemporaryFailureThatPersists_FailsSoTheRevisionIsRetried()
+    {
+        // Returning null would let export record the revision as done without its image; failing
+        // keeps the revision pending, so the next run downloads it.
+        var handler = new RecordingHandler(_ => new HttpResponseMessage((HttpStatusCode)429));
+
+        await Assert.ThrowsExactlyAsync<DevOpsMigrationPlatform.Abstractions.Agent.Attachments.EmbeddedImageDownloadException>(
+            () => WithoutDelay(handler).TryDownloadAsync($"{SourceUrl}/guid/_apis/wit/attachments/abc", CancellationToken.None));
+        Assert.AreEqual(3, handler.Requests.Count);
     }
 
     [TestCategory("CodeTest")]

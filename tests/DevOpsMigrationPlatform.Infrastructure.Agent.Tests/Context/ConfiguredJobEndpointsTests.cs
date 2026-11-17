@@ -67,6 +67,35 @@ public class ConfiguredJobEndpointsTests
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
+    public void TryBuildSource_MoreThanOneGeneratedProject_IsRejected()
+    {
+        // Martin, 2026-11-17: multi-project support is not approved or allowed. A job migrates
+        // one source project, so a second generated project is an error, not silently ignored.
+        var config = Config(
+            ("MigrationPlatform:Source:Type", "Simulated"),
+            ("MigrationPlatform:Source:Generator:Projects:0:Name", "Alpha"),
+            ("MigrationPlatform:Source:Generator:Projects:1:Name", "Beta"));
+
+        var ex = Assert.ThrowsExactly<InvalidOperationException>(() => ConfiguredJobEndpoints.TryBuildSource(config, out _));
+        StringAssert.Contains(ex.Message, "one source project");
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public void TryBuildSource_OneGeneratedProject_IsTheSourceProject()
+    {
+        var config = Config(
+            ("MigrationPlatform:Source:Type", "Simulated"),
+            ("MigrationPlatform:Source:Generator:Projects:0:Name", "Alpha"));
+
+        Assert.IsTrue(ConfiguredJobEndpoints.TryBuildSource(config, out var source));
+        Assert.AreEqual("Alpha", source.Project);
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
     public void TryBuildTarget_ResolvesProject()
     {
         var config = Config(

@@ -27,7 +27,6 @@ internal sealed class AzureDevOpsWorkItemTarget : IWorkItemTarget, IDisposable
     private static readonly HashSet<string> s_nonWritableFieldReferences = new(StringComparer.OrdinalIgnoreCase)
     {
         "System.TeamProject",
-        "System.State",
         // Read-only or computed on the target; source values (node IDs, revision counters,
         // counts) are meaningless there and the server rejects them (#169, TF51541).
         // Area and iteration travel as translated paths; Parent travels as a link.
@@ -251,9 +250,14 @@ internal sealed class AzureDevOpsWorkItemTarget : IWorkItemTarget, IDisposable
     {
         ThrowIfDisposed();
 
-        var patch = BuildFieldPatch(fields, Operation.Add);
-        var existing = await GetExistingRelationsAsync(targetWorkItemId, ct).ConfigureAwait(false);
-        AddRelationOperations(patch, relatedLinks, externalLinks, hyperlinks, attachmentResults, existing);
+        // One read of the target item gives both its relations (to skip links it already has)
+        // and its set fields (so a field the source cleared is cleared here too).
+        var current = await _witClient
+            .GetWorkItemAsync(targetWorkItemId, expand: WorkItemExpand.Relations, cancellationToken: ct)
+            .ConfigureAwait(false);
+        var setOnTarget = new HashSet<string>(current.Fields?.Keys ?? Enumerable.Empty<string>(), StringComparer.OrdinalIgnoreCase);
+        var patch = BuildFieldPatch(fields, Operation.Add, fieldsSetOnTarget: setOnTarget);
+        AddRelationOperations(patch, relatedLinks, externalLinks, hyperlinks, attachmentResults, ReadRelations(current));
 
         await _witClient
             .UpdateWorkItemAsync(patch, targetWorkItemId, bypassRules: true, cancellationToken: ct)
@@ -395,7 +399,11 @@ internal sealed class AzureDevOpsWorkItemTarget : IWorkItemTarget, IDisposable
         var workItem = await _witClient
             .GetWorkItemAsync(targetWorkItemId, expand: WorkItemExpand.Relations, cancellationToken: ct)
             .ConfigureAwait(false);
+        return ReadRelations(workItem);
+    }
 
+    private static WorkItemRelations ReadRelations(WorkItem workItem)
+    {
         var relations = workItem.Relations ?? new List<WorkItemRelation>();
 
         var related = new List<RelatedWorkItemLink>();
@@ -506,7 +514,8 @@ internal sealed class AzureDevOpsWorkItemTarget : IWorkItemTarget, IDisposable
     internal static JsonPatchDocument BuildFieldPatch(
         IReadOnlyList<PlatformWorkItemField> fields,
         Operation op,
-        IReadOnlySet<string>? additionalExcludedFieldReferences = null)
+        IReadOnlySet<string>? additionalExcludedFieldReferences = null,
+        ISet<string>? fieldsSetOnTarget = null)
     {
         var doc = new JsonPatchDocument();
         foreach (var field in fields)
@@ -514,8 +523,14 @@ internal sealed class AzureDevOpsWorkItemTarget : IWorkItemTarget, IDisposable
             if (string.IsNullOrWhiteSpace(field.ReferenceName)) continue;
             if (s_nonWritableFieldReferences.Contains(field.ReferenceName)) continue;
             if (additionalExcludedFieldReferences?.Contains(field.ReferenceName) == true) continue;
-            // A field with no value has nothing to set; Azure DevOps rejects a null add (#169).
-            if (field.Value is null) continue;
+            if (field.Value is null)
+            {
+                // Azure DevOps rejects a null add (#169). On an update, a null the target has a
+                // value for means the source cleared the field, so the target clears it too.
+                if (fieldsSetOnTarget?.Contains(field.ReferenceName) == true)
+                    doc.Add(new JsonPatchOperation { Operation = Operation.Remove, Path = $"/fields/{field.ReferenceName}" });
+                continue;
+            }
             doc.Add(new JsonPatchOperation
             {
                 Operation = op,

@@ -262,6 +262,10 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
                 _idMapStore,
                 _logger as ILogger<AttachmentReplayService> ?? NullLogger<AttachmentReplayService>.Instance);
 
+            // Related links name source work items; the target needs their target IDs. A link to
+            // an item not imported yet is made when that item arrives, from its reverse link.
+            var relatedLinks = await MapRelatedLinksAsync(revision.RelatedLinks, ct).ConfigureAwait(false);
+
             if (targetId is null)
             {
                 // New item: create it from the whole revision in one save, including the strategy's
@@ -270,7 +274,7 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
                 var result = await _target.CreateFromRevisionAsync(
                     GetWorkItemType(importFields),
                     fields.Concat(provenance.Fields).ToList(),
-                    revision.RelatedLinks,
+                    relatedLinks,
                     revision.ExternalLinks,
                     revision.Hyperlinks.Concat(provenance.Hyperlinks).ToList(),
                     replayService.BuildPendingAttachments(revision, folderPath, ReadPackageBinaryAsync, availableBinaryPaths),
@@ -294,7 +298,7 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
                 await _target.ApplyRevisionAsync(
                     targetId.Value,
                     fields,
-                    revision.RelatedLinks,
+                    relatedLinks,
                     revision.ExternalLinks,
                     revision.Hyperlinks,
                     attachmentResults,
@@ -325,6 +329,16 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
             IdMapStore = _idMapStore,
             ReadBinaryAsync = ReadPackageBinaryAsync,
             ReadTextAsync = ReadPackageTextAsync,
+            RewriteEmbeddedImagesAsync = _embeddedImagesEnabled
+                ? async (text, images, token) =>
+                {
+                    // Same replay as revision fields: upload each captured image, swap its URL.
+                    var rewritten = await _embeddedImageReplayService
+                        .RewriteFieldValuesAsync([new WorkItemField { ReferenceName = "Comment.Text", Value = text }], images, folderPath, ReadPackageBinaryAsync, token)
+                        .ConfigureAwait(false);
+                    return rewritten[0].Value ?? text;
+                }
+                : null,
         };
 
         IReadOnlyList<WorkItemRevisionStage> extensionStages = _injectedExtensionStages ??
@@ -422,6 +436,27 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
     }
 
     // --- Helpers ---
+
+    /// <summary>
+    /// The revision's related links with each source ID replaced by its target ID. Links whose
+    /// item has no target mapping yet are left out; that item's own revision adds the link.
+    /// </summary>
+    private async Task<IReadOnlyList<RelatedWorkItemLink>> MapRelatedLinksAsync(
+        IReadOnlyList<RelatedWorkItemLink> links, CancellationToken ct)
+    {
+        var mapped = new List<RelatedWorkItemLink>(links.Count);
+        foreach (var link in links)
+        {
+            var targetId = await _idMapStore.GetTargetWorkItemIdAsync(link.RelatedWorkItemId, ct).ConfigureAwait(false);
+            if (targetId is null)
+            {
+                _logger.LogDebug("[WorkItems] Link to source WI {SourceId} waits until that item is imported.", link.RelatedWorkItemId);
+                continue;
+            }
+            mapped.Add(link with { RelatedWorkItemId = targetId.Value });
+        }
+        return mapped;
+    }
 
     private static string GetWorkItemType(IReadOnlyList<WorkItemField> fields)
     {

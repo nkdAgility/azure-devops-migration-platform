@@ -51,4 +51,11 @@ public sealed class WorkItemRevisionContext : IExtensionContext
     /// Null when not applicable or not provided.
     /// </summary>
     public MigrationEndpointOptions? SourceEndpoint { get; init; }
+
+    /// <summary>
+    /// Captures source-hosted images into the revision folder (#154), or null when embedded
+    /// images are off. Extensions use it for text the revision fields do not carry, such as an
+    /// edited comment.
+    /// </summary>
+    public DevOpsMigrationPlatform.Abstractions.Agent.Attachments.IEmbeddedImageExportService? EmbeddedImageExport { get; init; }
 }

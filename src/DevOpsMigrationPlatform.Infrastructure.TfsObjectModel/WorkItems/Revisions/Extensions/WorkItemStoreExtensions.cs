@@ -28,6 +28,20 @@ public static class WorkItemStoreExtensions
         TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utcNow, DateTimeKind.Utc), clientZone).Date.AddDays(1);
 
     /// <summary>
+    /// The next, narrower query window: half of <paramref name="current"/>. WIQL compares
+    /// <c>[System.CreatedDate]</c> by day, so a window of one day or less cannot get narrower;
+    /// rather than halving for ever, the export stops with <paramref name="reason"/>.
+    /// </summary>
+    public static TimeSpan NarrowerWindow(TimeSpan current, string reason)
+    {
+        if (current <= TimeSpan.FromDays(1))
+            throw new InvalidOperationException(
+                $"TFS export cannot narrow its query window below one day ({reason}). " +
+                "Narrow the export with a work item filter, or fix the query error, then run the export again.");
+        return TimeSpan.FromTicks(current.Ticks / 2);
+    }
+
+    /// <summary>
     /// Iterates over date-range chunks, yielding a running count of matching work items.
     /// Does NOT load <see cref="WorkItem"/> objects — count-only pass.
     /// </summary>
@@ -72,7 +86,7 @@ public static class WorkItemStoreExtensions
 
                 if (returnCount >= maxItemsPerQuery)
                 {
-                    chunkSize = TimeSpan.FromTicks(chunkSize.Ticks / 2);
+                    chunkSize = NarrowerWindow(chunkSize, $"{returnCount} work items created between {startDate:yyyy-MM-dd} and {endDate:yyyy-MM-dd}");
                     continue;
                 }
 
@@ -95,7 +109,7 @@ public static class WorkItemStoreExtensions
                     Stage = "Count",
                     Message = $"WIQL query failed: {ex.Message}, reducing chunk size to {chunkSize.TotalDays:F1} days"
                 });
-                chunkSize = TimeSpan.FromTicks(chunkSize.Ticks / 2);
+                chunkSize = NarrowerWindow(chunkSize, $"WIQL query failed: {ex.Message}");
                 continue;
             }
 
@@ -152,7 +166,7 @@ public static class WorkItemStoreExtensions
 
                 if (workItems.Count >= maxItemsPerQuery)
                 {
-                    chunkSize = TimeSpan.FromTicks(chunkSize.Ticks / 2);
+                    chunkSize = NarrowerWindow(chunkSize, $"{workItems.Count} work items created between {startDate:yyyy-MM-dd} and {endDate:yyyy-MM-dd}");
                     continue;
                 }
 
@@ -170,7 +184,7 @@ public static class WorkItemStoreExtensions
                     Stage = "Query",
                     Message = $"WIQL query failed: {ex.Message}, reducing chunk size to {chunkSize.TotalDays:F1} days"
                 });
-                chunkSize = TimeSpan.FromTicks(chunkSize.Ticks / 2);
+                chunkSize = NarrowerWindow(chunkSize, $"WIQL query failed: {ex.Message}");
                 continue;
             }
 

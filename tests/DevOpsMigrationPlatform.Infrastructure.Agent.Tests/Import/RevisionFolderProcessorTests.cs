@@ -166,6 +166,37 @@ public class WorkItemResolutionProcessorTests
         _mockIdMapStore.Verify(s => s.SetAttachmentMappingAsync(1, 0, "attachments/a.txt", "https://target/_apis/wit/attachments/a", It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    // ── ProcessAsync_RelatedLinks_AreRemappedToTargetIds ──────────────────────
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task ProcessAsync_RelatedLinks_AreRemappedToTargetIds()
+    {
+        // PR #222 review: a link to source item 2 must point at its target item (202), never at
+        // target item 2. A link to an item not yet imported is left for that item's own revision,
+        // which carries the reverse link.
+        var json = """{"WorkItemId":1,"RevisionIndex":0,"Fields":[{"ReferenceName":"System.WorkItemType","Value":"Task"}],"Attachments":[],"RelatedLinks":[{"ArtifactLinkType":"System.LinkTypes.Related","RelatedWorkItemId":2},{"ArtifactLinkType":"System.LinkTypes.Related","RelatedWorkItemId":3}],"ExternalLinks":[],"Hyperlinks":[],"EmbeddedImages":[]}""";
+        SetupRevisionJson(json);
+        SetupNoMapping();
+        _mockIdMapStore.Setup(s => s.GetTargetWorkItemIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(77);
+        _mockIdMapStore.Setup(s => s.GetTargetWorkItemIdAsync(2, It.IsAny<CancellationToken>())).ReturnsAsync(202);
+        _mockIdMapStore.Setup(s => s.GetTargetWorkItemIdAsync(3, It.IsAny<CancellationToken>())).ReturnsAsync((int?)null);
+        _mockTarget.Setup(t => t.WorkItemExistsAsync(77, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        SetupCursorWrites();
+        SetupResolutionStrategyNoOp();
+        IReadOnlyList<RelatedWorkItemLink>? passed = null;
+        _mockTarget
+            .Setup(t => t.ApplyRevisionAsync(77, It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()))
+            .Callback<int, IReadOnlyList<WorkItemField>, IReadOnlyList<RelatedWorkItemLink>, IReadOnlyList<ExternalWorkItemLink>, IReadOnlyList<HyperlinkWorkItemLink>, IReadOnlyList<AttachmentUploadResult>, CancellationToken>((_, _, links, _, _, _, _) => passed = links)
+            .Returns(Task.CompletedTask);
+
+        var sut = CreateSut();
+        await sut.ImportRevisionAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
+
+        Assert.AreEqual(202, passed!.Single().RelatedWorkItemId);
+    }
+
     // ── ProcessAsync_WhenWorkItemAlreadyMapped_DoesNotCreateDuplicate ─────────
 
     [TestCategory("CodeTest")]

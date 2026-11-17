@@ -23,83 +23,123 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 /// </summary>
 public sealed class SourceEndpointEmbeddedImageDownloader : IEmbeddedImageDownloader
 {
+    private const int MaxAttempts = 3;
+
     private readonly ISourceEndpointInfo _source;
     private readonly ILogger<SourceEndpointEmbeddedImageDownloader> _logger;
     private readonly Func<HttpMessageHandler>? _handlerFactory;
+    private readonly Func<int, TimeSpan> _retryDelay;
 
     public SourceEndpointEmbeddedImageDownloader(
         ISourceEndpointInfo source,
         ILogger<SourceEndpointEmbeddedImageDownloader> logger,
-        Func<HttpMessageHandler>? handlerFactory = null)
+        Func<HttpMessageHandler>? handlerFactory = null,
+        Func<int, TimeSpan>? retryDelay = null)
     {
         _source = source ?? throw new ArgumentNullException(nameof(source));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _handlerFactory = handlerFactory;
+        _retryDelay = retryDelay ?? (attempt => TimeSpan.FromSeconds(2 * attempt));
     }
 
     /// <inheritdoc/>
+    /// <remarks>
+    /// Returns null for an image that is not on the source endpoint or is permanently unavailable
+    /// (it keeps its original link). A temporary failure (throttling, a server error, a timeout)
+    /// is retried; if it persists, <see cref="EmbeddedImageDownloadException"/> fails the revision
+    /// so the next run retries it instead of recording it as done without the image.
+    /// </remarks>
     public async Task<EmbeddedImageDownloadResult?> TryDownloadAsync(string imageUrl, CancellationToken cancellationToken)
     {
         if (!IsOnSourceEndpoint(imageUrl))
             return null;
 
         var token = _source.ToOrganisationEndpoint().Authentication?.ResolvedAccessToken;
-        try
+        // Redirects are followed here, not by the handler, so every hop is checked against the
+        // source endpoint and credentials never reach another host.
+        var handler = _handlerFactory?.Invoke()
+            ?? new HttpClientHandler { UseDefaultCredentials = string.IsNullOrEmpty(token), AllowAutoRedirect = false };
+        using var client = new HttpClient(handler, disposeHandler: _handlerFactory is null);
+
+        string lastFailure = string.Empty;
+        Exception? lastException = null;
+        for (var attempt = 1; attempt <= MaxAttempts; attempt++)
         {
-            // Redirects are followed here, not by the handler, so every hop is checked against the
-            // source endpoint and credentials never reach another host.
-            var handler = _handlerFactory?.Invoke()
-                ?? new HttpClientHandler { UseDefaultCredentials = string.IsNullOrEmpty(token), AllowAutoRedirect = false };
-            using var client = new HttpClient(handler, disposeHandler: _handlerFactory is null);
-
-            var url = imageUrl;
-            for (var hop = 0; hop <= MaxRedirects; hop++)
+            if (attempt > 1)
+                await Task.Delay(_retryDelay(attempt - 1), cancellationToken).ConfigureAwait(false);
+            try
             {
-                using var request = new HttpRequestMessage(HttpMethod.Get, url);
-                if (!string.IsNullOrEmpty(token))
-                    request.Headers.Authorization = new AuthenticationHeaderValue(
-                        "Basic", Convert.ToBase64String(Encoding.ASCII.GetBytes(":" + token)));
-
-                using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
-                if (IsRedirect(response.StatusCode) && response.Headers.Location is { } location)
-                {
-                    var next = location.IsAbsoluteUri ? location : new Uri(new Uri(url), location);
-                    if (!IsOnSourceEndpoint(next.AbsoluteUri))
-                    {
-                        using (DataClassificationScope.Begin(DataClassification.Customer))
-                            _logger.LogWarning("Embedded image {Url} not downloaded: it redirects off the source endpoint.", imageUrl);
-                        return null;
-                    }
-                    url = next.AbsoluteUri;
-                    continue;
-                }
-
-                var mediaType = response.Content?.Headers.ContentType?.MediaType;
-                var bytes = response.IsSuccessStatusCode && response.Content is not null
-                    ? await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false)
-                    : null;
-                var extension = bytes is null ? null : ImageExtension(mediaType, bytes);
-                if (extension is null)
-                {
-                    using (DataClassificationScope.Begin(DataClassification.Customer))
-                        _logger.LogWarning("Embedded image {Url} not downloaded: {Status} {MediaType}.", imageUrl, (int)response.StatusCode, mediaType);
-                    return null;
-                }
-
-                return new EmbeddedImageDownloadResult { Bytes = bytes!, Extension = extension };
+                var (result, temporaryFailure) = await DownloadOnceAsync(client, imageUrl, token, cancellationToken).ConfigureAwait(false);
+                if (temporaryFailure is null)
+                    return result;
+                lastFailure = temporaryFailure;
+                lastException = null;
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
+            {
+                lastFailure = ex.Message;
+                lastException = ex;
             }
 
             using (DataClassificationScope.Begin(DataClassification.Customer))
-                _logger.LogWarning("Embedded image {Url} not downloaded: too many redirects.", imageUrl);
-            return null;
+                _logger.LogWarning(lastException, "Embedded image {Url} attempt {Attempt} of {MaxAttempts} failed temporarily: {Failure}.", imageUrl, attempt, MaxAttempts, lastFailure);
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
-        {
-            using (DataClassificationScope.Begin(DataClassification.Customer))
-                _logger.LogWarning(ex, "Embedded image {Url} could not be downloaded.", imageUrl);
-            return null;
-        }
+
+        throw new EmbeddedImageDownloadException(
+            $"Embedded image could not be downloaded after {MaxAttempts} attempts ({lastFailure}). Run the export again to retry it.",
+            lastException);
     }
+
+    /// <summary>One download. A non-null temporary failure means the caller should try again.</summary>
+    private async Task<(EmbeddedImageDownloadResult? Result, string? TemporaryFailure)> DownloadOnceAsync(
+        HttpClient client, string imageUrl, string? token, CancellationToken cancellationToken)
+    {
+        var url = imageUrl;
+        for (var hop = 0; hop <= MaxRedirects; hop++)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            if (!string.IsNullOrEmpty(token))
+                request.Headers.Authorization = new AuthenticationHeaderValue(
+                    "Basic", Convert.ToBase64String(Encoding.ASCII.GetBytes(":" + token)));
+
+            using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            if (IsRedirect(response.StatusCode) && response.Headers.Location is { } location)
+            {
+                var next = location.IsAbsoluteUri ? location : new Uri(new Uri(url), location);
+                if (!IsOnSourceEndpoint(next.AbsoluteUri))
+                {
+                    using (DataClassificationScope.Begin(DataClassification.Customer))
+                        _logger.LogWarning("Embedded image {Url} not downloaded: it redirects off the source endpoint.", imageUrl);
+                    return (null, null);
+                }
+                url = next.AbsoluteUri;
+                continue;
+            }
+
+            if (IsTemporary(response.StatusCode))
+                return (null, $"HTTP {(int)response.StatusCode}");
+
+            var mediaType = response.Content?.Headers.ContentType?.MediaType;
+            var bytes = response.IsSuccessStatusCode && response.Content is not null
+                ? await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false)
+                : null;
+            var extension = bytes is null ? null : ImageExtension(mediaType, bytes);
+            if (extension is null)
+            {
+                using (DataClassificationScope.Begin(DataClassification.Customer))
+                    _logger.LogWarning("Embedded image {Url} not downloaded: {Status} {MediaType}.", imageUrl, (int)response.StatusCode, mediaType);
+                return (null, null);
+            }
+
+            return (new EmbeddedImageDownloadResult { Bytes = bytes!, Extension = extension }, null);
+        }
+
+        using (DataClassificationScope.Begin(DataClassification.Customer))
+            _logger.LogWarning("Embedded image {Url} not downloaded: too many redirects.", imageUrl);
+        return (null, null);
+    }
+
+    private static bool IsTemporary(System.Net.HttpStatusCode status) => (int)status is 408 or 429 or >= 500;
 
     private bool IsOnSourceEndpoint(string imageUrl)
     {
@@ -125,11 +165,50 @@ public sealed class SourceEndpointEmbeddedImageDownloader : IEmbeddedImageDownlo
     /// </summary>
     private static string? ImageExtension(string? mediaType, byte[] bytes)
     {
-        if (mediaType is not null && mediaType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
-            return ExtensionFor(mediaType);
-        if (mediaType is not null && !string.Equals(mediaType, "application/octet-stream", StringComparison.OrdinalIgnoreCase))
+        var declaredImage = mediaType is not null && mediaType.StartsWith("image/", StringComparison.OrdinalIgnoreCase);
+        if (!declaredImage && mediaType is not null && !string.Equals(mediaType, "application/octet-stream", StringComparison.OrdinalIgnoreCase))
             return null;
-        return SniffImageExtension(bytes);
+
+        // A recognised format must also be complete, so a truncated response is never saved
+        // as a broken image. Formats not checked here (e.g. SVG) are trusted only when declared.
+        var sniffed = SniffImageExtension(bytes);
+        if (sniffed is not null)
+            return IsComplete(sniffed, bytes) ? sniffed : null;
+        return declaredImage && bytes.Length > 0 && !IsSniffable(mediaType!) ? ExtensionFor(mediaType!) : null;
+    }
+
+    private static bool IsSniffable(string mediaType) => ExtensionFor(mediaType) is "png" or "jpg" or "gif" or "webp" or "bmp";
+
+    /// <summary>True when the bytes end where the format says the image ends.</summary>
+    private static bool IsComplete(string extension, byte[] b)
+    {
+        switch (extension)
+        {
+            case "png":
+                // Signature, then IHDR first, and the IEND chunk (with its CRC) last.
+                byte[] iend = [0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82];
+                return b.Length >= 8 + 25 + 12
+                    && b[12] == (byte)'I' && b[13] == (byte)'H' && b[14] == (byte)'D' && b[15] == (byte)'R'
+                    && EndsWith(b, iend);
+            case "jpg":
+                return b.Length >= 4 && b[b.Length - 2] == 0xFF && b[b.Length - 1] == 0xD9;
+            case "gif":
+                return b.Length >= 14 && b[b.Length - 1] == 0x3B;
+            case "webp":
+                return b.Length >= 12 && BitConverter.ToUInt32(b, 4) + 8 == (uint)b.Length;
+            case "bmp":
+                return b.Length >= 14 && BitConverter.ToUInt32(b, 2) == (uint)b.Length;
+            default:
+                return true;
+        }
+    }
+
+    private static bool EndsWith(byte[] b, byte[] tail)
+    {
+        if (b.Length < tail.Length) return false;
+        for (var i = 0; i < tail.Length; i++)
+            if (b[b.Length - tail.Length + i] != tail[i]) return false;
+        return true;
     }
 
     private static string? SniffImageExtension(byte[] b)

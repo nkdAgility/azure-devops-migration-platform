@@ -1,12 +1,13 @@
 {
   "session_id": "2026-11-16-cross-agent-sub-jobs-169",
   "started_at": "2026-11-16T09:00:00Z",
-  "completed_at": "2026-11-17T16:00:00Z",
+  "completed_at": "2026-11-17T19:00:00Z",
   "requirement": "Backlog Item #169 (with #154 folded in): one TFS -> Azure DevOps migration runs as one parent job with dependent Export -> Prepare -> Import sub-jobs across the two agents (Decision #192, ADR-0035); one source revision = one target save; embedded images exported and re-hosted.",
   "change_class": "B",
   "activity": "agent",
   "files_changed": [
     "Logs/atdd-sessions/2026-11-16-cross-agent-sub-jobs-169.json",
+    "src/DevOpsMigrationPlatform.Abstractions.Agent/Attachments/EmbeddedImageDownloadException.cs",
     "src/DevOpsMigrationPlatform.Abstractions.Agent/Attachments/IEmbeddedImageExportService.cs",
     "src/DevOpsMigrationPlatform.Abstractions.Agent/Export/IWorkItemExportOrchestratorFactory.cs",
     "src/DevOpsMigrationPlatform.Abstractions.Agent/WorkItems/CreatedAttachment.cs",
@@ -15,6 +16,7 @@
     "src/DevOpsMigrationPlatform.Abstractions.Agent/WorkItems/IWorkItemResolutionStrategy.cs",
     "src/DevOpsMigrationPlatform.Abstractions.Agent/WorkItems/IWorkItemTarget.cs",
     "src/DevOpsMigrationPlatform.Abstractions.Agent/WorkItems/PendingAttachment.cs",
+    "src/DevOpsMigrationPlatform.Abstractions.Agent/WorkItems/WorkItemExtensionContext.cs",
     "src/DevOpsMigrationPlatform.Abstractions/Jobs/Job.cs",
     "src/DevOpsMigrationPlatform.CLI.Migration/Commands/MigrateChildJobs.cs",
     "src/DevOpsMigrationPlatform.CLI.Migration/Commands/PrepareCommand.cs",
@@ -38,6 +40,8 @@
     "src/DevOpsMigrationPlatform.Infrastructure.Agent/Export/WorkItemExportOrchestratorFactory.cs",
     "src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/ModuleServiceCollectionExtensions.cs",
     "src/DevOpsMigrationPlatform.Infrastructure.Agent/WorkItems/Attachments/AttachmentReplayService.cs",
+    "src/DevOpsMigrationPlatform.Infrastructure.Agent/WorkItems/Extensions/CommentsWorkItemExtension.cs",
+    "src/DevOpsMigrationPlatform.Infrastructure.Agent/WorkItems/Extensions/WorkItemRevisionContext.cs",
     "src/DevOpsMigrationPlatform.Infrastructure.Agent/WorkItems/Nodes/NodePathValidator.cs",
     "src/DevOpsMigrationPlatform.Infrastructure.Agent/WorkItems/Revisions/WorkItemResolutionProcessor.cs",
     "src/DevOpsMigrationPlatform.Infrastructure.Agent/WorkItems/WorkItemResolution/NullResolutionStrategy.cs",
@@ -76,6 +80,7 @@
     "tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Export/SourceEndpointEmbeddedImageDownloaderTests.cs",
     "tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Export/WorkItemExportOrchestratorTests.cs",
     "tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Import/AzureDevOpsWorkItemTargetTests.cs",
+    "tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Import/CommentEmbeddedImagesTests.cs",
     "tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Import/ImportCommentsTests.cs",
     "tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Import/ImportCursorResumeDslTests.cs",
     "tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Import/ImportEmbeddedImagesContext.cs",
@@ -100,13 +105,14 @@
     "tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/OtelCloudExportTests.cs",
     "tests/DevOpsMigrationPlatform.TfsMigrationAgent.Tests/TfsFieldValueFormatterTests.cs",
     "tests/DevOpsMigrationPlatform.TfsMigrationAgent.Tests/TfsObjectModelExportDefectTests.cs",
-    "tests/DevOpsMigrationPlatform.TfsMigrationAgent.Tests/TfsSourceEndpointInfoTests.cs"
+    "tests/DevOpsMigrationPlatform.TfsMigrationAgent.Tests/TfsSourceEndpointInfoTests.cs",
+    "tests/DevOpsMigrationPlatform.TfsMigrationAgent.Tests/TfsWorkItemTargetFieldTests.cs"
   ],
   "suites": [
     {
       "suite": "UnitTests",
       "run": true,
-      "passed": 1127,
+      "passed": 1145,
       "failed": 0
     },
     {
@@ -144,17 +150,26 @@
     "PR #222 review fix 1: JobStoreUnservableJobTests.FailUnservableJobs_CapableAgentBusyOnALongJob_LeavesJobQueued failed (RED), then passed once an unfinished lease counts its agent as connected.",
     "PR #222 review fix 2: ProcessAsync_WhenCreatingWithAttachments_PersistsAttachmentMappings failed to compile (RED: CreatedAttachment missing), then passed; all three targets report stored attachments.",
     "PR #222 CodeRabbit round: RED then GREEN for redirect-within-source, octet-stream image bytes, empty-capability agent and client-local window end. SubmitAllAsync was written with its test in one step, so its RED was not observed separately. The lease-versus-failure race (TryClaim) has no deterministic test; the existing JobStore tests pass.",
-    "PR #222 CodeRabbit round 2: RED then GREEN for FailUnservableJobs_AgentDisconnectedMidJob_FailsJob (compile RED), SubmitAllAsync order (Import, Prepare, Export) and the truncated PNG signature. The poll-versus-failure race fix (eligibility and claim under one lock) has no deterministic test. A solution build stops at the AppHost NU1903 advisory, so every test project was built individually before this run."
+    "PR #222 CodeRabbit round 2: RED then GREEN for FailUnservableJobs_AgentDisconnectedMidJob_FailsJob (compile RED), SubmitAllAsync order (Import, Prepare, Export) and the truncated PNG signature. The poll-versus-failure race fix (eligibility and claim under one lock) has no deterministic test. A solution build stops at the AppHost NU1903 advisory, so every test project was built individually before this run.",
+    "Every test project was built individually before the suite run, because the solution build stops at the AppHost NU1903 advisory; counts sum every assembly result line.",
+    "Fixed the findings first deferred (Martin: \"You find it you fix it\"), each RED then GREEN: System.State written on ADO and TFS targets; fields the source cleared are removed on update when the target has them set; related links remapped to target IDs (unmapped links wait for the other item); more than one generated source project rejected; temporary image failures retried 3 times then fail the revision; images in edited comments captured beside comment.json and re-hosted on import; revision.json written last so a stopped revision is exported again; the TFS query window stops at one day instead of halving for ever; images must be complete (PNG IHDR/IEND, JPEG EOI, GIF trailer, WebP/BMP length).",
+    "Poll-during-check race: FailUnservableJobs_CapableAgentPollsDuringTheCheck_LeavesJobQueued fails against the snapshot-before-loop pattern and passes on the fix.",
+    "The multi-project rejection test was written with its fix in one step; it was then run against the pre-fix file (RED) and the fix (GREEN)."
   ],
   "deviations": [
     "Decision #192 was first ruled Option A, then re-ruled to sub-jobs after an architecture check; ADR-0035 records the final ruling.",
-    "Martin ruled on 2026-11-17 (PR #222 review) that test classes carry no [TestCategory]; tags stay on methods only, matching main and nkda-testcategory-workflow. tests/AGENTS.md rule 1 still says otherwise and needs rule text he approves."
+    "Martin ruled on 2026-11-17 (PR #222 review) that test classes carry no [TestCategory]; tags stay on methods only, matching main and nkda-testcategory-workflow. tests/AGENTS.md rule 1 still says otherwise and needs rule text he approves.",
+    "Martin ruled on 2026-11-17 (PR #222 review): \"You find it you fix it\". A defect found during the work is fixed in it, whether or not this PR caused it; \"not caused by this PR\" is not a reason to defer. Applied to the seven review findings first deferred.",
+    "Martin ruled on 2026-11-17: the goal is that work items from the source are replicated to the target.",
+    "Martin ruled on 2026-11-17: multi-project support is not approved or allowed.",
+    "Martin ruled on 2026-11-17: embedded images that fail to download temporarily must be retried.",
+    "Martin ruled on 2026-11-17: images that appear only in edited comments must be exported.",
+    "Martin ruled on 2026-11-17: fold #171 (Restore TFS export features compiled out on net481) into PR #222."
   ],
   "risks": [
-    "Related links still carry source work item IDs.",
     "The TFS target saves once per attachment when updating an existing item.",
     "The CLI import summary reports 0 work items imported.",
-    "Explicit null clears on update, related-link ID remapping, multi-project Import source scoping, transient image retry, images in edited comments and the window-shrink floor are deferred for a ruling or live verification."
+    "Comment and comment-image export on the TFS agent waits on the #171 guard removal, in progress in this PR."
   ],
   "docs_updated": [
     "docs/adr/0035-cross-agent-jobs-as-parent-with-dependent-sub-jobs.md",

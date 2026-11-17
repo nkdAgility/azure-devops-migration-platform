@@ -512,13 +512,10 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
                         revisionToWrite = revision with { EmbeddedImages = images };
                 }
 
-                // Write revision.json.
+                // revision.json is written last (below): a resume skips any revision whose
+                // revision.json exists, so it marks the revision complete only once its images,
+                // attachment binaries and extension files are in the package.
                 var json = JsonSerializer.Serialize(revisionToWrite, JsonOptions);
-                await WritePackageTextAsync($"{folderPath}revision.json", json, cancellationToken).ConfigureAwait(false);
-                // Record the highest RevisionIndex written for this work item so the next resume
-                // can skip revisions ≤ this value without ExistsAsync filesystem checks.
-                if (exportProgressStore != null)
-                    await exportProgressStore.SetRevAsync(revision.WorkItemId, revision.RevisionIndex, cancellationToken).ConfigureAwait(false);
 
                 // Record area and iteration paths for the referenced-paths artifact.
 #if !NET481
@@ -889,7 +886,8 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
                         RevisionIndex = revision.RevisionIndex,
                         Revision = revision,
                         FolderPath = folderPath,
-                        SourceEndpoint = _endpoint
+                        SourceEndpoint = _endpoint,
+                        EmbeddedImageExport = _embeddedImageExport
                     };
 
                     foreach (var ext in _exportExtensions)
@@ -901,6 +899,11 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
                             await ext.ExportAsync(revisionExportContext, cancellationToken).ConfigureAwait(false);
                         }
                         catch (OperationCanceledException)
+                        {
+                            throw;
+                        }
+                        // A temporary image failure must fail the revision so the next run retries it.
+                        catch (DevOpsMigrationPlatform.Abstractions.Agent.Attachments.EmbeddedImageDownloadException)
                         {
                             throw;
                         }
@@ -919,6 +922,13 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
                     }
                 }
 #endif
+
+                // Commit the revision: write revision.json, then record the highest RevisionIndex
+                // written for this work item so the next resume can skip revisions ≤ this value
+                // without ExistsAsync filesystem checks.
+                await WritePackageTextAsync($"{folderPath}revision.json", json, cancellationToken).ConfigureAwait(false);
+                if (exportProgressStore != null)
+                    await exportProgressStore.SetRevAsync(revision.WorkItemId, revision.RevisionIndex, cancellationToken).ConfigureAwait(false);
 
                 // Accumulate historical counts from the cursor so the persisted value always
                 // reflects the cumulative total across all runs, not just this run's exports.

@@ -69,6 +69,38 @@ public class AzureDevOpsWorkItemTargetFieldPatchTests
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
+    public void BuildFieldPatch_UpdateClearsAFieldTheSourceCleared()
+    {
+        // PR #222 review: a revision that clears AssignedTo must clear it on the target. Only
+        // fields the target item has set are cleared; TFS revisions carry every field, mostly null.
+        var patch = AzureDevOpsWorkItemTarget.BuildFieldPatch(
+        [
+            new WorkItemField { ReferenceName = "System.AssignedTo", Value = null },
+            new WorkItemField { ReferenceName = "Microsoft.VSTS.Scheduling.FinishDate", Value = null }
+        ], Operation.Add, fieldsSetOnTarget: new System.Collections.Generic.HashSet<string> { "System.AssignedTo" });
+
+        var op = patch.Single();
+        Assert.AreEqual("/fields/System.AssignedTo", op.Path);
+        Assert.AreEqual(Operation.Remove, op.Operation);
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public void BuildFieldPatch_State_IsWritten()
+    {
+        // PR #222 review: the goal is that source work items are replicated to the target, so a
+        // source transition (New -> Closed) must reach it. Mismatched processes map states with
+        // the FieldTransform MapValue tool before this point.
+        var patch = AzureDevOpsWorkItemTarget.BuildFieldPatch(
+            [new WorkItemField { ReferenceName = "System.State", Value = "Closed" }], Operation.Add);
+
+        Assert.AreEqual("/fields/System.State", patch.Single().Path);
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
     public void BuildFieldPatch_EmptyStringValue_IsKept()
     {
         var patch = AzureDevOpsWorkItemTarget.BuildFieldPatch(

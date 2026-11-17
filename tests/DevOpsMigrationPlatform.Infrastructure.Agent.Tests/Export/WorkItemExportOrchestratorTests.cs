@@ -762,6 +762,9 @@ public class WorkItemExportOrchestratorTests
 
         Assert.IsTrue(revisionWriteIdx < cursorIdx, "revision.json must be written before cursor.");
         Assert.IsTrue(binaryWriteIdx < cursorIdx, "attachment binary must be written before cursor.");
+        // A resume skips any revision whose revision.json exists, so it is written last: a run
+        // stopped before then leaves the revision to be exported again, binaries included.
+        Assert.IsTrue(binaryWriteIdx < revisionWriteIdx, "attachment binary must be written before revision.json.");
     }
 
     // ── Filter scope pre-pass ─────────────────────────────────────────────────

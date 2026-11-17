@@ -191,6 +191,43 @@ public class JobStoreUnservableJobTests
         Assert.AreEqual("Failed", StateOf(store, job));
     }
 
+    /// <summary>A clock that runs a callback on its Nth read, to place an event at an exact point.</summary>
+    private sealed class TriggerTime : TimeProvider
+    {
+        private int _reads;
+        public DateTimeOffset Now { get; set; } = new(2026, 11, 16, 12, 0, 0, TimeSpan.Zero);
+        public int TriggerOnRead { get; set; } = int.MaxValue;
+        public Action? OnTrigger { get; set; }
+
+        public override DateTimeOffset GetUtcNow()
+        {
+            if (++_reads == TriggerOnRead)
+                OnTrigger?.Invoke();
+            return Now;
+        }
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public void FailUnservableJobs_CapableAgentPollsDuringTheCheck_LeavesJobQueued()
+    {
+        // PR #222 review: a capable agent that polls after the check starts, but before the job
+        // is failed, must win. The poll is injected on the clock read that begins the check.
+        var time = new TriggerTime();
+        var store = new JobStore(timeProvider: time);
+        var job = TfsExport();
+        store.Enqueue(job);
+        time.Now += Timeout + TimeSpan.FromSeconds(1);
+
+        time.TriggerOnRead = 3; // 1: Enqueue, 2: start of FailUnservableJobs, 3: during the check
+        time.OnTrigger = () => store.RecordAgentPoll(TfsAgent);
+        var failed = store.FailUnservableJobs(Timeout);
+
+        Assert.AreEqual(0, failed.Count);
+        Assert.AreEqual("Queued", StateOf(store, job));
+    }
+
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]

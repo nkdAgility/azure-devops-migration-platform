@@ -25,11 +25,17 @@ public static class ConfiguredJobEndpoints
         var project = packageConfig["MigrationPlatform:Source:Project"]?.Trim();
         if (string.IsNullOrWhiteSpace(project))
         {
-            project = packageConfig
+            // A job migrates one source project; multi-project migration is not supported.
+            var generated = packageConfig
                 .GetSection("MigrationPlatform:Source:Generator:Projects")
                 .GetChildren()
                 .Select(projectSection => projectSection["Name"]?.Trim())
-                .FirstOrDefault(projectName => !string.IsNullOrWhiteSpace(projectName));
+                .Where(projectName => !string.IsNullOrWhiteSpace(projectName))
+                .ToList();
+            if (generated.Count > 1)
+                throw new InvalidOperationException(
+                    $"MigrationPlatform:Source:Generator:Projects lists {generated.Count} projects. A migration job has one source project; list only one.");
+            project = generated.FirstOrDefault();
         }
         var connectorType = packageConfig["MigrationPlatform:Source:Type"];
 

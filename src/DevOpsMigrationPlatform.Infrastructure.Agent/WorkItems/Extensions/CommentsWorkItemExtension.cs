@@ -99,6 +99,7 @@ public sealed class CommentsWorkItemExtension : IModuleExtension
 
             if (matchingComments.Count > 0)
             {
+                await CaptureCommentImagesAsync(ctx, matchingComments, ct).ConfigureAwait(false);
                 var commentJson = JsonSerializer.Serialize(matchingComments, _exportJsonOptions);
                 var commentPath = $"{ctx.FolderPath}comment.json";
                 var revisionFolderPath = GetRevisionFolderPath(commentPath);
@@ -119,6 +120,11 @@ public sealed class CommentsWorkItemExtension : IModuleExtension
             }
         }
         catch (OperationCanceledException)
+        {
+            throw;
+        }
+        // A temporary image failure must fail the revision so the next run retries it.
+        catch (DevOpsMigrationPlatform.Abstractions.Agent.Attachments.EmbeddedImageDownloadException)
         {
             throw;
         }
@@ -145,12 +151,66 @@ public sealed class CommentsWorkItemExtension : IModuleExtension
         var comments = JsonSerializer.Deserialize<List<WorkItemComment>>(commentJson, _jsonOptions);
         if (comments is null || comments.Count == 0) return;
 
+        // Only when embedded images are on: the processor then supplies the rewrite.
+        var images = ctx.RewriteEmbeddedImagesAsync is null
+            ? Array.Empty<DevOpsMigrationPlatform.Abstractions.Agent.Attachments.EmbeddedImageMetadata>()
+            : await ReadCommentImagesAsync(ctx, ct).ConfigureAwait(false);
+
         foreach (var comment in comments)
         {
             if (comment.IsDeleted) continue;
             var text = comment.RenderedText ?? comment.Text;
+            if (images.Count > 0 && ctx.RewriteEmbeddedImagesAsync is not null)
+                text = await ctx.RewriteEmbeddedImagesAsync(text, images, ct).ConfigureAwait(false);
             await ctx.Target.CreateCommentAsync(ctx.TargetWorkItemId, text, ct).ConfigureAwait(false);
         }
+    }
+
+    private const string CommentImagesFileName = "comment-images.json";
+
+    /// <summary>
+    /// Captures the images in the comments' text into the revision folder and lists them in
+    /// comment-images.json (#154). revision.json is already written when extensions run, so a
+    /// comment's images are listed beside the comment, not in the revision.
+    /// </summary>
+    private async Task CaptureCommentImagesAsync(WorkItemRevisionContext ctx, IReadOnlyList<WorkItemComment> comments, CancellationToken ct)
+    {
+        if (ctx.EmbeddedImageExport is null)
+            return;
+
+        var texts = new List<WorkItemField>();
+        foreach (var comment in comments)
+        {
+            texts.Add(new WorkItemField { ReferenceName = "Comment.Text", Value = comment.Text });
+            if (!string.IsNullOrEmpty(comment.RenderedText))
+                texts.Add(new WorkItemField { ReferenceName = "Comment.RenderedText", Value = comment.RenderedText });
+        }
+
+        var images = await ctx.EmbeddedImageExport.CaptureFromFieldsAsync(texts, ctx.FolderPath, ct).ConfigureAwait(false);
+        if (images.Count == 0)
+            return;
+
+        var imagesPath = $"{ctx.FolderPath}{CommentImagesFileName}";
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(images, _exportJsonOptions)), writable: false);
+        await ctx.Package.PersistContentAsync(
+            new PackageContentContext(
+                PackageContentKind.Artefact,
+                Organisation: ctx.Organisation,
+                Project: ctx.ProjectName,
+                Module: "WorkItems",
+                Address: new WorkItemAttachmentAddress(GetRevisionFolderPath(imagesPath), CommentImagesFileName)),
+            new PackagePayload(stream, "application/json"),
+            ct).ConfigureAwait(false);
+    }
+
+    private async Task<IReadOnlyList<DevOpsMigrationPlatform.Abstractions.Agent.Attachments.EmbeddedImageMetadata>> ReadCommentImagesAsync(
+        WorkItemExtensionContext ctx, CancellationToken ct)
+    {
+        var json = await ctx.ReadTextAsync!($"{ctx.FolderPath}/{CommentImagesFileName}", ct).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(json))
+            return Array.Empty<DevOpsMigrationPlatform.Abstractions.Agent.Attachments.EmbeddedImageMetadata>();
+        return JsonSerializer.Deserialize<List<DevOpsMigrationPlatform.Abstractions.Agent.Attachments.EmbeddedImageMetadata>>(json!, _jsonOptions)
+            ?? new List<DevOpsMigrationPlatform.Abstractions.Agent.Attachments.EmbeddedImageMetadata>();
     }
 
     /// <summary>
