@@ -58,7 +58,9 @@ public class MigrateChildJobsTests
 
         await jobs.SubmitAllAsync(client, System.Threading.CancellationToken.None);
 
-        CollectionAssert.AreEqual(new[] { jobs.Export.JobId, jobs.Prepare.JobId, jobs.Import.JobId }, client.Submitted);
+        // Dependents first, Export last: Export is what starts the migration, so it is only
+        // submitted once the Control Plane already holds Prepare and Import behind it.
+        CollectionAssert.AreEqual(new[] { jobs.Import.JobId, jobs.Prepare.JobId, jobs.Export.JobId }, client.Submitted);
     }
 
     [TestCategory("CodeTest")]

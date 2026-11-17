@@ -47,9 +47,12 @@ public class SourceEndpointEmbeddedImageDownloaderTests
             Authentication = new OrganisationEndpointAuthentication { Type = AuthenticationType.AccessToken, ResolvedAccessToken = token }
         });
 
-    private static HttpResponseMessage Image(string mediaType = "image/png") => new(HttpStatusCode.OK)
+    // The full 8-byte PNG signature.
+    private static readonly byte[] PngBytes = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+
+    private static HttpResponseMessage Image(string mediaType = "image/png", byte[]? bytes = null) => new(HttpStatusCode.OK)
     {
-        Content = new ByteArrayContent(new byte[] { 0x89, 0x50, 0x4E, 0x47 })
+        Content = new ByteArrayContent(bytes ?? PngBytes)
         {
             Headers = { ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(mediaType) }
         }
@@ -67,7 +70,7 @@ public class SourceEndpointEmbeddedImageDownloaderTests
 
         Assert.IsNotNull(result);
         Assert.AreEqual("png", result.Extension);
-        CollectionAssert.AreEqual(new byte[] { 0x89, 0x50, 0x4E, 0x47 }, result.Bytes);
+        CollectionAssert.AreEqual(PngBytes, result.Bytes);
         var auth = handler.Requests[0].Headers.Authorization!;
         Assert.AreEqual("Basic", auth.Scheme);
         Assert.AreEqual(":tok", Encoding.ASCII.GetString(Convert.FromBase64String(auth.Parameter!)));
@@ -145,6 +148,17 @@ public class SourceEndpointEmbeddedImageDownloaderTests
 
         Assert.IsNotNull(result);
         Assert.AreEqual("png", result.Extension);
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task TryDownloadAsync_OctetStreamWithTruncatedPngSignature_IsRejected()
+    {
+        var handler = new RecordingHandler(_ => Image("application/octet-stream", [0x89, 0x50, 0x4E, 0x47]));
+        var sut = new SourceEndpointEmbeddedImageDownloader(Source("tok"), NullLogger<SourceEndpointEmbeddedImageDownloader>.Instance, () => handler);
+
+        Assert.IsNull(await sut.TryDownloadAsync($"{SourceUrl}/guid/_apis/wit/attachments/abc", CancellationToken.None));
     }
 
     [TestCategory("CodeTest")]

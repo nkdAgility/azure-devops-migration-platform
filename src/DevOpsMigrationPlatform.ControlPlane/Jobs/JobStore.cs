@@ -41,7 +41,7 @@ public sealed class JobStore : IJobStore
 
     // Connectors of the agent each job was leased to. An agent runs its leased job to the end
     // before it polls again, so an unfinished lease also shows that agent is connected.
-    private readonly ConcurrentDictionary<Guid, ConnectorType[]> _leasedTo = new();
+    private readonly ConcurrentDictionary<Guid, (ConnectorType[] Connectors, DateTimeOffset LastSeen)> _leasedTo = new();
     private const string AnyConnectorKey = "*";
 
     private readonly IJobLifecycleMetrics? _metrics;
@@ -144,7 +144,7 @@ public sealed class JobStore : IJobStore
                     if (!TryClaim(jobId))
                         continue;
                     _waitingSince.TryRemove(jobId, out _);
-                    _leasedTo[jobId] = agentConnectors.OrderBy(c => c).ToArray();
+                    _leasedTo[jobId] = (agentConnectors.OrderBy(c => c).ToArray(), _time.GetUtcNow());
                     using var activity = ActivitySource.StartActivity("job.dequeue", ActivityKind.Internal);
                     activity?.SetTag("job.id", job.JobId);
                     activity?.SetTag("job.type", GetJobType(job));
@@ -338,40 +338,62 @@ public sealed class JobStore : IJobStore
         RecordPoll(string.Join(",", connectors), connectors);
     }
 
-    private void RecordPoll(string key, ConnectorType[] connectors) =>
-        _agentPolls[key] = (connectors, _time.GetUtcNow());
+    private void RecordPoll(string key, ConnectorType[] connectors)
+    {
+        // Under the claim lock, so a poll lands either before an unservable check (and keeps
+        // the job queued) or after the job was already claimed, never in between.
+        lock (_claimLock)
+            _agentPolls[key] = (connectors, _time.GetUtcNow());
+    }
 
     /// <inheritdoc />
-    public IReadOnlyList<(Guid JobId, string Reason)> FailUnservableJobs(TimeSpan timeout)
+    public void RecordLeaseActivity(Guid jobId)
     {
-        var now = _time.GetUtcNow();
-        var recentAgents = _agentPolls
+        if (_leasedTo.TryGetValue(jobId, out var lease))
+            _leasedTo[jobId] = (lease.Connectors, _time.GetUtcNow());
+    }
+
+    /// <summary>
+    /// Connector sets of the agents seen within <paramref name="timeout"/>: recent lease polls,
+    /// plus agents holding an unfinished lease that sent worker events recently. Null means an
+    /// unrestricted agent. Call under <see cref="_claimLock"/>.
+    /// </summary>
+    private List<ConnectorType[]?> ConnectedAgents(DateTimeOffset now, TimeSpan timeout)
+    {
+        var agents = _agentPolls
             .Where(kv => now - kv.Value.LastSeen <= timeout)
             .Select(kv => kv.Key == AnyConnectorKey ? null : kv.Value.Connectors)
             .ToList();
-        foreach (var (leasedJobId, connectors) in _leasedTo)
+        foreach (var (leasedJobId, lease) in _leasedTo)
         {
             var leaseState = _states.TryGetValue(leasedJobId, out var s) ? s : null;
             if (leaseState is "Completed" or "Failed")
                 _leasedTo.TryRemove(leasedJobId, out _);
-            else
-                recentAgents.Add(connectors);
+            else if (now - lease.LastSeen <= timeout)
+                agents.Add(lease.Connectors);
         }
+        return agents;
+    }
 
+    /// <inheritdoc />
+    public IReadOnlyList<(Guid JobId, string Reason)> FailUnservableJobs(TimeSpan timeout)
+    {
         var failed = new List<(Guid JobId, string Reason)>();
         foreach (var (jobId, since) in _waitingSince)
         {
-            if (now - since < timeout || !IsLeasable(jobId) || !_all.TryGetValue(jobId, out var job))
+            if (_time.GetUtcNow() - since < timeout || !_all.TryGetValue(jobId, out var job))
                 continue;
 
-            var servable = recentAgents.Any(agent =>
-                agent is null || job.Connectors.All(c => agent.Contains(c)));
-            if (servable)
-                continue;
+            // The connected-agent check and the failure claim are one step under the claim
+            // lock, so an agent that polls or leases the job meanwhile always wins.
+            lock (_claimLock)
+            {
+                var servable = ConnectedAgents(_time.GetUtcNow(), timeout).Any(agent =>
+                    agent is null || job.Connectors.All(c => agent.Contains(c)));
+                if (servable || !IsLeasable(jobId) || !_claimed.Add(jobId))
+                    continue;
+            }
 
-            // An agent may have leased the job since the checks above; only one side wins.
-            if (!TryClaim(jobId))
-                continue;
             var reason = UnservableReason(job, timeout);
             _waitingSince.TryRemove(jobId, out _);
             FailWithoutRunning(jobId, reason);

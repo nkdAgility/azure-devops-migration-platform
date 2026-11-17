@@ -83,6 +83,9 @@ public sealed class WorkerEventsController : ControllerBase
             return NotFound($"Lease '{batch.LeaseId}' is not recognised.");
         }
 
+        // Any worker event shows the agent holding this lease is alive (ADR-0035 fail-fast).
+        _jobStore.RecordLeaseActivity(jobId.Value);
+
         long lastAccepted = 0;
 
         foreach (var evt in batch.Events)

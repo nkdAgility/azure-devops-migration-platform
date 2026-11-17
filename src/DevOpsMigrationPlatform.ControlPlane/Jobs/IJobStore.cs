@@ -68,6 +68,13 @@ public interface IJobStore
     void RecordAgentPoll(IReadOnlyList<ConnectorType> capabilities);
 
     /// <summary>
+    /// Records that the agent holding <paramref name="jobId"/>'s lease is alive (it sent worker
+    /// events). An agent running a job does not poll, so its lease counts as a connected agent
+    /// only while this activity is recent.
+    /// </summary>
+    void RecordLeaseActivity(Guid jobId);
+
+    /// <summary>
     /// Fails every job that has been leasable for at least <paramref name="timeout"/> while no
     /// agent able to serve its connectors asked for work within that time (#169, ADR-0035).
     /// Returns each failed job with an actionable reason. Held jobs are never failed here.

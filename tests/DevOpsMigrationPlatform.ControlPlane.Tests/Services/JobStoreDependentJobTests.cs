@@ -155,6 +155,27 @@ public class JobStoreDependentJobTests
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
+    public async Task Enqueue_DependentBeforeItsDependency_IsHeldThenReleased()
+    {
+        // PR #222 review: the CLI submits Import, Prepare, then Export last, so a submission
+        // that stops part-way never leaves a parent that reads Completed after Export alone.
+        var store = new JobStore();
+        var (export, import, parentId) = TfsToAdoChildren();
+        store.Enqueue(import);
+
+        Assert.AreEqual("Queued", store.GetParentState(Guid.Parse(parentId)), "Without Export nothing runs, and the parent is not Completed.");
+        Assert.IsNull(await store.DequeueAsync(Short, AdoAgent, CancellationToken.None));
+
+        store.Enqueue(export);
+        store.SetState(Guid.Parse(export.JobId), "Completed");
+
+        var leased = await store.DequeueAsync(Short, AdoAgent, CancellationToken.None);
+        Assert.AreEqual(import.JobId, leased?.JobId);
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
     public void GetParentState_UnknownParent_IsNull()
     {
         var store = new JobStore();

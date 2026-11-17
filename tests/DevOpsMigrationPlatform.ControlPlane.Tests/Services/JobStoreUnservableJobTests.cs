@@ -120,10 +120,35 @@ public class JobStoreUnservableJobTests
         store.Enqueue(next);
 
         time.Now += Timeout + Timeout;
+        // The busy agent keeps sending worker events (heartbeats, progress) for its lease.
+        store.RecordLeaseActivity(Guid.Parse(running.JobId));
         var failed = store.FailUnservableJobs(Timeout);
 
         Assert.AreEqual(0, failed.Count);
         Assert.AreEqual("Queued", StateOf(store, next));
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task FailUnservableJobs_AgentDisconnectedMidJob_FailsJob()
+    {
+        // PR #222 review: a lease counts only while its agent shows it is alive. An agent that
+        // vanished mid-job without a terminal state must not keep later jobs queued for ever.
+        var time = new ManualTime();
+        var store = new JobStore(timeProvider: time);
+        var running = TfsExport();
+        store.Enqueue(running);
+        await Poll(store, TfsAgent);
+        store.SetState(Guid.Parse(running.JobId), "Running");
+        var next = TfsExport();
+        store.Enqueue(next);
+
+        time.Now += Timeout + Timeout;
+        var failed = store.FailUnservableJobs(Timeout);
+
+        Assert.AreEqual(1, failed.Count);
+        Assert.AreEqual("Failed", StateOf(store, next));
     }
 
     [TestCategory("CodeTest")]

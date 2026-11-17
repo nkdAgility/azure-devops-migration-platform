@@ -1,7 +1,7 @@
 {
   "session_id": "2026-11-16-cross-agent-sub-jobs-169",
   "started_at": "2026-11-16T09:00:00Z",
-  "completed_at": "2026-11-17T14:00:00Z",
+  "completed_at": "2026-11-17T16:00:00Z",
   "requirement": "Backlog Item #169 (with #154 folded in): one TFS -> Azure DevOps migration runs as one parent job with dependent Export -> Prepare -> Import sub-jobs across the two agents (Decision #192, ADR-0035); one source revision = one target save; embedded images exported and re-hosted.",
   "change_class": "B",
   "activity": "agent",
@@ -22,6 +22,8 @@
     "src/DevOpsMigrationPlatform.CLI.Migration/JobRunners/ControlPlaneClient.cs",
     "src/DevOpsMigrationPlatform.ControlPlane/Controllers/JobsController.cs",
     "src/DevOpsMigrationPlatform.ControlPlane/Controllers/JobStreamController.cs",
+    "src/DevOpsMigrationPlatform.ControlPlane/Controllers/ProgressController.cs",
+    "src/DevOpsMigrationPlatform.ControlPlane/Controllers/WorkerEventsController.cs",
     "src/DevOpsMigrationPlatform.ControlPlane/Jobs/ControlPlaneServiceExtensions.cs",
     "src/DevOpsMigrationPlatform.ControlPlane/Jobs/IJobStore.cs",
     "src/DevOpsMigrationPlatform.ControlPlane/Jobs/JobProgressStore.cs",
@@ -104,7 +106,7 @@
     {
       "suite": "UnitTests",
       "run": true,
-      "passed": 1124,
+      "passed": 1127,
       "failed": 0
     },
     {
@@ -141,14 +143,14 @@
     "Each behaviour change was test-first; the failing test was seen RED before the fix.",
     "PR #222 review fix 1: JobStoreUnservableJobTests.FailUnservableJobs_CapableAgentBusyOnALongJob_LeavesJobQueued failed (RED), then passed once an unfinished lease counts its agent as connected.",
     "PR #222 review fix 2: ProcessAsync_WhenCreatingWithAttachments_PersistsAttachmentMappings failed to compile (RED: CreatedAttachment missing), then passed; all three targets report stored attachments.",
-    "PR #222 CodeRabbit round: RED then GREEN for redirect-within-source, octet-stream image bytes, empty-capability agent and client-local window end. SubmitAllAsync was written with its test in one step, so its RED was not observed separately. The lease-versus-failure race (TryClaim) has no deterministic test; the existing JobStore tests pass."
+    "PR #222 CodeRabbit round: RED then GREEN for redirect-within-source, octet-stream image bytes, empty-capability agent and client-local window end. SubmitAllAsync was written with its test in one step, so its RED was not observed separately. The lease-versus-failure race (TryClaim) has no deterministic test; the existing JobStore tests pass.",
+    "PR #222 CodeRabbit round 2: RED then GREEN for FailUnservableJobs_AgentDisconnectedMidJob_FailsJob (compile RED), SubmitAllAsync order (Import, Prepare, Export) and the truncated PNG signature. The poll-versus-failure race fix (eligibility and claim under one lock) has no deterministic test. A solution build stops at the AppHost NU1903 advisory, so every test project was built individually before this run."
   ],
   "deviations": [
     "Decision #192 was first ruled Option A, then re-ruled to sub-jobs after an architecture check; ADR-0035 records the final ruling.",
     "Martin ruled on 2026-11-17 (PR #222 review) that test classes carry no [TestCategory]; tags stay on methods only, matching main and nkda-testcategory-workflow. tests/AGENTS.md rule 1 still says otherwise and needs rule text he approves."
   ],
   "risks": [
-    "An agent that dies mid-job keeps its lease unfinished, so queued jobs for its connectors wait instead of failing fast.",
     "Related links still carry source work item IDs.",
     "The TFS target saves once per attachment when updating an existing item.",
     "The CLI import summary reports 0 work items imported.",

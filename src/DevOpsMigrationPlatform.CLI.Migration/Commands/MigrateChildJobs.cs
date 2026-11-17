@@ -47,15 +47,17 @@ internal sealed record MigrateChildJobs(string ParentJobId, Job Export, Job Prep
     }
 
     /// <summary>
-    /// Submits every child before any is followed, in order, so the Control Plane knows the whole
-    /// parent at once: it holds Prepare and Import until the job each depends on completes, the
-    /// parent's state covers all three children, and a detached CLI leaves the migration running.
+    /// Submits every child before any is followed, so the Control Plane knows the whole parent
+    /// and a detached CLI leaves the migration running. Dependents go first and Export last: the
+    /// Control Plane holds Import and Prepare until the job each depends on completes, and
+    /// nothing runs until Export arrives. A submission that stops part-way therefore leaves a
+    /// parent that is Queued, never one that reads Completed after Export alone.
     /// </summary>
     internal async Task SubmitAllAsync(IJobSubmissionClient client, CancellationToken cancellationToken)
     {
-        await client.SubmitAsync(Export, cancellationToken).ConfigureAwait(false);
-        await client.SubmitAsync(Prepare, cancellationToken).ConfigureAwait(false);
         await client.SubmitAsync(Import, cancellationToken).ConfigureAwait(false);
+        await client.SubmitAsync(Prepare, cancellationToken).ConfigureAwait(false);
+        await client.SubmitAsync(Export, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Maps a config connector type name to the connector an agent advertises.</summary>
