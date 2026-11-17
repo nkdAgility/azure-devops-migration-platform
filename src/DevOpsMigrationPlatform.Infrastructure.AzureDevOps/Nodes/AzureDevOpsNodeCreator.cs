@@ -195,11 +195,13 @@ internal sealed class AzureDevOpsNodeCreator : INodeCreator
     private static TreeStructureGroup ToTreeStructureGroup(ClassificationNodeType nodeType)
         => nodeType == ClassificationNodeType.Area ? TreeStructureGroup.Areas : TreeStructureGroup.Iterations;
 
-    private static bool IsNotFound(Exception ex)
+    internal static bool IsNotFound(Exception ex)
     {
         if (ex is null) return false;
         var msg = ex.Message ?? string.Empty;
         return msg.Contains("does not exist", StringComparison.OrdinalIgnoreCase)
+            // VS402485: "The Area/Iteration name is not recognized" — a missing node (#169).
+            || msg.Contains("VS402485", StringComparison.OrdinalIgnoreCase)
             || msg.Contains("not found", StringComparison.OrdinalIgnoreCase)
             || msg.Contains("TF400504", StringComparison.OrdinalIgnoreCase)
             || msg.Contains("TF401232", StringComparison.OrdinalIgnoreCase);

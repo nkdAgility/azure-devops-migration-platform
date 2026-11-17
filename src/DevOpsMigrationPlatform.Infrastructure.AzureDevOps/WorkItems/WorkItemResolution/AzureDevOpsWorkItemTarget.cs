@@ -27,7 +27,29 @@ internal sealed class AzureDevOpsWorkItemTarget : IWorkItemTarget, IDisposable
     private static readonly HashSet<string> s_nonWritableFieldReferences = new(StringComparer.OrdinalIgnoreCase)
     {
         "System.TeamProject",
-        "System.State"
+        "System.State",
+        // Read-only or computed on the target; source values (node IDs, revision counters,
+        // counts) are meaningless there and the server rejects them (#169, TF51541).
+        // Area and iteration travel as translated paths; Parent travels as a link.
+        "System.Id",
+        "System.Rev",
+        "System.AreaId",
+        "System.IterationId",
+        "System.NodeName",
+        "System.Watermark",
+        "System.AuthorizedAs",
+        "System.AuthorizedDate",
+        "System.RevisedDate",
+        "System.Parent",
+        "System.RelatedLinkCount",
+        "System.ExternalLinkCount",
+        "System.RemoteLinkCount",
+        "System.HyperLinkCount",
+        "System.AttachedFileCount",
+        "System.CommentCount",
+        "System.BoardColumn",
+        "System.BoardColumnDone",
+        "System.BoardLane"
     };
 
     private readonly WorkItemTrackingHttpClient _witClient;
@@ -56,7 +78,7 @@ internal sealed class AzureDevOpsWorkItemTarget : IWorkItemTarget, IDisposable
 
         var patchDocument = BuildFieldPatch(fields, Operation.Add);
         var created = await _witClient
-            .CreateWorkItemAsync(patchDocument, _project, workItemType, cancellationToken: ct)
+            .CreateWorkItemAsync(patchDocument, _project, workItemType, bypassRules: true, cancellationToken: ct)
             .ConfigureAwait(false);
 
         return new ImportedWorkItemResult
@@ -76,7 +98,7 @@ internal sealed class AzureDevOpsWorkItemTarget : IWorkItemTarget, IDisposable
 
         var patchDocument = BuildFieldPatch(fields, Operation.Add);
         await _witClient
-            .UpdateWorkItemAsync(patchDocument, targetWorkItemId, cancellationToken: ct)
+            .UpdateWorkItemAsync(patchDocument, targetWorkItemId, bypassRules: true, cancellationToken: ct)
             .ConfigureAwait(false);
     }
 
@@ -155,7 +177,7 @@ internal sealed class AzureDevOpsWorkItemTarget : IWorkItemTarget, IDisposable
         if (patch.Count == 0) return;
 
         await _witClient
-            .UpdateWorkItemAsync(patch, targetWorkItemId, cancellationToken: ct)
+            .UpdateWorkItemAsync(patch, targetWorkItemId, bypassRules: true, cancellationToken: ct)
             .ConfigureAwait(false);
     }
 
@@ -177,6 +199,43 @@ internal sealed class AzureDevOpsWorkItemTarget : IWorkItemTarget, IDisposable
     }
 
     /// <inheritdoc/>
+    public async Task<ImportedWorkItemResult> CreateFromRevisionAsync(
+        string workItemType,
+        IReadOnlyList<PlatformWorkItemField> fields,
+        IReadOnlyList<RelatedWorkItemLink> relatedLinks,
+        IReadOnlyList<ExternalWorkItemLink> externalLinks,
+        IReadOnlyList<HyperlinkWorkItemLink> hyperlinks,
+        IReadOnlyList<PendingAttachment> attachments,
+        CancellationToken ct)
+    {
+        ThrowIfDisposed();
+
+        // Azure DevOps stores attachment binaries at project level, so they upload before the
+        // work item exists; the create then carries everything in one save (#169).
+        var uploaded = new List<AttachmentUploadResult>(attachments.Count);
+        foreach (var attachment in attachments)
+        {
+            using var content = await attachment.OpenAsync(ct).ConfigureAwait(false);
+            if (content is null) continue;
+            var url = await UploadAttachmentAsync(0, attachment.FileName, content, ct).ConfigureAwait(false);
+            uploaded.Add(new AttachmentUploadResult(url, attachment.FileName));
+        }
+
+        var patch = BuildFieldPatch(fields, Operation.Add);
+        AddRelationOperations(patch, relatedLinks, externalLinks, hyperlinks, uploaded, existing: null);
+
+        var created = await _witClient
+            .CreateWorkItemAsync(patch, _project, workItemType, bypassRules: true, cancellationToken: ct)
+            .ConfigureAwait(false);
+
+        return new ImportedWorkItemResult
+        {
+            TargetWorkItemId = created.Id ?? throw new InvalidOperationException("Created work item has no ID."),
+            IsNewlyCreated = true
+        };
+    }
+
+    /// <inheritdoc/>
     public async Task ApplyRevisionAsync(
         int targetWorkItemId,
         IReadOnlyList<PlatformWorkItemField> fields,
@@ -189,19 +248,40 @@ internal sealed class AzureDevOpsWorkItemTarget : IWorkItemTarget, IDisposable
         ThrowIfDisposed();
 
         var patch = BuildFieldPatch(fields, Operation.Add);
-
         var existing = await GetExistingRelationsAsync(targetWorkItemId, ct).ConfigureAwait(false);
+        AddRelationOperations(patch, relatedLinks, externalLinks, hyperlinks, attachmentResults, existing);
+
+        await _witClient
+            .UpdateWorkItemAsync(patch, targetWorkItemId, bypassRules: true, cancellationToken: ct)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Adds a relation operation for each link and attachment, skipping any already present on
+    /// <paramref name="existing"/> (null for a work item being created).
+    /// </summary>
+    private static void AddRelationOperations(
+        JsonPatchDocument patch,
+        IReadOnlyList<RelatedWorkItemLink> relatedLinks,
+        IReadOnlyList<ExternalWorkItemLink> externalLinks,
+        IReadOnlyList<HyperlinkWorkItemLink> hyperlinks,
+        IReadOnlyList<AttachmentUploadResult> attachmentResults,
+        WorkItemRelations? existing)
+    {
         var existingRelatedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var existingExternalUris = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var existingHyperlinkUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var existingAttachmentUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var r in existing.RelatedLinks)
-            existingRelatedIds.Add(r.RelatedWorkItemId.ToString());
-        foreach (var e in existing.ExternalLinks)
-            existingExternalUris.Add(e.LinkedArtifactUri ?? string.Empty);
-        foreach (var h in existing.Hyperlinks)
-            existingHyperlinkUrls.Add(h.Location ?? string.Empty);
+        if (existing is not null)
+        {
+            foreach (var r in existing.RelatedLinks)
+                existingRelatedIds.Add(r.RelatedWorkItemId.ToString());
+            foreach (var e in existing.ExternalLinks)
+                existingExternalUris.Add(e.LinkedArtifactUri ?? string.Empty);
+            foreach (var h in existing.Hyperlinks)
+                existingHyperlinkUrls.Add(h.Location ?? string.Empty);
+        }
 
         foreach (var rel in relatedLinks)
         {
@@ -266,10 +346,6 @@ internal sealed class AzureDevOpsWorkItemTarget : IWorkItemTarget, IDisposable
                 }
             });
         }
-
-        await _witClient
-            .UpdateWorkItemAsync(patch, targetWorkItemId, cancellationToken: ct)
-            .ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -423,7 +499,7 @@ internal sealed class AzureDevOpsWorkItemTarget : IWorkItemTarget, IDisposable
 
     // --- Helpers ---
 
-    private static JsonPatchDocument BuildFieldPatch(
+    internal static JsonPatchDocument BuildFieldPatch(
         IReadOnlyList<PlatformWorkItemField> fields,
         Operation op,
         IReadOnlySet<string>? additionalExcludedFieldReferences = null)
@@ -434,6 +510,8 @@ internal sealed class AzureDevOpsWorkItemTarget : IWorkItemTarget, IDisposable
             if (string.IsNullOrWhiteSpace(field.ReferenceName)) continue;
             if (s_nonWritableFieldReferences.Contains(field.ReferenceName)) continue;
             if (additionalExcludedFieldReferences?.Contains(field.ReferenceName) == true) continue;
+            // A field with no value has nothing to set; Azure DevOps rejects a null add (#169).
+            if (field.Value is null) continue;
             doc.Add(new JsonPatchOperation
             {
                 Operation = op,

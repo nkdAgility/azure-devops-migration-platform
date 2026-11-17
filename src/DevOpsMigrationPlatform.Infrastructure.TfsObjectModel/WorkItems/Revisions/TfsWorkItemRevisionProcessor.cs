@@ -56,7 +56,7 @@ public class TfsWorkItemRevisionProcessor : IWorkItemRevisionProcessor
             fields.Add(new WorkItemField
             {
                 ReferenceName = field.ReferenceName,
-                Value = field.Value?.ToString()
+                Value = TfsFieldValueFormatter.Format(field.Value)
             });
         }
 

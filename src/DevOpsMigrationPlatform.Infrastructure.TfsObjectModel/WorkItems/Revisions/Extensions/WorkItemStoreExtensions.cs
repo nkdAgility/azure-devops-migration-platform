@@ -18,6 +18,13 @@ namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.WorkItems.Revisi
 public static class WorkItemStoreExtensions
 {
     /// <summary>
+    /// End of the first created-date window. WIQL compares <c>[System.CreatedDate]</c> by day,
+    /// so a window ending at <c>UtcNow</c> formatted as a date would stop at today 00:00 and miss
+    /// every work item created today (#169). The first window therefore ends at tomorrow 00:00.
+    /// </summary>
+    public static DateTime FirstCreatedDateWindowEnd(DateTime utcNow) => utcNow.Date.AddDays(1);
+
+    /// <summary>
     /// Iterates over date-range chunks, yielding a running count of matching work items.
     /// Does NOT load <see cref="WorkItem"/> objects — count-only pass.
     /// </summary>
@@ -28,7 +35,7 @@ public static class WorkItemStoreExtensions
         TimeSpan? initialChunkSize = null,
         int maxItemsPerQuery = 20000)
     {
-        DateTime endDate = DateTime.UtcNow;
+        DateTime endDate = FirstCreatedDateWindowEnd(DateTime.UtcNow);
         TimeSpan chunkSize = initialChunkSize ?? TimeSpan.FromDays(120);
         var status = new WorkItemQueryCountChunk
         {
@@ -116,7 +123,7 @@ public static class WorkItemStoreExtensions
         TimeSpan? initialChunkSize = null,
         int maxItemsPerQuery = 20000)
     {
-        DateTime endDate = DateTime.UtcNow;
+        DateTime endDate = FirstCreatedDateWindowEnd(DateTime.UtcNow);
         TimeSpan chunkSize = initialChunkSize ?? TimeSpan.FromDays(120);
         int queryIndex = 0;
 

@@ -114,20 +114,11 @@ internal sealed class TargetHyperlinkResolutionStrategy : IWorkItemResolutionStr
     }
 
     /// <inheritdoc/>
-    public async Task WriteProvenanceAsync(int sourceId, int targetId, CancellationToken ct)
+    public ImportProvenance ProvenanceFor(int sourceWorkItemId)
     {
         if (string.IsNullOrEmpty(_urlPattern))
-            return;
-        var provenanceUrl = _urlPattern.Replace("{id}", sourceId.ToString(), StringComparison.OrdinalIgnoreCase);
-        var hyperlinks = new List<HyperlinkWorkItemLink>
-        {
-            new() { ArtifactLinkType = "Hyperlink", Location = provenanceUrl }
-        };
-        await _target.AddLinksAsync(
-            targetId,
-            relatedLinks: Array.Empty<RelatedWorkItemLink>(),
-            externalLinks: Array.Empty<ExternalWorkItemLink>(),
-            hyperlinks: hyperlinks,
-            ct).ConfigureAwait(false);
+            return ImportProvenance.Empty;
+        var provenanceUrl = _urlPattern.Replace("{id}", sourceWorkItemId.ToString(), StringComparison.OrdinalIgnoreCase);
+        return new ImportProvenance([], [new HyperlinkWorkItemLink { ArtifactLinkType = "Hyperlink", Location = provenanceUrl }]);
     }
 }

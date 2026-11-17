@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
+using System.Collections.Generic;
+
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -35,6 +38,18 @@ public interface IEmbeddedImageExportService
     /// <returns>The modified Markdown with image references rewritten to local filenames; external URLs are preserved.</returns>
     Task<string> ExportImagesFromMarkdownAsync(
         string markdown,
+        string folderPath,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Finds every embedded image in the revision's text fields, downloads each distinct
+    /// source-hosted image once into <paramref name="folderPath"/>, and returns the metadata the
+    /// import replays (#169, #154). Field values are not changed: the import maps each
+    /// <see cref="EmbeddedImageMetadata.OriginalUrl"/> to the uploaded target URL. Images that
+    /// are external or cannot be downloaded are left out.
+    /// </summary>
+    Task<IReadOnlyList<EmbeddedImageMetadata>> CaptureFromFieldsAsync(
+        IReadOnlyList<WorkItemField> fields,
         string folderPath,
         CancellationToken cancellationToken);
 }

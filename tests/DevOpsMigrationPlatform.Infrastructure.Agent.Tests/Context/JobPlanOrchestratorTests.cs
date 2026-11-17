@@ -1321,6 +1321,70 @@ public sealed class JobPlanOrchestratorTests
         Assert.AreEqual("Simulated", activeSourceEndpoint.ConnectorType);
     }
 
+    /// <summary>
+    /// #169 live E2E: Import tasks are named after the target project. The package was written
+    /// under the source project, so during Import the source endpoint must keep the job's own
+    /// source project, not take the import task's target project.
+    /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
+    [TestMethod]
+    public async Task ImportAsync_ImportTaskForTargetProject_KeepsConfiguredSourceProject()
+    {
+        var endpointAccessor = new CurrentJobEndpointAccessor();
+        endpointAccessor.SetSource(new TestSourceEndpointInfo(
+            "https://dev.azure.com/source-org",
+            "SourceProject",
+            "TeamFoundationServer",
+            new OrganisationEndpoint { ResolvedUrl = "https://dev.azure.com/source-org", Type = "TeamFoundationServer" }));
+        endpointAccessor.SetTarget(new TestTargetEndpointInfo(
+            "https://dev.azure.com/target-org",
+            "TargetProject",
+            "AzureDevOpsServices",
+            new OrganisationEndpoint { ResolvedUrl = "https://dev.azure.com/target-org", Type = "AzureDevOpsServices" }));
+
+        var activeSource = new ActiveJobSourceEndpointInfo(endpointAccessor);
+        var activeTarget = new ActiveJobTargetEndpointInfo(endpointAccessor);
+        string? sourceProjectDuringImport = null, sourceUrlDuringImport = null, targetProjectDuringImport = null;
+        var module = new Mock<IModule>(MockBehavior.Strict);
+        module.SetupGet(m => m.Name).Returns("WorkItems");
+        module.Setup(m => m.ImportAsync(It.IsAny<ImportContext>(), It.IsAny<CancellationToken>()))
+            .Callback(() =>
+            {
+                sourceProjectDuringImport = activeSource.Project;
+                sourceUrlDuringImport = activeSource.Url;
+                targetProjectDuringImport = activeTarget.Project;
+            })
+            .ReturnsAsync(TaskExecutionResult.Completed());
+
+        var plan = CreatePlan(new[]
+        {
+            new JobTask
+            {
+                Id = "import.workitems.target-org.targetproject",
+                Name = "WorkItems Import",
+                Phase = "Import",
+                TaskKind = TaskKind.Import,
+                Status = JobTaskStatus.Pending,
+                ProjectName = "TargetProject",
+                OrganisationUrl = "https://dev.azure.com/target-org"
+            }
+        });
+
+        var package = PackageTestFactory.CreateLooseMock().Object;
+        var executor = CreateExecutor(endpointAccessor, package: package);
+        var result = await executor.ImportAsync(
+            plan,
+            new Dictionary<string, IModule>(StringComparer.OrdinalIgnoreCase) { ["WorkItems"] = module.Object },
+            new ImportContext { Job = new Job { JobId = "test-job" }, Package = package, ProgressSink = Mock.Of<IProgressSink>() },
+            CancellationToken.None);
+
+        Assert.IsTrue(result);
+        Assert.AreEqual("SourceProject", sourceProjectDuringImport);
+        Assert.AreEqual("https://dev.azure.com/source-org", sourceUrlDuringImport);
+        Assert.AreEqual("TargetProject", targetProjectDuringImport);
+    }
+
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]

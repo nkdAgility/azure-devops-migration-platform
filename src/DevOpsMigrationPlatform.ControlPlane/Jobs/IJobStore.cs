@@ -52,4 +52,31 @@ public interface IJobStore
     /// Updates the tracked state for a job (e.g. Queued → Leased → Running → Completed/Failed).
     /// </summary>
     void SetState(Guid jobId, string state);
+
+    /// <summary>
+    /// Returns the state of a parent job, built from the children that carry its id
+    /// (<see cref="Job.ParentJobId"/>): Failed if any child failed, Completed when every
+    /// child completed, Queued while no child has started, otherwise Running.
+    /// Returns <c>null</c> when no child carries the id.
+    /// </summary>
+    string? GetParentState(Guid parentJobId);
+
+    /// <summary>
+    /// Records that an agent advertising <paramref name="capabilities"/> asked for work now.
+    /// Lease polls are the Control Plane's only sign of which agents are connected.
+    /// </summary>
+    void RecordAgentPoll(IReadOnlyList<ConnectorType> capabilities);
+
+    /// <summary>
+    /// Fails every job that has been leasable for at least <paramref name="timeout"/> while no
+    /// agent able to serve its connectors asked for work within that time (#169, ADR-0035).
+    /// Returns each failed job with an actionable reason. Held jobs are never failed here.
+    /// </summary>
+    IReadOnlyList<(Guid JobId, string Reason)> FailUnservableJobs(TimeSpan timeout);
+
+    /// <summary>
+    /// Raised when the Control Plane fails a job before any agent ran it: its dependency
+    /// failed, or no connected agent can serve it. Carries the job id and an actionable reason.
+    /// </summary>
+    event Action<Guid, string>? JobFailedWithoutRunning;
 }

@@ -20,6 +20,7 @@ public sealed class JobProgressStore
         private readonly List<ProgressEvent> _log = new();
         public List<ChannelWriter<ProgressEvent>> Subscribers { get; } = new();
         public bool Failed { get; set; }
+        public string? FailureReason { get; set; }
         public bool Completed { get; set; }
         public long MaxSeq { get; private set; }
 
@@ -141,12 +142,13 @@ public sealed class JobProgressStore
         }
     }
 
-    public void CompleteJob(Guid jobId, bool failed = false)
+    public void CompleteJob(Guid jobId, bool failed = false, string? failureReason = null)
     {
         var entry = _entries.GetOrAdd(jobId, _ => new JobProgressEntry());
         lock (entry.Subscribers)
         {
             entry.Failed = failed;
+            entry.FailureReason = failed ? failureReason : null;
             entry.Completed = true;
             foreach (var writer in entry.Subscribers)
                 writer.TryComplete();
@@ -156,6 +158,10 @@ public sealed class JobProgressStore
 
     public bool WasFailed(Guid jobId) =>
         _entries.TryGetValue(jobId, out var e) && e.Failed;
+
+    /// <summary>The reason a failed job failed, when the Control Plane knows it (#169); otherwise null.</summary>
+    public string? GetFailureReason(Guid jobId) =>
+        _entries.TryGetValue(jobId, out var e) ? e.FailureReason : null;
 
     public bool IsCompleted(Guid jobId) =>
         _entries.TryGetValue(jobId, out var e) && e.Completed;

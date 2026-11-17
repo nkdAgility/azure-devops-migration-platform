@@ -193,8 +193,10 @@ public sealed class JobStreamController : ControllerBase
     private async Task WriteTerminalAsync(Guid jobId, CancellationToken ct)
     {
         var failed = _progressStore.WasFailed(jobId);
+        var reason = failed ? _progressStore.GetFailureReason(jobId) : null;
+        var data = reason is null ? "{}" : JsonSerializer.Serialize(new { reason }, _jsonOptions);
         await HttpContext.Response.WriteAsync(
-            failed ? "event: job-failed\ndata: {}\n\n" : "event: job-ended\ndata: {}\n\n", ct);
+            failed ? $"event: job-failed\ndata: {data}\n\n" : "event: job-ended\ndata: {}\n\n", ct);
         await HttpContext.Response.Body.FlushAsync(ct);
     }
 

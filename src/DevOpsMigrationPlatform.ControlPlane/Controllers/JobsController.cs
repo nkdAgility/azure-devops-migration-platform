@@ -45,9 +45,21 @@ public sealed class JobsController : ControllerBase
             r.State,
             r.SubmittedByUpn,
             r.SubmittedAt
-        )).ToArray();
+        ));
 
-        return Ok(summaries);
+        // A parent job (ADR-0035) has no job of its own: list it once, as the Migrate job the
+        // operator queued, with its state built from its children.
+        var parents = records
+            .Where(r => Guid.TryParse(r.Job.ParentJobId, out _))
+            .GroupBy(r => Guid.Parse(r.Job.ParentJobId!))
+            .Select(g => new JobSummary(
+                g.Key,
+                "Migrate",
+                _jobStore.GetParentState(g.Key) ?? "Queued",
+                g.First().SubmittedByUpn,
+                g.Min(r => r.SubmittedAt)));
+
+        return Ok(summaries.Concat(parents).ToArray());
     }
 
     /// <summary>

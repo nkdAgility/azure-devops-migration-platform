@@ -162,7 +162,9 @@ public static class ModuleServiceCollectionExtensions
                 sp.GetService<IOptions<WorkItemOptions>>(),
                 sp.GetService<IOptions<NodesModuleOptions>>(),
                 sp.GetService<IInventoryOrchestrator>(),
-                sp.GetService<IRepoDiscoveryService>()));
+                sp.GetService<IRepoDiscoveryService>(),
+                embeddedImageDownloader: sp.GetService<IEmbeddedImageDownloader>(),
+                loggerFactory: sp.GetService<ILoggerFactory>()));
         services.AddScoped<IWorkItemsOrchestrator>(sp => sp.GetRequiredService<WorkItemsOrchestrator>());
         services.AddTransient<IModule, WorkItemsModule>();
         return services;

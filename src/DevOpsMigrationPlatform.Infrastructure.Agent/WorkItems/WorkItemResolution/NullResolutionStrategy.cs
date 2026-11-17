@@ -4,6 +4,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.WorkItemResolution;
 
@@ -13,7 +14,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.WorkItemResolut
 /// <list type="bullet">
 ///   <item><see cref="SeedAsync"/> is a no-op.</item>
 ///   <item><see cref="ResolveSingleAsync"/> always returns <see langword="null"/> (create new).</item>
-///   <item><see cref="WriteProvenanceAsync"/> is a no-op.</item>
+///   <item><see cref="ProvenanceFor"/> adds no marker.</item>
 /// </list>
 /// </summary>
 public sealed class NullResolutionStrategy : IWorkItemResolutionStrategy
@@ -23,6 +24,5 @@ public sealed class NullResolutionStrategy : IWorkItemResolutionStrategy
     public Task<int?> ResolveSingleAsync(int sourceWorkItemId, CancellationToken ct) =>
         Task.FromResult<int?>(null);
 
-    public Task WriteProvenanceAsync(int sourceWorkItemId, int targetWorkItemId, CancellationToken ct) =>
-        Task.CompletedTask;
+    public ImportProvenance ProvenanceFor(int sourceWorkItemId) => ImportProvenance.Empty;
 }

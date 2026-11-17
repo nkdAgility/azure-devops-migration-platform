@@ -210,7 +210,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
     }
 
 
-    private async Task<int> ExecuteImportAsync(string rawJson, QueueCommandSettings settings, CancellationToken cancellationToken)
+    private async Task<int> ExecuteImportAsync(string rawJson, QueueCommandSettings settings, CancellationToken cancellationToken, Job? child = null)
     {
         var console = GetRequiredService<IAnsiConsole>();
         using var doc = JsonDocument.Parse(rawJson);
@@ -247,7 +247,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             : $"[blue]ℹ[/] Importing into [bold]{Markup.Escape(orgUrl)}[/] / [bold]{Markup.Escape(project)}[/]");
         console.MarkupLine($"[blue]ℹ[/] Package path   : [blue]{Markup.Escape(FormatPackageLocationForDisplay(packageUri!))}[/]");
 
-        var job = new Job
+        var job = child ?? new Job
         {
             JobId = Guid.NewGuid().ToString(),
             Kind = JobKind.Import,
@@ -309,7 +309,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                     if (streamEvent.Failed == true)
                     {
                         jobFailed = true;
-                        ShowError(console, streamEvent.FailureReason ?? "Job failed on the agent.");
+                        ShowError(console, streamEvent.FailureReason ?? "Job failed. The reason is in the messages above.");
                         if (errorsJsonPath is not null)
                             ShowError(console, $"Import failed. Check errors.json in the package root for details: {errorsJsonPath}");
                     }
@@ -394,19 +394,28 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
     private async Task<int> ExecuteMigrateAsync(string rawJson, QueueCommandSettings settings, CancellationToken cancellationToken)
     {
-        var exportResult = await ExecuteExportAsync(rawJson, settings, cancellationToken);
+        // ADR-0035: one parent job submitted as Export -> Prepare -> Import children. Each child
+        // demands only its own side's connector and depends on the one before it, so the Control
+        // Plane routes each to a capable agent in order (e.g. TFS source, Azure DevOps target).
+        var children = MigrateChildJobs.Build(
+            rawJson,
+            new JobDiagnostics { MinimumLevel = settings.Level },
+            settings.ForceFresh ? new JobResume { Mode = ResumeMode.ForceFresh } : null);
+        GetRequiredService<IAnsiConsole>().MarkupLine($"[blue]ℹ[/] Migration job [bold]{children.ParentJobId}[/] (Export → Prepare → Import)");
+
+        var exportResult = await ExecuteExportAsync(rawJson, settings, cancellationToken, children.Export);
         if (exportResult != 0)
             return exportResult;
 
-        var prepareResult = await ExecutePrepareAsync(rawJson, settings, cancellationToken);
+        var prepareResult = await ExecutePrepareAsync(rawJson, settings, cancellationToken, children.Prepare);
         if (prepareResult != 0)
             return prepareResult;
 
-        return await ExecuteImportAsync(rawJson, settings, cancellationToken);
+        return await ExecuteImportAsync(rawJson, settings, cancellationToken, children.Import);
     }
 
 
-    private async Task<int> ExecutePrepareAsync(string rawJson, QueueCommandSettings settings, CancellationToken cancellationToken)
+    private async Task<int> ExecutePrepareAsync(string rawJson, QueueCommandSettings settings, CancellationToken cancellationToken, Job? child = null)
     {
         var console = GetRequiredService<IAnsiConsole>();
         using var doc = JsonDocument.Parse(rawJson);
@@ -420,7 +429,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         console.MarkupLine($"[blue]ℹ[/] Preparing package at [blue]{Markup.Escape(FormatPackageLocationForDisplay(packageUri!))}[/]");
 
-        var job = new Job
+        var job = child ?? new Job
         {
             JobId = Guid.NewGuid().ToString(),
             Kind = JobKind.Prepare,
@@ -482,7 +491,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                     if (streamEvent.Failed == true)
                     {
                         jobFailed = true;
-                        ShowError(console, streamEvent.FailureReason ?? "Job failed on the agent.");
+                        ShowError(console, streamEvent.FailureReason ?? "Job failed. The reason is in the messages above.");
                     }
                     break;
                 }
@@ -566,12 +575,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         void AddForType(string? type)
         {
-            if (string.Equals(type, "TeamFoundationServer", StringComparison.OrdinalIgnoreCase))
-                connectors.Add(ConnectorType.TeamFoundationServer);
-            else if (string.Equals(type, "AzureDevOpsServices", StringComparison.OrdinalIgnoreCase))
-                connectors.Add(ConnectorType.AzureDevOps);
-            else if (string.Equals(type, "Simulated", StringComparison.OrdinalIgnoreCase))
-                connectors.Add(ConnectorType.Simulated);
+            if (MigrateChildJobs.ConnectorFor(type) is { } connector)
+                connectors.Add(connector);
         }
 
         AddForType(GetJsonString(mp, "Source", "Type"));
@@ -590,13 +595,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             if (org.TryGetProperty("Enabled", out var enabled) && enabled.ValueKind == JsonValueKind.False)
                 continue;
 
-            var type = GetJsonString(org, "Type");
-            if (string.Equals(type, "TeamFoundationServer", StringComparison.OrdinalIgnoreCase))
-                connectors.Add(ConnectorType.TeamFoundationServer);
-            else if (string.Equals(type, "AzureDevOpsServices", StringComparison.OrdinalIgnoreCase))
-                connectors.Add(ConnectorType.AzureDevOps);
-            else if (string.Equals(type, "Simulated", StringComparison.OrdinalIgnoreCase))
-                connectors.Add(ConnectorType.Simulated);
+            if (MigrateChildJobs.ConnectorFor(GetJsonString(org, "Type")) is { } connector)
+                connectors.Add(connector);
         }
 
         return connectors.Count > 0 ? connectors.ToArray() : Array.Empty<ConnectorType>();
@@ -610,20 +610,20 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
     }
 
 
-    private async Task<int> ExecuteExportAsync(string rawJson, QueueCommandSettings settings, CancellationToken cancellationToken)
+    private async Task<int> ExecuteExportAsync(string rawJson, QueueCommandSettings settings, CancellationToken cancellationToken, Job? child = null)
     {
         using var doc = JsonDocument.Parse(rawJson);
         var mp = doc.RootElement.GetProperty("MigrationPlatform");
         var sourceType = GetJsonString(mp, "Source", "Type") ?? string.Empty;
 
         if (string.Equals(sourceType, "Simulated", StringComparison.Ordinal))
-            return await ExecuteSimulatedExportAsync(rawJson, settings, cancellationToken);
+            return await ExecuteSimulatedExportAsync(rawJson, settings, cancellationToken, child);
 
-        return await ExecuteAdoExportAsync(rawJson, settings, cancellationToken);
+        return await ExecuteAdoExportAsync(rawJson, settings, cancellationToken, child);
     }
 
 
-    private async Task<int> ExecuteSimulatedExportAsync(string rawJson, QueueCommandSettings settings, CancellationToken cancellationToken)
+    private async Task<int> ExecuteSimulatedExportAsync(string rawJson, QueueCommandSettings settings, CancellationToken cancellationToken, Job? child = null)
     {
         var console = GetRequiredService<IAnsiConsole>();
         using var doc = JsonDocument.Parse(rawJson);
@@ -642,7 +642,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         console.MarkupLine("[blue]ℹ[/] Exporting from [bold]Simulated[/] source");
         console.MarkupLine($"[blue]ℹ[/] Package path  : [blue]{Markup.Escape(FormatPackageLocationForDisplay(packageUri!))}[/]");
 
-        var job = new Job
+        var job = child ?? new Job
         {
             JobId = Guid.NewGuid().ToString(),
             Kind = JobKind.Export,
@@ -704,7 +704,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                     if (streamEvent.Failed == true)
                     {
                         jobFailed = true;
-                        ShowError(console, streamEvent.FailureReason ?? "Job failed on the agent.");
+                        ShowError(console, streamEvent.FailureReason ?? "Job failed. The reason is in the messages above.");
                     }
                     break;
                 }
@@ -740,7 +740,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
     }
 
 
-    private async Task<int> ExecuteAdoExportAsync(string rawJson, QueueCommandSettings settings, CancellationToken cancellationToken)
+    private async Task<int> ExecuteAdoExportAsync(string rawJson, QueueCommandSettings settings, CancellationToken cancellationToken, Job? child = null)
     {
         var console = GetRequiredService<IAnsiConsole>();
         using var doc = JsonDocument.Parse(rawJson);
@@ -776,7 +776,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         console.MarkupLine($"[blue]ℹ[/] Exporting from [bold]{Markup.Escape(orgUrl)}[/] / [bold]{Markup.Escape(project)}[/]");
         console.MarkupLine($"[blue]ℹ[/] Package path  : [blue]{Markup.Escape(FormatPackageLocationForDisplay(packageUri!))}[/]");
 
-        var job = new Job
+        var job = child ?? new Job
         {
             JobId = Guid.NewGuid().ToString(),
             Kind = JobKind.Export,

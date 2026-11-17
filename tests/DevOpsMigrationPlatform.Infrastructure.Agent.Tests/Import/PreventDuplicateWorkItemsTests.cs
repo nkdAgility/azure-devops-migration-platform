@@ -17,7 +17,7 @@ public class PreventDuplicateWorkItemsTests
 {
     // ── Helper ────────────────────────────────────────────────────────────────
 
-    private static async Task RunProcessorAsync(PreventDuplicateWorkItemsContext ctx, int sourceId)
+    private static async Task RunProcessorAsync(PreventDuplicateWorkItemsContext ctx, int sourceId, string extraFields = "")
     {
         var folderPath = $"WorkItems/2024-01-01/00000638000000000001-{sourceId}-0";
         ctx.FolderPath = folderPath;
@@ -26,7 +26,7 @@ public class PreventDuplicateWorkItemsTests
         {
           "WorkItemId": {{sourceId}},
           "RevisionIndex": 0,
-          "Fields": [{"ReferenceName": "System.WorkItemType", "Value": "Task"}],
+          "Fields": [{"ReferenceName": "System.WorkItemType", "Value": "Task"}{{extraFields}}],
           "Attachments": [],
           "RelatedLinks": [],
           "ExternalLinks": [],
@@ -51,9 +51,18 @@ public class PreventDuplicateWorkItemsTests
             })
             .Returns(Task.CompletedTask);
 
+        // One source revision = one save on the target (#169): a new item is created from the whole
+        // revision; CreateWorkItemAsync is not set up, so the strict mock fails if it is used.
         ctx.MockTarget
-            .Setup(t => t.CreateWorkItemAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()))
-            .Callback<string, IReadOnlyList<WorkItemField>, CancellationToken>((_, _, _) => ctx.CreateWorkItemCalled = true)
+            .Setup(t => t.CreateFromRevisionAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(),
+                It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(),
+                It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<PendingAttachment>>(), It.IsAny<CancellationToken>()))
+            .Callback((string _, IReadOnlyList<WorkItemField> fields, IReadOnlyList<RelatedWorkItemLink> _, IReadOnlyList<ExternalWorkItemLink> _,
+                IReadOnlyList<HyperlinkWorkItemLink> _, IReadOnlyList<PendingAttachment> _, CancellationToken _) =>
+            {
+                ctx.CreateWorkItemCalled = true;
+                ctx.CreatedFields = fields;
+            })
             .ReturnsAsync(new ImportedWorkItemResult { TargetWorkItemId = 999, IsNewlyCreated = true });
 
         ctx.MockIdMapStore
@@ -75,6 +84,7 @@ public class PreventDuplicateWorkItemsTests
             .Returns(Task.CompletedTask);
         ctx.MockTarget
             .Setup(t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()))
+            .Callback(() => ctx.ApplyRevisionCount++)
             .Returns(Task.CompletedTask);
         ctx.MockIdMapStore
             .Setup(s => s.GetAttachmentIdAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -88,6 +98,51 @@ public class PreventDuplicateWorkItemsTests
     }
 
     // ── Tests ─────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// #169 live E2E: one source revision is one save on the target. The first revision of a new
+    /// item is created in one call carrying the whole prepared revision (paths included); there is
+    /// no second save of the same revision (VS402625 "Dates must be increasing").
+    /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task ProcessAsync_NewItem_IsCreatedFromTheWholeRevisionInOneSave()
+    {
+        var ctx = new PreventDuplicateWorkItemsContext();
+        ctx.MockIdMapStore
+            .Setup(s => s.GetTargetWorkItemIdAsync(43, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((int?)null);
+
+        await RunProcessorAsync(ctx, sourceId: 43, extraFields:
+            """, {"ReferenceName": "System.AreaPath", "Value": "SourceProject\\Team A"}, {"ReferenceName": "System.IterationPath", "Value": "SourceProject\\Sprint 1"}, {"ReferenceName": "System.Title", "Value": "E2E169"}""");
+
+        Assert.IsTrue(ctx.CreateWorkItemCalled);
+        var names = ctx.CreatedFields!.Select(f => f.ReferenceName).ToArray();
+        CollectionAssert.Contains(names, "System.AreaPath");
+        CollectionAssert.Contains(names, "System.IterationPath");
+        CollectionAssert.Contains(names, "System.Title");
+        Assert.AreEqual(0, ctx.ApplyRevisionCount, "The creating revision must not be saved a second time.");
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task ProcessAsync_MappedItem_IsSavedOnceWithTheRevision()
+    {
+        var ctx = new PreventDuplicateWorkItemsContext();
+        ctx.MockIdMapStore
+            .Setup(s => s.GetTargetWorkItemIdAsync(44, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(500);
+        ctx.MockTarget
+            .Setup(t => t.WorkItemExistsAsync(500, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        await RunProcessorAsync(ctx, sourceId: 44);
+
+        Assert.IsFalse(ctx.CreateWorkItemCalled);
+        Assert.AreEqual(1, ctx.ApplyRevisionCount);
+    }
 
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]

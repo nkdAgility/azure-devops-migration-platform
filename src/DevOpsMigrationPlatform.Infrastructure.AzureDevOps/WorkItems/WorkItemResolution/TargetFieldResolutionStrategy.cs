@@ -130,12 +130,7 @@ internal sealed class TargetFieldResolutionStrategy : IWorkItemResolutionStrateg
     }
 
     /// <inheritdoc/>
-    public async Task WriteProvenanceAsync(int sourceId, int targetId, CancellationToken ct)
-    {
-        var fields = new List<PlatformWorkItemField>
-        {
-            new() { ReferenceName = _fieldName, Value = sourceId.ToString() }
-        };
-        await _target.UpdateFieldsAsync(targetId, fields, ct).ConfigureAwait(false);
-    }
+    public ImportProvenance ProvenanceFor(int sourceWorkItemId) => new(
+        [new PlatformWorkItemField { ReferenceName = _fieldName, Value = sourceWorkItemId.ToString() }],
+        []);
 }

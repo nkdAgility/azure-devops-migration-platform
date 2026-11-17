@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using DevOpsMigrationPlatform.Abstractions.Options;
 using System;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -102,24 +103,31 @@ public static class TfsObjectModelModuleServiceExtensions
     /// not at DI resolution time, so that it works for Import jobs where no
     /// TFS Object Model connection is established.
     /// </summary>
-    private sealed class DeferredTfsSourceEndpointInfo : ISourceEndpointInfo
+    internal sealed class DeferredTfsSourceEndpointInfo : ISourceEndpointInfo
     {
-        private readonly ActiveTfsJobServices _activeServices;
+        private readonly Func<MigrationEndpointOptions?> _endpoint;
 
         public DeferredTfsSourceEndpointInfo(ActiveTfsJobServices activeServices)
-            => _activeServices = activeServices;
+            : this(() => activeServices.Current?.Endpoint)
+        {
+        }
+
+        internal DeferredTfsSourceEndpointInfo(Func<MigrationEndpointOptions?> endpoint)
+            => _endpoint = endpoint ?? throw new ArgumentNullException(nameof(endpoint));
 
         public string Url
-            => _activeServices.Current?.Endpoint.GetResolvedUrl() ?? string.Empty;
+            => _endpoint()?.GetResolvedUrl() ?? string.Empty;
 
         public string Project
-            => _activeServices.Current?.Endpoint.GetProject() ?? string.Empty;
+            => _endpoint()?.GetProject() ?? string.Empty;
 
         public string ConnectorType => "TeamFoundationServer";
 
         public string OrganisationSlug => OrganisationEndpointSlug.ExtractSlug(Url);
 
+        // The active job's endpoint, credentials included (#169): consumers such as the embedded
+        // image downloader authenticate to the source with it.
         public OrganisationEndpoint ToOrganisationEndpoint()
-            => new OrganisationEndpoint { ResolvedUrl = Url, Type = ConnectorType };
+            => _endpoint()?.ToOrganisationEndpoint() ?? new OrganisationEndpoint { ResolvedUrl = Url, Type = ConnectorType };
     }
 }

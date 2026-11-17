@@ -37,5 +37,6 @@ public interface IWorkItemExportOrchestratorFactory
         string? packageUri,
         IReferencedPathLifecycle? referencedPathTracker = null,
         IReadOnlyList<IModuleExtension>? exportExtensions = null,
-        MigrationEndpointOptions? endpoint = null);
+        MigrationEndpointOptions? endpoint = null,
+        IEmbeddedImageExportService? embeddedImageExport = null);
 }

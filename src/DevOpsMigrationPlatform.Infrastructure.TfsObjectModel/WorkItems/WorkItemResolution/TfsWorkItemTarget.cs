@@ -114,6 +114,74 @@ public sealed class TfsWorkItemTarget : IWorkItemTarget
         ct.ThrowIfCancellationRequested();
 
         var workItem = _store.GetWorkItem(targetWorkItemId);
+        var changed = AddLinksTo(workItem, relatedLinks, externalLinks, hyperlinks);
+
+        if (changed)
+            workItem.Save();
+
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc/>
+    public async Task<ImportedWorkItemResult> CreateFromRevisionAsync(
+        string workItemType,
+        IReadOnlyList<WorkItemField> fields,
+        IReadOnlyList<RelatedWorkItemLink> relatedLinks,
+        IReadOnlyList<ExternalWorkItemLink> externalLinks,
+        IReadOnlyList<HyperlinkWorkItemLink> hyperlinks,
+        IReadOnlyList<PendingAttachment> attachments,
+        CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        var project = _store.Projects[_project];
+        var workItem = project.WorkItemTypes[workItemType].NewWorkItem();
+        ApplyFields(workItem, fields);
+        AddLinksTo(workItem, relatedLinks, externalLinks, hyperlinks);
+
+        // TFS OM attaches files from disk; stage each binary as a temp file for the one save (#169).
+        var tempFiles = new List<string>();
+        try
+        {
+            foreach (var attachment in attachments)
+            {
+                using var content = await attachment.OpenAsync(ct).ConfigureAwait(false);
+                if (content is null) continue;
+                var tempPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + "_" + attachment.FileName);
+                using (var fs = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true))
+                    await content.CopyToAsync(fs, 81920, ct).ConfigureAwait(false);
+                tempFiles.Add(tempPath);
+                workItem.Attachments.Add(new Attachment(tempPath, attachment.FileName));
+            }
+
+            try
+            {
+                workItem.Save();
+            }
+            catch (ValidationException ex)
+            {
+                throw new ValidationException($"{ex.Message}. Invalid fields: {DescribeInvalidFields(workItem)}");
+            }
+        }
+        finally
+        {
+            foreach (var path in tempFiles)
+            {
+                try { File.Delete(path); }
+                catch { /* best-effort cleanup */ }
+            }
+        }
+
+        _logger.LogDebug("[TFS Import] Created work item {Id} of type '{Type}' from one revision.", workItem.Id, workItemType);
+        return new ImportedWorkItemResult { TargetWorkItemId = workItem.Id, IsNewlyCreated = true };
+    }
+    /// <summary>Adds the links to <paramref name="workItem"/> without saving it. Returns true when any was added.</summary>
+    private bool AddLinksTo(
+        WorkItem workItem,
+        IReadOnlyList<RelatedWorkItemLink> relatedLinks,
+        IReadOnlyList<ExternalWorkItemLink> externalLinks,
+        IReadOnlyList<HyperlinkWorkItemLink> hyperlinks)
+    {
 
         bool changed = false;
 
@@ -132,7 +200,7 @@ public sealed class TfsWorkItemTarget : IWorkItemTarget
             {
                 _logger.LogWarning(
                     "[TFS Import] Unknown link type end '{LinkType}' — skipping link on WI {Id}.",
-                    link.ArtifactLinkType, targetWorkItemId);
+                    link.ArtifactLinkType, workItem.Id);
                 continue;
             }
 
@@ -158,7 +226,7 @@ public sealed class TfsWorkItemTarget : IWorkItemTarget
             {
                 _logger.LogWarning(
                     "[TFS Import] Unknown external link type '{LinkType}' — skipping on WI {Id}.",
-                    link.ArtifactLinkType, targetWorkItemId);
+                    link.ArtifactLinkType, workItem.Id);
                 continue;
             }
 
@@ -184,10 +252,7 @@ public sealed class TfsWorkItemTarget : IWorkItemTarget
             changed = true;
         }
 
-        if (changed)
-            workItem.Save();
-
-        return Task.CompletedTask;
+        return changed;
     }
 
     /// <inheritdoc/>

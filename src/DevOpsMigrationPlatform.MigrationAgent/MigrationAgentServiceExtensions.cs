@@ -107,6 +107,10 @@ public static class MigrationAgentServiceExtensions
         // Simulated connector — required for offline tests and CI scenarios.
         builder.Services.AddSimulatedServices();
 
+        // Embedded-image download for the active job's source connector (#169, #154).
+        builder.Services.AddScoped<DevOpsMigrationPlatform.Infrastructure.Agent.Export.SourceEndpointEmbeddedImageDownloader>();
+        builder.Services.AddScoped<DevOpsMigrationPlatform.Abstractions.Agent.Attachments.IEmbeddedImageDownloader, SourceConnectorEmbeddedImageDownloader>();
+
         // Register the polymorphic endpoint converter so JobAgentWorker can deserialise
         // Source/Target from migration-config.json using System.Text.Json.
         // Must be called AFTER all AddEndpointOptionsType registrations so the registry

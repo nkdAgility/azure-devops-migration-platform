@@ -1,4 +1,4 @@
-﻿// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
 using System;
@@ -322,6 +322,47 @@ public class WorkItemExportOrchestratorTests
         StringAssert.Contains(capturedJson, "shot.png");
     }
 
+    // #169 / #154: the export writes each revision's embedded images into the package and lists
+    // them in revision.json, which is what the import replays. Field values keep the source URL.
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task ExportAsync_WithEmbeddedImageExport_ListsCapturedImagesInRevisionJson()
+    {
+        _mockCps.Setup(s => s.ReadCursorAsync("export.workitems", It.IsAny<CancellationToken>()))
+                .ReturnsAsync((CursorEntry?)null);
+        _mockCps.Setup(s => s.WriteCursorAsync("export.workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+        string? capturedJson = null;
+        _mockStore.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                  .Callback<string, string, CancellationToken>((_, json, _) => capturedJson = json)
+                  .Returns(Task.CompletedTask);
+
+        const string url = "https://dev.azure.com/org/proj/_apis/wit/attachments/abc";
+        var revision = new WorkItemRevision
+        {
+            WorkItemId = 280,
+            RevisionIndex = 0,
+            ChangedDate = new DateTimeOffset(2026, 11, 16, 17, 24, 48, TimeSpan.Zero),
+            Fields = new[] { new WorkItemField { ReferenceName = "System.Description", Value = $"<img src=\"{url}\">" } }
+        };
+        var imageExport = new Mock<DevOpsMigrationPlatform.Abstractions.Agent.Attachments.IEmbeddedImageExportService>(MockBehavior.Strict);
+        imageExport
+            .Setup(e => e.CaptureFromFieldsAsync(It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { new DevOpsMigrationPlatform.Abstractions.Agent.Attachments.EmbeddedImageMetadata
+            {
+                OriginalUrl = url, RelativePath = "image-0123456789abcdef.png", Extension = "png", Sha256 = new string('a', 64), Size = 4
+            } });
+        var sut = new WorkItemExportOrchestrator(_mockPackage.Object, string.Empty, string.Empty, _mockCps.Object,
+            embeddedImageExport: imageExport.Object);
+
+        SetupSource(new List<WorkItemRevision> { revision });
+        await sut.ExportAsync(_mockSource.Object, CancellationToken.None);
+
+        Assert.IsNotNull(capturedJson);
+        StringAssert.Contains(capturedJson, "image-0123456789abcdef.png");
+        StringAssert.Contains(capturedJson, url, "The field keeps its original URL for the import to map.");
+    }
     // ── IsCommentEditOrDeleteRevision ─────────────────────────────────────────
 
     [TestCategory("CodeTest")]

@@ -44,6 +44,14 @@ public static class ControlPlaneServiceExtensions
                 .ValidateDataAnnotations()
                 .ValidateOnStart();
 
+        // Fails jobs no connected agent can serve, and ends the stream of any job failed
+        // before it ran (#169, ADR-0035).
+        services.AddOptions<JobRoutingOptions>()
+                .BindConfiguration(JobRoutingOptions.SectionName)
+                .ValidateDataAnnotations()
+                .ValidateOnStart();
+        services.AddHostedService<UnservableJobMonitor>();
+
         // In-memory job task list store — populated by agents at job start.
         services.AddSingleton<InMemoryJobTaskStore>();
 

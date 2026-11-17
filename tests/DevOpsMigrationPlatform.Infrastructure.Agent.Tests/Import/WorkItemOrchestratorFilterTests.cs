@@ -53,8 +53,8 @@ public class WorkItemOrchestratorFilterTests
                      .Returns(Task.CompletedTask);
         _mockStrategy.Setup(s => s.ResolveSingleAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
                      .ReturnsAsync((int?)null);
-        _mockStrategy.Setup(s => s.WriteProvenanceAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
-                     .Returns(Task.CompletedTask);
+        _mockStrategy.Setup(s => s.ProvenanceFor(It.IsAny<int>()))
+                     .Returns(ImportProvenance.Empty);
 
         _mockIdMap.Setup(s => s.InitializeAsync(It.IsAny<CancellationToken>()))
                   .Returns(Task.CompletedTask);
@@ -290,11 +290,11 @@ public class WorkItemOrchestratorFilterTests
         _mockIdMap.Setup(s => s.GetTargetWorkItemIdAsync(1, It.IsAny<CancellationToken>()))
                   .ReturnsAsync(1);
 
-        // WI 2: unmapped -> create and map -> update created
+        // WI 2: unmapped -> created from its revision in one save (#169), then mapped
         _mockIdMap.SetupSequence(s => s.GetTargetWorkItemIdAsync(2, It.IsAny<CancellationToken>()))
                   .ReturnsAsync((int?)null)
                   .ReturnsAsync(202);
-        _mockTarget.Setup(t => t.CreateWorkItemAsync("Task", It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()))
+        _mockTarget.Setup(t => t.CreateFromRevisionAsync("Task", It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<PendingAttachment>>(), It.IsAny<CancellationToken>()))
                    .ReturnsAsync(new ImportedWorkItemResult { TargetWorkItemId = 202, IsNewlyCreated = true });
         _mockIdMap.Setup(s => s.SetWorkItemMappingAsync(2, 202, It.IsAny<CancellationToken>()))
                   .Returns(Task.CompletedTask);
@@ -309,9 +309,13 @@ public class WorkItemOrchestratorFilterTests
         await orchestrator.ImportAsync(new WorkItemsModuleExtensions(), ResumeMode.Auto, CancellationToken.None);
 
         CollectionAssert.AreEqual(
-            new[] { 1, 202 },
+            new[] { 1 },
             updatedIdsInOrder,
-            "Mapped, then created work items should be replayed in deterministic folder order.");
+            "Only the already-mapped work item is updated; the unmapped one is created in its single save.");
+        _mockTarget.Verify(
+            t => t.CreateFromRevisionAsync("Task", It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<PendingAttachment>>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+        _mockIdMap.Verify(s => s.SetWorkItemMappingAsync(2, 202, It.IsAny<CancellationToken>()), Times.Once);
         _mockIdMap.Verify(
             s => s.RecordSkippedRevisionAsync(3, "TargetWorkItemDeleted", It.IsAny<CancellationToken>()),
             Times.Once,

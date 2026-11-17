@@ -57,6 +57,21 @@ public interface IWorkItemTarget
         CancellationToken ct);
 
     /// <summary>
+    /// Create a target work item from one source revision in a single save (#169): fields, link
+    /// relations and attachments together, so one source revision is one target revision.
+    /// Each connector uploads <paramref name="attachments"/> the way it needs to before that save.
+    /// Related links whose target item does not exist yet are added later by the revision of the
+    /// other item, which records the same link.
+    /// </summary>
+    Task<ImportedWorkItemResult> CreateFromRevisionAsync(
+        string workItemType,
+        IReadOnlyList<WorkItemField> fields,
+        IReadOnlyList<RelatedWorkItemLink> relatedLinks,
+        IReadOnlyList<ExternalWorkItemLink> externalLinks,
+        IReadOnlyList<HyperlinkWorkItemLink> hyperlinks,
+        IReadOnlyList<PendingAttachment> attachments,
+        CancellationToken ct);
+    /// <summary>
     /// Apply all revision data to an existing target work item in a single call:
     /// fields, link relations, and attachment relations.
     /// Attachment binaries must already be uploaded via <see cref="UploadAttachmentAsync"/>

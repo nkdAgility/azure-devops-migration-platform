@@ -75,6 +75,9 @@ public static class TfsMigrationAgentServiceExtensions
         services.AddNodesModule(configuration);
         services.AddTeamsModule(configuration);
         services.AddWorkItemsModule(configuration);
+        // Embedded images are downloaded from the TFS source with its credentials (#169, #154).
+        services.AddScoped<DevOpsMigrationPlatform.Abstractions.Agent.Attachments.IEmbeddedImageDownloader,
+            DevOpsMigrationPlatform.Infrastructure.Agent.Export.SourceEndpointEmbeddedImageDownloader>();
 
         // NOTE (spec 032, D-007): AddDependencyCapture() is intentionally NOT called here.
         // TFS sources do not support per-project dependency capture; the TFS plan builder emits

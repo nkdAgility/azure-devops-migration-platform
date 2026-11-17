@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -264,6 +265,11 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
 
         _currentTfsServices = _tfsServiceFactory.CreateForEndpoint(source);
         _activeTfsJobServices.Current = _currentTfsServices;
+
+        // Expose the job's source endpoint, with its credentials, to the modules (#169): the same
+        // view the MigrationAgent sets, used e.g. to download embedded images from the source.
+        if (ConfiguredJobEndpoints.TryBuildSource(CurrentPackageConfig.Current!, out var sourceEndpoint))
+            _endpointAccessor.SetSource(sourceEndpoint);
         _currentPackageUri = PackageState.CurrentPackageUri ?? ".";
 
         // Update plan file to mark TFS export task as Running (best-effort).
@@ -303,6 +309,10 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
     /// </summary>
     private void SetImportEndpointContext(IConfiguration packageConfig)
     {
+        // The package was written under the source endpoint; import reads it from there (#169).
+        if (ConfiguredJobEndpoints.TryBuildSource(packageConfig, out var sourceEndpoint))
+            _endpointAccessor.SetSource(sourceEndpoint);
+
         var url = ConfigTokenResolver.Resolve(packageConfig["MigrationPlatform:Target:Url"])?.Trim();
         var project = packageConfig["MigrationPlatform:Target:Project"]?.Trim();
         var connectorType = packageConfig["MigrationPlatform:Target:Type"]?.Trim();
@@ -347,6 +357,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
     /// <inheritdoc/>
     protected override async Task OnAfterModulesAsync(CancellationToken ct)
     {
+        _endpointAccessor.ClearSource();
         _activeTfsJobServices.Clear();
         _currentTfsServices?.Dispose();
         _currentTfsServices = null;

@@ -71,6 +71,8 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
     private readonly IPlatformMetrics? _metrics;
     private readonly IOptions<WorkItemsModuleOptions> _options;
     private readonly ISourceEndpointInfo _sourceEndpointInfo;
+    private readonly IEmbeddedImageDownloader? _embeddedImageDownloader;
+    private readonly ILoggerFactory? _loggerFactory;
 
     // Import deps (absorbed from WorkItemsImportRuntime)
     private readonly IWorkItemTargetFactory _importTargetFactory;
@@ -111,9 +113,13 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
         IOptions<NodesModuleOptions>? nodesModuleOptions = null,
         IInventoryOrchestrator? inventoryOrchestrator = null,
         IRepoDiscoveryService? repoDiscoveryService = null,
-        IProjectInventoryWriter? projectInventory = null)
+        IProjectInventoryWriter? projectInventory = null,
+        IEmbeddedImageDownloader? embeddedImageDownloader = null,
+        ILoggerFactory? loggerFactory = null)
     {
         _projectInventory = projectInventory ?? new Infrastructure.Agent.Discovery.ProjectInventoryFileStore();
+        _embeddedImageDownloader = embeddedImageDownloader;
+        _loggerFactory = loggerFactory;
         _sourceFactory = sourceFactory ?? throw new ArgumentNullException(nameof(sourceFactory));
         _attachmentBinarySource = attachmentBinarySource;
         _fetchService = fetchService;
@@ -381,6 +387,16 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
         var sourceEndpoint = context.Organisations.Count > 0 ? context.Organisations[0].Endpoint : null;
 #endif
 
+        // Embedded images (#169, #154): capture source-hosted images into the package when the
+        // connector provides a downloader and the config enables them.
+        var imageExport = _embeddedImageDownloader != null && _options.Value.Data.EmbeddedImages.Enabled
+            ? new Infrastructure.Agent.Export.EmbeddedImageExportService(
+                _embeddedImageDownloader,
+                context.Package,
+                _sourceEndpointInfo,
+                _loggerFactory?.CreateLogger<Infrastructure.Agent.Export.EmbeddedImageExportService>()
+                    ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<Infrastructure.Agent.Export.EmbeddedImageExportService>.Instance)
+            : null;
         var orchestrator = _exportOrchestratorFactory.Create(
             context.Package,
             orgSlug,
@@ -412,6 +428,7 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
             exportProgressStoreFactory: _exportProgressStoreFactory,
             packageUri: null
 #endif
+            , embeddedImageExport: imageExport
             );
 
         await orchestrator.ExportAsync(source, ct).ConfigureAwait(false);

@@ -45,8 +45,8 @@ public sealed class TfsClassificationTreeSource : IClassificationTreeSource
         await Task.CompletedTask.ConfigureAwait(false);
         var project = _endpointInfo.Project;
 
-        foreach (var path in EnumerateNodes(project, "Area"))
-            yield return path;
+        foreach (var node in EnumerateTree(project, ClassificationNodesXml.IsAreaRoot))
+            yield return node.Path;
     }
 
     /// <inheritdoc/>
@@ -56,11 +56,13 @@ public sealed class TfsClassificationTreeSource : IClassificationTreeSource
         await Task.CompletedTask.ConfigureAwait(false);
         var project = _endpointInfo.Project;
 
-        foreach (var node in EnumerateIterationNodeInfos(project))
+        foreach (var node in EnumerateTree(project, ClassificationNodesXml.IsIterationRoot))
             yield return node;
     }
 
-    private IEnumerable<string> EnumerateNodes(string project, string structureTypeSuffix)
+    // ListStructures returns only the two roots (ProjectModelHierarchy = areas,
+    // ProjectLifecycle = iterations); GetNodesXml returns each root's full tree (#169).
+    private IEnumerable<IterationNodeEntry> EnumerateTree(string project, Func<string?, bool> isRoot)
     {
         var css = _collection.GetService<ICommonStructureService4>();
         ProjectInfo projectInfo;
@@ -85,63 +87,26 @@ public sealed class TfsClassificationTreeSource : IClassificationTreeSource
             throw;
         }
 
-        foreach (var node in structures)
+        foreach (var root in structures)
         {
-            if (!node.StructureType.EndsWith(structureTypeSuffix, StringComparison.OrdinalIgnoreCase))
+            if (!isRoot(root.StructureType))
                 continue;
 
-            // TFS returns paths like \ProjectName\Area1 — strip the leading backslash.
-            var path = node.Path?.TrimStart('\\') ?? string.Empty;
-            if (!string.IsNullOrEmpty(path))
-                yield return path;
+            System.Xml.XmlElement tree;
+            try
+            {
+                tree = css.GetNodesXml(new[] { root.Uri }, true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[NodeTranslation][TFS] Failed to read the {Structure} tree for project {Project}.", root.StructureType, project);
+                throw;
+            }
+
+            foreach (var node in ClassificationNodesXml.Flatten(tree))
+                yield return node;
         }
     }
-
-    private IEnumerable<IterationNodeEntry> EnumerateIterationNodeInfos(string project)
-    {
-        var css = _collection.GetService<ICommonStructureService4>();
-        ProjectInfo projectInfo;
-        try
-        {
-            projectInfo = css.GetProjectFromName(project);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "[NodeTranslation][TFS] Failed to get project {Project} from TFS.", project);
-            throw;
-        }
-
-        NodeInfo[] structures;
-        try
-        {
-            structures = css.ListStructures(projectInfo.Uri);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "[NodeTranslation][TFS] Failed to list structures for project {Project}.", project);
-            throw;
-        }
-
-        foreach (var node in structures)
-        {
-            if (!node.StructureType.EndsWith("Iteration", StringComparison.OrdinalIgnoreCase))
-                continue;
-
-            var path = node.Path?.TrimStart('\\') ?? string.Empty;
-            if (string.IsNullOrEmpty(path)) continue;
-
-            DateTimeOffset? startDate = node.StartDate.HasValue && node.StartDate.Value != DateTime.MinValue
-                ? new DateTimeOffset(node.StartDate.Value, TimeSpan.Zero)
-                : null;
-
-            DateTimeOffset? finishDate = node.FinishDate.HasValue && node.FinishDate.Value != DateTime.MinValue
-                ? new DateTimeOffset(node.FinishDate.Value, TimeSpan.Zero)
-                : null;
-
-            yield return new IterationNodeEntry(path, startDate, finishDate, false);
-        }
-    }
-
     /// <inheritdoc/>
     public Task<int> CountNodesAsync(string project, CancellationToken ct)
     {
@@ -150,8 +115,8 @@ public sealed class TfsClassificationTreeSource : IClassificationTreeSource
 
         try
         {
-            var count = EnumerateNodes(project, "Area").Count()
-                      + EnumerateIterationNodeInfos(project).Count();
+            var count = EnumerateTree(project, ClassificationNodesXml.IsAreaRoot).Count()
+                      + EnumerateTree(project, ClassificationNodesXml.IsIterationRoot).Count();
             return Task.FromResult(count);
         }
         catch (Exception ex)

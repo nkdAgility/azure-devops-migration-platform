@@ -104,7 +104,8 @@ public sealed class WorkItemsOrchestratorExportTests
             string? packageUri,
             IReferencedPathLifecycle? referencedPathTracker = null,
             IReadOnlyList<IModuleExtension>? exportExtensions = null,
-            MigrationEndpointOptions? endpoint = null)
+            MigrationEndpointOptions? endpoint = null,
+            DevOpsMigrationPlatform.Abstractions.Agent.Attachments.IEmbeddedImageExportService? embeddedImageExport = null)
         {
             CapturedAttachmentSource = attachmentBinarySource;
             CapturedExtensions = exportExtensions;

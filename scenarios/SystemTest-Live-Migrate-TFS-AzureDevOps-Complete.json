@@ -1,0 +1,83 @@
+{
+  "MigrationPlatform": {
+    "ConfigVersion": "2.0",
+    "Mode": "Migrate",
+    "Policies": {
+      "Retries": {
+        "Max": 8
+      },
+      "Throttle": {
+        "MaxConcurrency": 4
+      },
+      "Checkpoints": {
+        "Interval": 300
+      }
+    },
+    "Source": {
+      "Type": "TeamFoundationServer",
+      "Url": "$ENV:AZDEVOPS_SYSTEM_TEST_ORG",
+      "Project": "migrationTest5",
+      "Authentication": {
+        "Type": "AccessToken",
+        "AccessToken": "$ENV:AZDEVOPS_SYSTEM_TEST_PAT"
+      }
+    },
+    "Target": {
+      "Type": "AzureDevOpsServices",
+      "Url": "$ENV:TARGET_ORG_URL",
+      "Project": "$ENV:TARGET_PROJECT",
+      "ApiVersion": "7.1",
+      "Authentication": {
+        "Type": "AccessToken",
+        "AccessToken": "$ENV:TARGET_PAT"
+      }
+    },
+    "Package": {
+      "WorkingDirectory": "%DEVOPS_MIGRATION_TEST_STORAGE%",
+      "CreatePackage": true,
+      "PackagePath": ""
+    },
+    "Tools": {
+      "NodeTranslation": {
+        "Enabled": true,
+        "AutoCreateNodes": true,
+        "SkipOnUnresolvableArea": false,
+        "SkipOnUnresolvableIteration": false
+      },
+      "IdentityTranslation": {
+        "Enabled": true,
+        "DefaultIdentity": ""
+      }
+    },
+    "Modules": {
+      "Identities": {
+        "Enabled": true
+      },
+      "Nodes": {
+        "Enabled": true,
+        "Processing": {
+          "ReplicateSourceTree": true
+        }
+      },
+      "WorkItems": {
+        "Enabled": true,
+        "Selection": {
+          "Query": "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project ORDER BY [System.Id]"
+        },
+        "Data": {
+          "Revisions": {
+            "Enabled": true
+          },
+          "Comments": {
+            "Enabled": true,
+            "IncludeDeleted": false
+          },
+          "EmbeddedImages": {
+            "Enabled": true,
+            "DownloadTimeoutSeconds": 30
+          }
+        }
+      }
+    }
+  }
+}

@@ -27,15 +27,33 @@ public sealed class JobStore : IJobStore
     private readonly ConcurrentDictionary<Guid, DateTimeOffset> _startedAt = new();
     private readonly SemaphoreSlim _pendingSignal = new(0);
     private readonly ConcurrentQueue<Guid> _pending = new();
+
+    // Jobs waiting for the job they depend on (ADR-0035): dependency id -> dependent ids.
+    // Held jobs are not in _pending, so no agent can lease them until they are released.
+    private readonly Dictionary<Guid, List<Guid>> _held = new();
+    private readonly object _holdLock = new();
+
+    // When each queued job became leasable (entered _pending), for the unservable-job check.
+    private readonly ConcurrentDictionary<Guid, DateTimeOffset> _waitingSince = new();
+
+    // Last lease poll seen per advertised connector set (key: sorted connector names; "*" = any).
+    private readonly ConcurrentDictionary<string, (ConnectorType[] Connectors, DateTimeOffset LastSeen)> _agentPolls = new();
+    private const string AnyConnectorKey = "*";
+
     private readonly IJobLifecycleMetrics? _metrics;
     private readonly ILogger? _logger;
+    private readonly TimeProvider _time;
+
+    /// <inheritdoc />
+    public event Action<Guid, string>? JobFailedWithoutRunning;
 
     private static readonly ActivitySource ActivitySource = new(WellKnownActivitySourceNames.ControlPlane);
 
-    public JobStore(IJobLifecycleMetrics? metrics = null, ILogger<JobStore>? logger = null)
+    public JobStore(IJobLifecycleMetrics? metrics = null, ILogger<JobStore>? logger = null, TimeProvider? timeProvider = null)
     {
         _metrics = metrics;
         _logger = logger;
+        _time = timeProvider ?? TimeProvider.System;
     }
 
     /// <inheritdoc />
@@ -49,8 +67,7 @@ public sealed class JobStore : IJobStore
         _all[jobId] = job;
         _states[jobId] = "Queued";
         _submittedAt[jobId] = DateTimeOffset.UtcNow;
-        _pending.Enqueue(jobId);
-        _pendingSignal.Release();
+        EnqueueOrHold(jobId, job);
 
         _metrics?.JobSubmitted(new TagList
         {
@@ -66,11 +83,13 @@ public sealed class JobStore : IJobStore
     /// <inheritdoc />
     public async Task<Job?> DequeueAsync(TimeSpan timeout, CancellationToken cancellationToken)
     {
+        RecordPoll(AnyConnectorKey, []);
         if (!await _pendingSignal.WaitAsync(timeout, cancellationToken).ConfigureAwait(false))
             return null;
 
-        if (_pending.TryDequeue(out var jobId) && _all.TryGetValue(jobId, out var job))
+        if (_pending.TryDequeue(out var jobId) && _all.TryGetValue(jobId, out var job) && IsLeasable(jobId))
         {
+            _waitingSince.TryRemove(jobId, out _);
             using var activity = ActivitySource.StartActivity("job.dequeue", ActivityKind.Internal);
             activity?.SetTag("job.id", job.JobId);
             activity?.SetTag("job.type", GetJobType(job));
@@ -91,6 +110,7 @@ public sealed class JobStore : IJobStore
     public async Task<Job?> DequeueAsync(TimeSpan timeout, IReadOnlyList<ConnectorType> capabilities, CancellationToken cancellationToken)
     {
         var agentConnectors = new HashSet<ConnectorType>(capabilities);
+        RecordAgentPoll(capabilities);
 
         var deadline = DateTimeOffset.UtcNow.Add(timeout);
         while (DateTimeOffset.UtcNow < deadline && !cancellationToken.IsCancellationRequested)
@@ -103,11 +123,16 @@ public sealed class JobStore : IJobStore
 
             if (_pending.TryDequeue(out var jobId) && _all.TryGetValue(jobId, out var job))
             {
+                // A job failed while queued (e.g. unservable) is dropped, never leased.
+                if (!IsLeasable(jobId))
+                    continue;
+
                 // A job matches if every connector it demands is advertised by this agent.
                 // A job with no connectors (e.g. Simulated) matches any agent.
                 var isMatch = job.Connectors.Length == 0 || job.Connectors.All(c => agentConnectors.Contains(c));
                 if (isMatch)
                 {
+                    _waitingSince.TryRemove(jobId, out _);
                     using var activity = ActivitySource.StartActivity("job.dequeue", ActivityKind.Internal);
                     activity?.SetTag("job.id", job.JobId);
                     activity?.SetTag("job.type", GetJobType(job));
@@ -167,8 +192,15 @@ public sealed class JobStore : IJobStore
         activity?.SetTag("job.id", jobId.ToString());
         activity?.SetTag("job.state", state);
 
-        var previousState = _states.TryGetValue(jobId, out var prev) ? prev : null;
-        _states[jobId] = state;
+        string? previousState;
+        List<Guid>? released = null;
+        lock (_holdLock)
+        {
+            previousState = _states.TryGetValue(jobId, out var prev) ? prev : null;
+            _states[jobId] = state;
+            if (state is "Completed" or "Failed" && _held.Remove(jobId, out var dependents))
+                released = dependents;
+        }
 
         _logger?.LogDebug("[ControlPlane] Job {JobId} state: {PreviousState} → {NewState}.", jobId, previousState ?? "(none)", state);
 
@@ -215,6 +247,143 @@ public sealed class JobStore : IJobStore
                 _logger?.LogWarning("[ControlPlane] Job {JobId} failed.", jobId);
             }
         }
+
+        if (released is not null)
+            ReleaseDependents(jobId, state, released);
+    }
+
+    /// <inheritdoc />
+    public string? GetParentState(Guid parentJobId)
+    {
+        var parentId = parentJobId.ToString();
+        var childStates = _all
+            .Where(kv => string.Equals(kv.Value.ParentJobId, parentId, StringComparison.OrdinalIgnoreCase))
+            .Select(kv => _states.TryGetValue(kv.Key, out var s) ? s : "Queued")
+            .ToList();
+
+        if (childStates.Count == 0) return null;
+        if (childStates.Contains("Failed")) return "Failed";
+        if (childStates.All(s => s == "Completed")) return "Completed";
+        if (childStates.All(s => s == "Queued")) return "Queued";
+        return "Running";
+    }
+
+    private void EnqueueOrHold(Guid jobId, Job job)
+    {
+        if (job.DependsOnJobId is { } dependsOn && Guid.TryParse(dependsOn, out var dependencyId))
+        {
+            string? dependencyState;
+            lock (_holdLock)
+            {
+                dependencyState = _states.TryGetValue(dependencyId, out var s) ? s : null;
+                if (dependencyState is not ("Completed" or "Failed"))
+                {
+                    if (!_held.TryGetValue(dependencyId, out var dependents))
+                        _held[dependencyId] = dependents = new List<Guid>();
+                    dependents.Add(jobId);
+                    _logger?.LogInformation("[ControlPlane] Job {JobId} held until job {DependencyId} completes.", jobId, dependencyId);
+                    return;
+                }
+            }
+
+            if (dependencyState == "Failed")
+            {
+                FailDependent(jobId, dependencyId);
+                return;
+            }
+        }
+
+        MakeLeasable(jobId);
+    }
+
+    private void MakeLeasable(Guid jobId)
+    {
+        _waitingSince[jobId] = _time.GetUtcNow();
+        _pending.Enqueue(jobId);
+        _pendingSignal.Release();
+    }
+
+    private bool IsLeasable(Guid jobId) =>
+        _states.TryGetValue(jobId, out var state) && state == "Queued";
+
+    /// <inheritdoc />
+    public void RecordAgentPoll(IReadOnlyList<ConnectorType> capabilities)
+    {
+        var connectors = capabilities.Distinct().OrderBy(c => c).ToArray();
+        RecordPoll(connectors.Length == 0 ? AnyConnectorKey : string.Join(",", connectors), connectors);
+    }
+
+    private void RecordPoll(string key, ConnectorType[] connectors) =>
+        _agentPolls[key] = (connectors, _time.GetUtcNow());
+
+    /// <inheritdoc />
+    public IReadOnlyList<(Guid JobId, string Reason)> FailUnservableJobs(TimeSpan timeout)
+    {
+        var now = _time.GetUtcNow();
+        var recentAgents = _agentPolls
+            .Where(kv => now - kv.Value.LastSeen <= timeout)
+            .Select(kv => kv.Key == AnyConnectorKey ? null : kv.Value.Connectors)
+            .ToList();
+
+        var failed = new List<(Guid JobId, string Reason)>();
+        foreach (var (jobId, since) in _waitingSince)
+        {
+            if (now - since < timeout || !IsLeasable(jobId) || !_all.TryGetValue(jobId, out var job))
+                continue;
+
+            var servable = recentAgents.Any(agent =>
+                agent is null || job.Connectors.All(c => agent.Contains(c)));
+            if (servable)
+                continue;
+
+            var reason = UnservableReason(job, timeout);
+            _waitingSince.TryRemove(jobId, out _);
+            FailWithoutRunning(jobId, reason);
+            failed.Add((jobId, reason));
+        }
+
+        return failed;
+    }
+
+    private static string UnservableReason(Job job, TimeSpan timeout)
+    {
+        var needed = string.Join(", ", job.Connectors);
+        var agents = string.Join(" and ", job.Connectors.Select(AgentFor).Distinct());
+        return $"No connected agent can run {job.Kind} job {job.JobId}: it needs the [{needed}] connector, " +
+               $"and no agent advertising it has asked for work in the last {timeout.TotalMinutes:0.#} minutes. " +
+               $"Start {agents} against this Control Plane, then queue the job again.";
+    }
+
+    private static string AgentFor(ConnectorType connector) => connector switch
+    {
+        ConnectorType.TeamFoundationServer => "TfsMigrationAgent (net481, Windows only)",
+        _ => "MigrationAgent"
+    };
+
+    private void ReleaseDependents(Guid dependencyId, string dependencyState, List<Guid> dependents)
+    {
+        foreach (var dependentId in dependents)
+        {
+            if (dependencyState == "Completed")
+            {
+                MakeLeasable(dependentId);
+                _logger?.LogInformation("[ControlPlane] Job {JobId} released: job {DependencyId} completed.", dependentId, dependencyId);
+            }
+            else
+            {
+                FailDependent(dependentId, dependencyId);
+            }
+        }
+    }
+
+    private void FailDependent(Guid dependentId, Guid dependencyId) =>
+        FailWithoutRunning(dependentId, $"Job {dependentId} was not run because job {dependencyId}, which it depends on, failed.");
+
+    private void FailWithoutRunning(Guid jobId, string reason)
+    {
+        _logger?.LogWarning("[ControlPlane] {Reason}", reason);
+        SetState(jobId, "Failed");
+        JobFailedWithoutRunning?.Invoke(jobId, reason);
     }
 
     private static string GetJobType(Job job) => job.Kind.ToString();

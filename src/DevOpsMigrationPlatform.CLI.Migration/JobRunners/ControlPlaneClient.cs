@@ -258,8 +258,10 @@ public sealed class ControlPlaneClient : IJobSubmissionClient, ILogsClient, ICon
                 }
                 if (eventType == "job-failed")
                 {
+                    // The data line may carry the Control Plane's reason (#169).
+                    var dataLine = await reader.ReadLineAsync(ct).ConfigureAwait(false);
                     yield return new JobStreamEvent(seq, JobStreamEventKind.Terminal,
-                        null, null, true, "Job failed on the agent.");
+                        null, null, true, ReadFailureReason(dataLine) ?? "Job failed. The reason is in the messages above.");
                     yield break;
                 }
                 continue;
@@ -295,6 +297,23 @@ public sealed class ControlPlaneClient : IJobSubmissionClient, ILogsClient, ICon
             }
 
             eventType = null;
+        }
+    }
+
+    private static string? ReadFailureReason(string? dataLine)
+    {
+        if (dataLine is null || !dataLine.StartsWith("data:", StringComparison.Ordinal))
+            return null;
+        try
+        {
+            using var doc = JsonDocument.Parse(dataLine["data:".Length..].Trim());
+            return doc.RootElement.TryGetProperty("reason", out var r) && r.ValueKind == JsonValueKind.String
+                ? r.GetString()
+                : null;
+        }
+        catch (JsonException)
+        {
+            return null;
         }
     }
 

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using DevOpsMigrationPlatform.Abstractions.Agent.Attachments;
 using System.Collections.Generic;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent;
@@ -34,7 +35,8 @@ public sealed class WorkItemExportOrchestratorFactory : IWorkItemExportOrchestra
         string? packageUri,
         IReferencedPathLifecycle? referencedPathTracker = null,
         IReadOnlyList<IModuleExtension>? exportExtensions = null,
-        MigrationEndpointOptions? endpoint = null)
+        MigrationEndpointOptions? endpoint = null,
+        IEmbeddedImageExportService? embeddedImageExport = null)
     {
         return new WorkItemExportOrchestrator(
             package,
@@ -53,7 +55,8 @@ public sealed class WorkItemExportOrchestratorFactory : IWorkItemExportOrchestra
             wiqlQuery: wiqlQuery,
             discoveryService: discoveryService,
             exportProgressStoreFactory: exportProgressStoreFactory,
-            packageUri: packageUri
+            packageUri: packageUri,
+            embeddedImageExport: embeddedImageExport
 #if !NET481
             ,
             referencedPathTracker: referencedPathTracker,

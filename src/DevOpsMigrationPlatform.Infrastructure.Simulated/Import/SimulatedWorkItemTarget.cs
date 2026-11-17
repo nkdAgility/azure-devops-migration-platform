@@ -132,6 +132,37 @@ public sealed class SimulatedWorkItemTarget : IWorkItemTarget
     }
 
     /// <inheritdoc/>
+    public async Task<ImportedWorkItemResult> CreateFromRevisionAsync(
+        string workItemType,
+        IReadOnlyList<WorkItemField> fields,
+        IReadOnlyList<RelatedWorkItemLink> relatedLinks,
+        IReadOnlyList<ExternalWorkItemLink> externalLinks,
+        IReadOnlyList<HyperlinkWorkItemLink> hyperlinks,
+        IReadOnlyList<PendingAttachment> attachments,
+        CancellationToken ct)
+    {
+        // Read the binaries first, then create the item and add everything in one step (#169).
+        var binaries = new List<SimulatedAttachment>(attachments.Count);
+        foreach (var attachment in attachments)
+        {
+            using var content = await attachment.OpenAsync(ct).ConfigureAwait(false);
+            if (content is not null)
+                binaries.Add(new SimulatedAttachment(attachment.FileName, ReadAllBytes(content)));
+        }
+
+        var created = await CreateWorkItemAsync(workItemType, fields, ct).ConfigureAwait(false);
+        lock (_lock)
+        {
+            if (!_attachmentsByWorkItem.TryGetValue(created.TargetWorkItemId, out var stored))
+            {
+                stored = new List<SimulatedAttachment>();
+                _attachmentsByWorkItem[created.TargetWorkItemId] = stored;
+            }
+            stored.AddRange(binaries);
+        }
+        return created;
+    }
+    /// <inheritdoc/>
     public Task ApplyRevisionAsync(
         int targetWorkItemId,
         IReadOnlyList<WorkItemField> fields,

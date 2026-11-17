@@ -72,6 +72,7 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
     private readonly IWorkItemDiscoveryService? _discoveryService;
     private readonly IWorkItemProgressStoreFactory? _exportProgressStoreFactory;
     private readonly string? _packageUri;
+    private readonly IEmbeddedImageExportService? _embeddedImageExport;
 #if !NET481
     private readonly IReferencedPathLifecycle? _referencedPathTracker;
     private readonly IReadOnlyList<IModuleExtension>? _exportExtensions;
@@ -94,7 +95,8 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
         string? wiqlQuery = null,
         IWorkItemDiscoveryService? discoveryService = null,
         IWorkItemProgressStoreFactory? exportProgressStoreFactory = null,
-        string? packageUri = null
+        string? packageUri = null,
+        IEmbeddedImageExportService? embeddedImageExport = null
 #if !NET481
         , IReferencedPathLifecycle? referencedPathTracker = null
         , IReadOnlyList<IModuleExtension>? exportExtensions = null
@@ -118,6 +120,7 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
         _discoveryService = discoveryService;
         _exportProgressStoreFactory = exportProgressStoreFactory;
         _packageUri = packageUri;
+        _embeddedImageExport = embeddedImageExport;
 #if !NET481
         _referencedPathTracker = referencedPathTracker;
         _exportExtensions = exportExtensions;
@@ -497,8 +500,20 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
 
 
 
+                // Embedded images (#169, #154): save each source-hosted image beside revision.json and
+                // list it in the revision so the import can upload it and map its URL.
+                var revisionToWrite = revision;
+                if (_embeddedImageExport != null)
+                {
+                    var images = await _embeddedImageExport
+                        .CaptureFromFieldsAsync(revision.Fields, folderPath.TrimEnd('/'), cancellationToken)
+                        .ConfigureAwait(false);
+                    if (images.Count > 0)
+                        revisionToWrite = revision with { EmbeddedImages = images };
+                }
+
                 // Write revision.json.
-                var json = JsonSerializer.Serialize(revision, JsonOptions);
+                var json = JsonSerializer.Serialize(revisionToWrite, JsonOptions);
                 await WritePackageTextAsync($"{folderPath}revision.json", json, cancellationToken).ConfigureAwait(false);
                 // Record the highest RevisionIndex written for this work item so the next resume
                 // can skip revisions ≤ this value without ExistsAsync filesystem checks.

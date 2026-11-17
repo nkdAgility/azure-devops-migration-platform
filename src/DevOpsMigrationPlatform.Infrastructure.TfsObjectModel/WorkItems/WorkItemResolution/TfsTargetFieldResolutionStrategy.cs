@@ -111,15 +111,9 @@ public sealed class TfsTargetFieldResolutionStrategy : IWorkItemResolutionStrate
     }
 
     /// <inheritdoc/>
-    public async Task WriteProvenanceAsync(int sourceWorkItemId, int targetWorkItemId, CancellationToken ct)
-    {
-        var fields = new List<PlatformWorkItemField>
-        {
-            new() { ReferenceName = _fieldName, Value = sourceWorkItemId.ToString() }
-        };
-
-        await _target.UpdateFieldsAsync(targetWorkItemId, fields, ct).ConfigureAwait(false);
-    }
+    public ImportProvenance ProvenanceFor(int sourceWorkItemId) => new(
+        new List<PlatformWorkItemField> { new() { ReferenceName = _fieldName, Value = sourceWorkItemId.ToString() } },
+        new List<HyperlinkWorkItemLink>());
 
     private void EnsureValidFieldName()
     {
