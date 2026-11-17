@@ -106,6 +106,49 @@ public class JobStoreUnservableJobTests
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
+    public async Task FailUnservableJobs_CapableAgentBusyOnALongJob_LeavesJobQueued()
+    {
+        // PR #222 review: an agent runs a leased job to completion before it polls again, so a
+        // long migration must not make its agent look disconnected and fail the next job.
+        var time = new ManualTime();
+        var store = new JobStore(timeProvider: time);
+        var running = TfsExport();
+        store.Enqueue(running);
+        await Poll(store, TfsAgent);
+        store.SetState(Guid.Parse(running.JobId), "Running");
+        var next = TfsExport();
+        store.Enqueue(next);
+
+        time.Now += Timeout + Timeout;
+        var failed = store.FailUnservableJobs(Timeout);
+
+        Assert.AreEqual(0, failed.Count);
+        Assert.AreEqual("Queued", StateOf(store, next));
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task FailUnservableJobs_BusyAgentFinishedLongAgo_FailsJob()
+    {
+        var time = new ManualTime();
+        var store = new JobStore(timeProvider: time);
+        var done = TfsExport();
+        store.Enqueue(done);
+        await Poll(store, TfsAgent);
+        store.SetState(Guid.Parse(done.JobId), "Completed");
+        var next = TfsExport();
+        store.Enqueue(next);
+
+        time.Now += Timeout + Timeout;
+        var failed = store.FailUnservableJobs(Timeout);
+
+        Assert.AreEqual(1, failed.Count, "A finished lease no longer shows its agent is connected.");
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
     public void FailUnservableJobs_HeldDependentJob_IsNotFailedWhileWaiting()
     {
         var time = new ManualTime();

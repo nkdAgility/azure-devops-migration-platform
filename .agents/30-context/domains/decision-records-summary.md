@@ -277,3 +277,11 @@ Every unit of work closes with evidence at `Logs/atdd-sessions/<session-id>.json
 All work is a GitHub Backlog Item; questions needing a ruling are Decisions. Every item gets a pre-start assessment (ready? right-sized: ≤ 5 acceptance criteria, one concern, one PR, ≤ ~2 days, agent placement verified against code). Too-big items are split into vertical-slice sub-issues; the parent stays open (`broken-down`) until all children close. Done = L1 change DoD + L2 completion protocol (sync main, build, full suite, real live E2E on per-run `adpe2e-` projects, architecture check, check against the ask, clean-up, five-part report) + applicable L3 Backlog Item DoD. Standing authorisation `backlog-automation` in `consent-policy.yaml` lets the backlog groom/deliver workflows create issues, commit, push, open PRs and enable auto-merge (verifier ≥ 90% and all steps pass) — nothing else.
 
 **Current implication:** Follow `.agents/20-guardrails/workflow/backlog-item-workflow.md`, `completion-protocol.md`, `backlog-item-dod.md` and `live-test-environment.md`. One task = one PR = one worktree; a manager session checks in on running tasks at least every 20 minutes. Constitution rule 11 is relaxed only inside the authorisation's scope. A missing live E2E is `BLOCKED`, never done.
+
+## ADR 0035 — Cross-Agent Jobs as a Parent Job with Dependent Sub-Jobs
+
+**Status:** Accepted
+
+A migration whose source and target need different agents (TFS → Azure DevOps) runs as one parent job with dependent children: Export (source connector only) → Prepare → Import (target connector only). The CLI decides the split from the configured connector types and runs nothing. The Control Plane routes each child by its own connectors, holds a child until the job it depends on completes, and fails it if that job fails; it knows only "job X waits for job Y". The package is the hand-off, and cursors make each child resumable. The operator sees one parent ID whose state is built from its children.
+
+**Current implication:** Never put both connectors on one job that spans agents; queue Migrate through `MigrateChildJobs`. Dependency handling stays generic in `JobStore` (`DependsOnJobId`, `ParentJobId`). A job that no connected agent can serve fails fast with its reason instead of waiting forever.

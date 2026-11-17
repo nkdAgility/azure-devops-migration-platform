@@ -14,4 +14,11 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 /// </summary>
 /// <param name="FileName">The attachment's original file name.</param>
 /// <param name="OpenAsync">Opens the attachment binary, or returns null when it is missing.</param>
-public sealed record PendingAttachment(string FileName, Func<CancellationToken, Task<Stream?>> OpenAsync);
+public sealed record PendingAttachment(string FileName, Func<CancellationToken, Task<Stream?>> OpenAsync)
+{
+    /// <summary>
+    /// The attachment's package path. When set, the target reports the stored attachment back in
+    /// <see cref="ImportedWorkItemResult.CreatedAttachments"/> under this path.
+    /// </summary>
+    public string? RelativePath { get; init; }
+}

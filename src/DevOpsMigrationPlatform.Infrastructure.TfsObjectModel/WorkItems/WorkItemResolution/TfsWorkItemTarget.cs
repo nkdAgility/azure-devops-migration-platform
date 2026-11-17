@@ -141,6 +141,8 @@ public sealed class TfsWorkItemTarget : IWorkItemTarget
 
         // TFS OM attaches files from disk; stage each binary as a temp file for the one save (#169).
         var tempFiles = new List<string>();
+        // TFS identifies an attachment by its file name (see UploadAttachmentAsync).
+        var stored = new List<CreatedAttachment>(attachments.Count);
         try
         {
             foreach (var attachment in attachments)
@@ -152,6 +154,8 @@ public sealed class TfsWorkItemTarget : IWorkItemTarget
                     await content.CopyToAsync(fs, 81920, ct).ConfigureAwait(false);
                 tempFiles.Add(tempPath);
                 workItem.Attachments.Add(new Attachment(tempPath, attachment.FileName));
+                if (attachment.RelativePath is { } path)
+                    stored.Add(new CreatedAttachment(path, attachment.FileName));
             }
 
             try
@@ -173,7 +177,7 @@ public sealed class TfsWorkItemTarget : IWorkItemTarget
         }
 
         _logger.LogDebug("[TFS Import] Created work item {Id} of type '{Type}' from one revision.", workItem.Id, workItemType);
-        return new ImportedWorkItemResult { TargetWorkItemId = workItem.Id, IsNewlyCreated = true };
+        return new ImportedWorkItemResult { TargetWorkItemId = workItem.Id, IsNewlyCreated = true, CreatedAttachments = stored };
     }
     /// <summary>Adds the links to <paramref name="workItem"/> without saving it. Returns true when any was added.</summary>
     private bool AddLinksTo(

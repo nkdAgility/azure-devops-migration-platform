@@ -276,6 +276,13 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
                     replayService.BuildPendingAttachments(revision, folderPath, ReadPackageBinaryAsync, availableBinaryPaths),
                     ct).ConfigureAwait(false);
                 await _idMapStore.SetWorkItemMappingAsync(revision.WorkItemId, result.TargetWorkItemId, ct).ConfigureAwait(false);
+                // Save the stored attachments before the cursor moves, so a resume of this
+                // revision reuses them instead of uploading the binaries again.
+                foreach (var created in result.CreatedAttachments)
+                {
+                    await _idMapStore.SetAttachmentMappingAsync(
+                        revision.WorkItemId, revision.RevisionIndex, created.RelativePath, created.AttachmentId, ct).ConfigureAwait(false);
+                }
                 _logger.LogDebug("[WorkItems] Created target WI {TargetId} for source {SourceId}", result.TargetWorkItemId, revision.WorkItemId);
             }
             else

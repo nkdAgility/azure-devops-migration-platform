@@ -213,12 +213,15 @@ internal sealed class AzureDevOpsWorkItemTarget : IWorkItemTarget, IDisposable
         // Azure DevOps stores attachment binaries at project level, so they upload before the
         // work item exists; the create then carries everything in one save (#169).
         var uploaded = new List<AttachmentUploadResult>(attachments.Count);
+        var stored = new List<CreatedAttachment>(attachments.Count);
         foreach (var attachment in attachments)
         {
             using var content = await attachment.OpenAsync(ct).ConfigureAwait(false);
             if (content is null) continue;
             var url = await UploadAttachmentAsync(0, attachment.FileName, content, ct).ConfigureAwait(false);
             uploaded.Add(new AttachmentUploadResult(url, attachment.FileName));
+            if (attachment.RelativePath is { } path)
+                stored.Add(new CreatedAttachment(path, url));
         }
 
         var patch = BuildFieldPatch(fields, Operation.Add);
@@ -231,7 +234,8 @@ internal sealed class AzureDevOpsWorkItemTarget : IWorkItemTarget, IDisposable
         return new ImportedWorkItemResult
         {
             TargetWorkItemId = created.Id ?? throw new InvalidOperationException("Created work item has no ID."),
-            IsNewlyCreated = true
+            IsNewlyCreated = true,
+            CreatedAttachments = stored
         };
     }
 

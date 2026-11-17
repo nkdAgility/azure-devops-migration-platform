@@ -38,6 +38,10 @@ public sealed class JobStore : IJobStore
 
     // Last lease poll seen per advertised connector set (key: sorted connector names; "*" = any).
     private readonly ConcurrentDictionary<string, (ConnectorType[] Connectors, DateTimeOffset LastSeen)> _agentPolls = new();
+
+    // Connectors of the agent each job was leased to. An agent runs its leased job to the end
+    // before it polls again, so an unfinished lease also shows that agent is connected.
+    private readonly ConcurrentDictionary<Guid, ConnectorType[]> _leasedTo = new();
     private const string AnyConnectorKey = "*";
 
     private readonly IJobLifecycleMetrics? _metrics;
@@ -133,6 +137,7 @@ public sealed class JobStore : IJobStore
                 if (isMatch)
                 {
                     _waitingSince.TryRemove(jobId, out _);
+                    _leasedTo[jobId] = agentConnectors.OrderBy(c => c).ToArray();
                     using var activity = ActivitySource.StartActivity("job.dequeue", ActivityKind.Internal);
                     activity?.SetTag("job.id", job.JobId);
                     activity?.SetTag("job.type", GetJobType(job));
@@ -324,6 +329,14 @@ public sealed class JobStore : IJobStore
             .Where(kv => now - kv.Value.LastSeen <= timeout)
             .Select(kv => kv.Key == AnyConnectorKey ? null : kv.Value.Connectors)
             .ToList();
+        foreach (var (leasedJobId, connectors) in _leasedTo)
+        {
+            var leaseState = _states.TryGetValue(leasedJobId, out var s) ? s : null;
+            if (leaseState is "Completed" or "Failed")
+                _leasedTo.TryRemove(leasedJobId, out _);
+            else
+                recentAgents.Add(connectors.Length == 0 ? null : connectors);
+        }
 
         var failed = new List<(Guid JobId, string Reason)>();
         foreach (var (jobId, since) in _waitingSince)

@@ -160,7 +160,13 @@ public sealed class SimulatedWorkItemTarget : IWorkItemTarget
             }
             stored.AddRange(binaries);
         }
-        return created;
+        // Same deterministic ID as UploadAttachmentAsync gives.
+        var createdAttachments = attachments
+            .Where(a => a.RelativePath is not null && binaries.Any(b => b.FileName == a.FileName))
+            .Select(a => new CreatedAttachment(
+                a.RelativePath!, $"simulated://{created.TargetWorkItemId}/{Uri.EscapeDataString(a.FileName)}"))
+            .ToList();
+        return created with { CreatedAttachments = createdAttachments };
     }
     /// <inheritdoc/>
     public Task ApplyRevisionAsync(

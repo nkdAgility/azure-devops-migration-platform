@@ -125,6 +125,47 @@ public class WorkItemResolutionProcessorTests
         _mockTarget.Verify(t => t.CreateFromRevisionAsync("Task", It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<PendingAttachment>>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    // ── ProcessAsync_WhenCreatingWithAttachments_PersistsAttachmentMappings ───
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task ProcessAsync_WhenCreatingWithAttachments_PersistsAttachmentMappings()
+    {
+        // PR #222 review: if the run stops after the create but before the cursor moves, the
+        // resume takes the existing-item path; the attachment mappings must already be saved so
+        // it reuses the uploaded attachments instead of uploading them again.
+        var json = """{"WorkItemId":1,"RevisionIndex":0,"Fields":[{"ReferenceName":"System.WorkItemType","Value":"Task"}],"Attachments":[{"RelativePath":"attachments/a.txt","OriginalName":"a.txt"}],"RelatedLinks":[],"ExternalLinks":[],"Hyperlinks":[],"EmbeddedImages":[]}""";
+        SetupRevisionJson(json);
+        SetupPackageBinary($"{Folder}/attachments/a.txt", new byte[] { 1, 2, 3 });
+        SetupNoMapping();
+        _mockIdMapStore
+            .SetupSequence(s => s.GetTargetWorkItemIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((int?)null)
+            .ReturnsAsync(99);
+        SetupCursorWrites();
+        SetupResolutionStrategyNoOp();
+        _mockIdMapStore
+            .Setup(s => s.SetAttachmentMappingAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        IReadOnlyList<PendingAttachment>? passed = null;
+        _mockTarget
+            .Setup(t => t.CreateFromRevisionAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<PendingAttachment>>(), It.IsAny<CancellationToken>()))
+            .Callback<string, IReadOnlyList<WorkItemField>, IReadOnlyList<RelatedWorkItemLink>, IReadOnlyList<ExternalWorkItemLink>, IReadOnlyList<HyperlinkWorkItemLink>, IReadOnlyList<PendingAttachment>, CancellationToken>((_, _, _, _, _, attachments, _) => passed = attachments)
+            .ReturnsAsync(() => new ImportedWorkItemResult
+            {
+                TargetWorkItemId = 99,
+                IsNewlyCreated = true,
+                CreatedAttachments = [new CreatedAttachment(passed![0].RelativePath!, "https://target/_apis/wit/attachments/a")]
+            });
+
+        var sut = CreateSut();
+        await sut.ImportRevisionAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
+
+        Assert.AreEqual("attachments/a.txt", passed!.Single().RelativePath);
+        _mockIdMapStore.Verify(s => s.SetAttachmentMappingAsync(1, 0, "attachments/a.txt", "https://target/_apis/wit/attachments/a", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     // ── ProcessAsync_WhenWorkItemAlreadyMapped_DoesNotCreateDuplicate ─────────
 
     [TestCategory("CodeTest")]

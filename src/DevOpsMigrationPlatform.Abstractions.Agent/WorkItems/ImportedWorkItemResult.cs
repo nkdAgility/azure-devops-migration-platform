@@ -16,4 +16,11 @@ public record ImportedWorkItemResult
     /// <see langword="false"/> if an existing target work item was updated.
     /// </summary>
     public bool IsNewlyCreated { get; init; }
+
+    /// <summary>
+    /// The attachments stored by <see cref="IWorkItemTarget.CreateFromRevisionAsync"/>, one per
+    /// pending attachment that had a <see cref="PendingAttachment.RelativePath"/> and a binary.
+    /// </summary>
+    public System.Collections.Generic.IReadOnlyList<CreatedAttachment> CreatedAttachments { get; init; } =
+        System.Array.Empty<CreatedAttachment>();
 }

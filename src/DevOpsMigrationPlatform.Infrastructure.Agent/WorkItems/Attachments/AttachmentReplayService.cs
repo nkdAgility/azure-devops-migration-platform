@@ -109,7 +109,10 @@ public sealed class AttachmentReplayService
             if (!TryBuildReplayAttachment(folderPath, attachment, availableBinaryPaths, out var replayAttachment))
                 continue;
             var binaryPath = replayAttachment.BinaryPath;
-            pending.Add(new PendingAttachment(replayAttachment.OriginalName, token => readBinaryAsync(binaryPath, token)));
+            pending.Add(new PendingAttachment(replayAttachment.OriginalName, token => readBinaryAsync(binaryPath, token))
+            {
+                RelativePath = replayAttachment.RelativePath
+            });
         }
         return pending;
     }
