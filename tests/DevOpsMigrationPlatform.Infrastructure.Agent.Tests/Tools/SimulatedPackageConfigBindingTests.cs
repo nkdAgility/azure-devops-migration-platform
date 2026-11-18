@@ -61,7 +61,7 @@ public sealed class SimulatedPackageConfigBindingTests
         }));
 
         var factory = new SimulatedWorkItemRevisionSourceFactory(accessor);
-        var source = await factory.CreateAsync(CancellationToken.None);
+        var source = await factory.CreateAsync(wiqlQuery: null, CancellationToken.None);
 
         var revisions = new List<WorkItemRevision>();
         await foreach (var revision in source.GetRevisionsAsync(CancellationToken.None))

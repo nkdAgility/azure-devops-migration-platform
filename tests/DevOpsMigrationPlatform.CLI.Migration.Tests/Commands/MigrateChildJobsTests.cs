@@ -75,6 +75,26 @@ public class MigrateChildJobsTests
         StringAssert.Contains(MigrateChildJobs.Validate(config), expected);
     }
 
+    // PR #222 review: a Simulated side may omit Url and Project (defaults apply), but settings it
+    // does give are checked before submission, so Import does not reject them after the fact.
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    [DataRow("""{ "MigrationPlatform": { "Mode": "Migrate", "Package": { "WorkingDirectory": "C:/pkg" }, "Source": { "Type": "Simulated" }, "Target": { "Type": "Simulated", "Url": "https://sim", "Project": " " } } }""", "Target.Project")]
+    [DataRow("""{ "MigrationPlatform": { "Mode": "Migrate", "Package": { "WorkingDirectory": "C:/pkg" }, "Source": { "Type": "Simulated", "Url": "not a url" }, "Target": { "Type": "Simulated" } } }""", "Source.Url")]
+    public void Validate_ExplicitSimulatedSettings_AreChecked(string config, string expected)
+    {
+        StringAssert.Contains(MigrateChildJobs.Validate(config), expected);
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public void Validate_SimulatedWithDefaults_HasNoProblem()
+    {
+        Assert.IsNull(MigrateChildJobs.Validate("""{ "MigrationPlatform": { "Mode": "Migrate", "Package": { "WorkingDirectory": "C:/pkg" }, "Source": { "Type": "Simulated" }, "Target": { "Type": "Simulated" } } }"""));
+    }
+
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]

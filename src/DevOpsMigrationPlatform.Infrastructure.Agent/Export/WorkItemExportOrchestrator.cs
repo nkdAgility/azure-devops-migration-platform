@@ -142,10 +142,11 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
         // If filters are configured, fetch only filter-referenced fields via IWorkItemFetchService.
         // Items not in the set are skipped in the main loop — no revision API calls are made.
         HashSet<int>? filteredIds = null;
-        // A configured WIQL bounds the export through the same pass (#171): the revision
-        // sources enumerate the whole project, so without it Selection.Query was ignored.
+        // Filters only: a configured query is applied by the revision source as it streams, so
+        // a query on its own never builds an ID set (PR #222 review: stream, never materialise).
+        // With filters, the pass runs the same query as its base, so both bound the export.
         var filterOptions = _filterOptions ?? Array.Empty<WorkItemFieldFilterOptions>();
-        if ((filterOptions.Count > 0 || IsCustomQuery(_wiqlQuery)) && _fetchService != null && SelectionEndpoint != null &&
+        if (filterOptions.Count > 0 && _fetchService != null && SelectionEndpoint != null &&
             !string.IsNullOrEmpty(_project))
         {
             _logger?.LogInformation("[WorkItems] Starting pre-filter pass — fetching work items to evaluate {FilterCount} filter(s).", filterOptions.Count);
@@ -672,11 +673,10 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
 
                 // Write attachment binaries beside revision.json when a binary source is available.
                 // Delta detection: skip re-downloading when the same URL appears on adjacent revisions.
-                // When export extensions are registered (the facet-based path), skip the inline
-                // attachment download — the enabled attachment extension handles it instead.
                 var currentAttachmentUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                var useInlineAttachments = _exportExtensions == null || _exportExtensions.Count == 0;
-                if (useInlineAttachments && _attachmentBinarySource != null)
+                // Attachment download is always inline: there is no attachment extension, and the
+                // always-registered comments extension used to switch this off (PR #222 review).
+                if (_attachmentBinarySource != null)
                 {
                     foreach (var attachment in revision.Attachments)
                     {
@@ -909,6 +909,13 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
                             _logger?.LogWarning(ex,
                                 "[WorkItems] Extension '{ExtensionName}' export failed for WI {WorkItemId} rev {RevisionIndex}.",
                                 ext.Name, revision.WorkItemId, revision.RevisionIndex);
+                            // The rethrow skips both normal cleanup paths: release the in-flight
+                            // count and the span here, and record a failure, not a completion.
+                            _metrics?.RecordWorkItemFailed(exportTags);
+                            _metrics?.DecrementInFlight(exportTags);
+                            workItemActivity?.SetStatus(ActivityStatusCode.Error, ex.GetType().Name);
+                            workItemActivity?.Dispose();
+                            workItemActivity = null;
                             throw;
                         }
                     }

@@ -224,6 +224,15 @@ public sealed class TfsJobServices : ITfsJobServices
 {
     public WorkItemStore WorkItemStore { get; }
     public IWorkItemRevisionSource RevisionSource { get; }
+
+    /// <inheritdoc/>
+    public IWorkItemRevisionSource RevisionSourceFor(string? wiqlQuery) =>
+        string.IsNullOrWhiteSpace(wiqlQuery)
+            ? RevisionSource
+            : RevisionSource is TfsWorkItemRevisionSource tfs
+                ? tfs.WithQuery(wiqlQuery!)
+                : throw new InvalidOperationException("The TFS revision source cannot apply a selection query.");
+
     public IAttachmentBinarySource AttachmentSource { get; }
     public INodeCreator NodeCreator { get; }
     public IClassificationTreeSource ClassificationTreeReader { get; }

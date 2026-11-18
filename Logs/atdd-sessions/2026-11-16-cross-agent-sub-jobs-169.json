@@ -141,13 +141,31 @@
     "tests/DevOpsMigrationPlatform.MigrationAgent.Tests/DiCompositionTests.cs",
     "tests/DevOpsMigrationPlatform.TfsMigrationAgent.Tests/TfsActiveJobWorkItemFetchServiceTests.cs",
     "tests/DevOpsMigrationPlatform.TfsMigrationAgent.Tests/TfsWorkItemCommentSourceTests.cs",
-    "tests/DevOpsMigrationPlatform.TfsMigrationAgent.Tests/TfsWorkItemQueryWindowStrategyTests.cs"
+    "tests/DevOpsMigrationPlatform.TfsMigrationAgent.Tests/TfsWorkItemQueryWindowStrategyTests.cs",
+    "src/DevOpsMigrationPlatform.Abstractions.Agent/Context/JobConfigurationException.cs",
+    "src/DevOpsMigrationPlatform.Abstractions.Agent/Export/CommentsApiUnavailableException.cs",
+    "src/DevOpsMigrationPlatform.Abstractions.Agent/Export/IWorkItemRevisionSourceFactory.cs",
+    "src/DevOpsMigrationPlatform.Abstractions.Agent/TfsExecution/ITfsJobServiceFactory.cs",
+    "src/DevOpsMigrationPlatform.Infrastructure.Agent/CoreAgentServiceExtensions.cs",
+    "src/DevOpsMigrationPlatform.Infrastructure.Agent/Export/CompositeWorkItemRevisionSourceFactory.cs",
+    "src/DevOpsMigrationPlatform.Infrastructure.Agent/Telemetry/JobMetricsFinalFlush.cs",
+    "src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/WorkItems/Comments/AzureDevOpsWorkItemCommentSource.cs",
+    "src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/WorkItems/Revisions/AzureDevOpsWorkItemRevisionSourceFactory.cs",
+    "src/DevOpsMigrationPlatform.Infrastructure.Simulated/Export/SimulatedWorkItemRevisionSourceFactory.cs",
+    "src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/JobLifecycle/TfsExecution/TfsJobServiceFactory.cs",
+    "src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/WorkItems/Revisions/TfsActiveJobWorkItemRevisionSourceFactory.cs",
+    "src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/WorkItems/Revisions/TfsWorkItemRevisionSource.cs",
+    "src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/WorkItems/Revisions/TfsWorkItemRevisionSourceFactory.cs",
+    "tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/ImportSummaryCountTests.cs",
+    "tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Telemetry/JobMetricsFinalFlushTests.cs",
+    "tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/SimulatedPackageConfigBindingTests.cs",
+    "tests/DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Tests/WorkItems/AzureDevOpsWorkItemCommentSourceVersionTests.cs"
   ],
   "suites": [
     {
       "suite": "UnitTests",
       "run": true,
-      "passed": 1179,
+      "passed": 1222,
       "failed": 0
     },
     {
@@ -159,7 +177,7 @@
     {
       "suite": "IntegrationTests",
       "run": true,
-      "passed": 661,
+      "passed": 665,
       "failed": 0
     },
     {
@@ -171,7 +189,7 @@
     {
       "suite": "SystemTest_Live",
       "run": false,
-      "not_run_reason": "Runs in CI on the PR. The item live E2E (scratchpad e2e171-cycle, TFS Object Model source to Azure DevOps target) passed every section 6 check on run 169-m-mh-202611180954 after the last code change: selection 3 of 5 (WIQL and title filter), counts 3=3, field-by-field incl. state, related link, comment image and cleared assignee, no duplicates, resume run re-imported nothing; its adpe2e- projects were deleted. Earlier runs on 2026-11-17/18 were the RED evidence for the TFS link-name, full-url related link, selection and DI defects fixed in this round."
+      "not_run_reason": "Runs in CI on the PR. The item live E2E (scratchpad e2e171-cycle, TFS Object Model source to Azure DevOps target) passed every section 6 check on run 169-m-mh-202611180954, and again on 169-m-mh-202611181143 after the second review round: selection 3 of 5 (WIQL and title filter), counts 3=3, field-by-field incl. state, related link, comment image and cleared assignee, no duplicates, resume run re-imported nothing; its adpe2e- projects were deleted. Earlier runs on 2026-11-17/18 were the RED evidence for the TFS link-name, full-url related link, selection and DI defects fixed in this round."
     },
     {
       "suite": "SystemTest_Smoke",
@@ -203,7 +221,10 @@
     "Martin ruled on 2026-11-17: an embedded-image download that gets HTTP 500 is retried like 408, 429, 502, 503 and 504; if it persists, the revision fails so the work item stops and is flagged, rather than the image keeping its source link. (Replaces his earlier same-day ruling that 500 was permanent.)",
     "Martin ruled on 2026-11-18: add a failure timeout for a leased job whose agent goes silent. The Control Plane fails the job (not re-queue) once its agent sends no heartbeat or worker event within JobRouting:SilentLeaseTimeout (default 2 minutes); its dependents fail with it and a re-run resumes.",
     "Found and fixed during the #171 live runs (2026-11-18, 'you find it you fix it'), each test-first: (1) the TFS agent's generic ClassificationTreeCapture replaced TfsClassificationTreeCapture after the guard removal, so every TFS Export failed to start (TryAdd); (2) a job that threw was never reported, leaving it leased for 16 h (AgentWorkerBase reports it failed); (3) the Aspire default 10 s resilience timeout cut the agent's 30 s lease long-poll (RemoveAllResilienceHandlers, EXTEXP0001 suppressed on that call); (4) TFS export wrote link types with ToString(), and non-directional ends as Related-Forward (reference names now); (5) the Azure DevOps target sent relative related-link URLs (full URL now); (6) Selection.Query was never applied to export on either connector and the pre-pass skipped itself in Migrate mode for want of an endpoint (query now bounds the selection pass, which falls back to the job's source endpoint); (7) the TFS agent registered no IWorkItemFetchService or IAttachmentBinarySource (per-job adapters added). CliRunnerTimeoutTests now uses a 1.5 s timeout because the simulated export finishes in about 3 s once (3) is fixed.",
-    "Known, not fixed in this round: after a Migrate run the CLI prints 'Import complete — 0 work items imported' although the work items are imported; the summary reads metrics from the last progress event, which carries none. Display only."
+    "Known, not fixed in this round: after a Migrate run the CLI prints 'Import complete — 0 work items imported' although the work items are imported; the summary reads metrics from the last progress event, which carries none. Display only.",
+    "Martin ruled on 2026-11-18: restore the agent-side telemetry path. Register the snapshot metric exporter in both agents so their work-item counters reach the Control Plane through the worker-event channel (ADR-0020), rather than a CLI-only count. Root cause found 2026-11-18: SnapshotMetricExporter is registered only in ControlPlaneHost, so the agents never update IJobMetricsStore and job telemetry carries no work-item counts.",
+    "Martin ruled on 2026-11-18: the TFS source must support TFS 2015 and later.",
+    "Martin ruled on 2026-11-18 on the ADR-0021 Tier 1 (connectivity) review finding: not in this PR; add it to the backlog. A CLI-side reachability check gives a false positive when the CLI can reach an endpoint the agent cannot, so the check must be made where the work runs (the agent)."
   ],
   "risks": [
     "The TFS target saves once per attachment when updating an existing item.",

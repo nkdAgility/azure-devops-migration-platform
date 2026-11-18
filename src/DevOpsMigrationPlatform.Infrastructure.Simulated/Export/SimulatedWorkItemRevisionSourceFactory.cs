@@ -28,7 +28,12 @@ public sealed class SimulatedWorkItemRevisionSourceFactory : IWorkItemRevisionSo
     }
 
     /// <inheritdoc/>
-    public Task<IWorkItemRevisionSource> CreateAsync(CancellationToken cancellationToken)
+    /// <remarks>
+    /// The Simulated source generates its work items from the Generator settings and has no WIQL
+    /// engine, so <paramref name="wiqlQuery"/> does not narrow it; filters still apply in the
+    /// export's selection pass.
+    /// </remarks>
+    public Task<IWorkItemRevisionSource> CreateAsync(string? wiqlQuery, CancellationToken cancellationToken)
     {
         var generator = new SimulatedGeneratorConfig();
         _packageConfigAccessor.Current?

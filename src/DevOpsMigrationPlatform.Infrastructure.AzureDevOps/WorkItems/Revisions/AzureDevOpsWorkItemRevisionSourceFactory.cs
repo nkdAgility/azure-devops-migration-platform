@@ -40,7 +40,7 @@ internal sealed class AzureDevOpsWorkItemRevisionSourceFactory : IWorkItemRevisi
     }
 
     /// <inheritdoc/>
-    public async Task<IWorkItemRevisionSource> CreateAsync(CancellationToken ct)
+    public async Task<IWorkItemRevisionSource> CreateAsync(string? wiqlQuery, CancellationToken ct)
     {
         var organisationEndpoint = _endpointInfo.ToOrganisationEndpoint();
         var project = _endpointInfo.Project;
@@ -50,6 +50,6 @@ internal sealed class AzureDevOpsWorkItemRevisionSourceFactory : IWorkItemRevisi
             .ConfigureAwait(false);
 
         return new AzureDevOpsWorkItemRevisionSource(
-            witClient, _windowStrategy, _mapper, _registry, organisationEndpoint, project, wiqlQuery: null);
+            witClient, _windowStrategy, _mapper, _registry, organisationEndpoint, project, wiqlQuery: wiqlQuery);
     }
 }

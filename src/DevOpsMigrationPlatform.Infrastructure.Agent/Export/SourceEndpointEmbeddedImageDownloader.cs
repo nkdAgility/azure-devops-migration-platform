@@ -37,13 +37,19 @@ public sealed class SourceEndpointEmbeddedImageDownloader : IEmbeddedImageDownlo
         ISourceEndpointInfo source,
         ILogger<SourceEndpointEmbeddedImageDownloader> logger,
         Func<HttpMessageHandler>? handlerFactory = null,
-        Func<int, TimeSpan>? retryDelay = null)
+        Func<int, TimeSpan>? retryDelay = null,
+        TimeSpan? attemptTimeout = null)
     {
         _source = source ?? throw new ArgumentNullException(nameof(source));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _handlerFactory = handlerFactory;
         _retryDelay = retryDelay ?? (attempt => TimeSpan.FromSeconds(2 * attempt));
+        _attemptTimeout = attemptTimeout ?? TimeSpan.FromSeconds(100);
     }
+
+    // Covers the whole attempt, body included: with ResponseHeadersRead the HttpClient timeout
+    // ends at the headers, so a body that stops sending would otherwise hold the export open.
+    private readonly TimeSpan _attemptTimeout;
 
     /// <inheritdoc/>
     /// <remarks>
@@ -70,15 +76,20 @@ public sealed class SourceEndpointEmbeddedImageDownloader : IEmbeddedImageDownlo
         {
             if (attempt > 1)
                 await Task.Delay(_retryDelay(attempt - 1), cancellationToken).ConfigureAwait(false);
+            using var attemptCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            attemptCts.CancelAfter(_attemptTimeout);
             try
             {
-                var (result, temporaryFailure) = await DownloadOnceAsync(client, imageUrl, token, cancellationToken).ConfigureAwait(false);
+                var (result, temporaryFailure) = await DownloadOnceAsync(client, imageUrl, token, attemptCts.Token).ConfigureAwait(false);
                 if (temporaryFailure is null)
                     return result;
                 lastFailure = temporaryFailure;
                 lastException = null;
             }
-            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
+            // Transport failures, including a connection that closes mid-body (an IOException on
+            // .NET 10) and the attempt deadline, are retried; the caller's cancellation is not.
+            catch (Exception ex) when (ex is HttpRequestException or System.IO.IOException or OperationCanceledException
+                                       && !cancellationToken.IsCancellationRequested)
             {
                 lastFailure = ex.Message;
                 lastException = ex;
@@ -230,10 +241,26 @@ public sealed class SourceEndpointEmbeddedImageDownloader : IEmbeddedImageDownlo
                 return b.Length >= 12 && BitConverter.ToUInt32(b, 4) + 8 == (uint)b.Length;
             case "bmp":
                 {
-                    // Some writers leave the size field 0; otherwise it must match.
-                    if (b.Length < 14) return false;
+                    // Some writers leave the size field 0; otherwise it must match. Either way the
+                    // header's pixel extent must be present (PR #222 review).
+                    if (b.Length < 26) return false;
                     var size = BitConverter.ToUInt32(b, 2);
-                    return size == 0 || size == (uint)b.Length;
+                    if (size != 0 && size != (uint)b.Length) return false;
+                    var pixelOffset = BitConverter.ToUInt32(b, 10);
+                    var headerSize = BitConverter.ToUInt32(b, 14);
+                    if (pixelOffset >= (uint)b.Length) return false;
+                    if (headerSize < 40 || b.Length < 14 + 40)
+                        return true; // OS/2 core header: the offset check above is all it allows
+                    var width = Math.Abs((long)BitConverter.ToInt32(b, 18));
+                    var height = Math.Abs((long)BitConverter.ToInt32(b, 22));
+                    var bitsPerPixel = BitConverter.ToUInt16(b, 28);
+                    var compression = BitConverter.ToUInt32(b, 30);
+                    var imageSize = BitConverter.ToUInt32(b, 34);
+                    // Uncompressed (BI_RGB, BI_BITFIELDS): rows padded to 4 bytes; else the stated size.
+                    long pixelBytes = compression is 0 or 3
+                        ? ((bitsPerPixel * width + 31) / 32) * 4 * height
+                        : imageSize;
+                    return pixelBytes > 0 && pixelOffset + pixelBytes <= b.Length;
                 }
             default:
                 return true;

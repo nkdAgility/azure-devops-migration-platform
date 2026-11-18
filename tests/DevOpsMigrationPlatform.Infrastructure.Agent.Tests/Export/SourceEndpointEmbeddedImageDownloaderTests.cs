@@ -200,6 +200,69 @@ public class SourceEndpointEmbeddedImageDownloaderTests
     private static SourceEndpointEmbeddedImageDownloader WithoutDelay(HttpMessageHandler handler) =>
         new(Source("tok"), NullLogger<SourceEndpointEmbeddedImageDownloader>.Instance, () => handler, retryDelay: _ => TimeSpan.Zero);
 
+    /// <summary>A body that delivers nothing until cancelled, or fails once with an I/O error.</summary>
+    private sealed class BodyStream(bool stall) : System.IO.Stream
+    {
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => 0; set => throw new NotSupportedException(); }
+        public override void Flush() { }
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        public override long Seek(long offset, System.IO.SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            if (!stall)
+                throw new System.IO.IOException("The response ended prematurely.");
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+            return 0;
+        }
+
+        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) =>
+            ReadAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
+    }
+
+    private static HttpResponseMessage Body(bool stall)
+    {
+        var response = new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(new BodyStream(stall)) };
+        response.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/png");
+        return response;
+    }
+
+    // PR #222 review: with ResponseHeadersRead the client timeout ends at the headers, so a body
+    // that stops sending held the export open; each attempt now has a deadline covering the body.
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task TryDownloadAsync_BodyStopsSending_TimesOutEachAttemptThenFailsTheRevision()
+    {
+        var handler = new RecordingHandler(_ => Body(stall: true));
+        var sut = new SourceEndpointEmbeddedImageDownloader(Source("tok"), NullLogger<SourceEndpointEmbeddedImageDownloader>.Instance,
+            () => handler, retryDelay: _ => TimeSpan.Zero, attemptTimeout: TimeSpan.FromMilliseconds(200));
+
+        await Assert.ThrowsExactlyAsync<EmbeddedImageDownloadException>(
+            () => sut.TryDownloadAsync($"{SourceUrl}/guid/_apis/wit/attachments/abc", CancellationToken.None));
+        Assert.AreEqual(3, handler.Requests.Count);
+    }
+
+    // PR #222 review: on .NET 10 a connection that closes mid-body throws an IOException
+    // (HttpIOException), which the retry filter did not cover.
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task TryDownloadAsync_ConnectionClosesDuringTheBody_IsRetried()
+    {
+        var calls = 0;
+        var handler = new RecordingHandler(_ => ++calls == 1 ? Body(stall: false) : Image());
+
+        Assert.IsNotNull(await WithoutDelay(handler).TryDownloadAsync($"{SourceUrl}/guid/_apis/wit/attachments/abc", CancellationToken.None));
+        Assert.AreEqual(2, handler.Requests.Count);
+    }
+
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
@@ -252,7 +315,8 @@ public class SourceEndpointEmbeddedImageDownloaderTests
     [TestMethod]
     public async Task TryDownloadAsync_JpegWithPaddingAfterItsEndMarker_IsAccepted()
     {
-        byte[] jpeg = [0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0xFF, 0xD9, 0x00, 0x00];
+        // A decodable 1x1 JPEG (encoded and decoded by GDI+), then padding (PR #222 review).
+        var jpeg = Convert.FromBase64String(DecodableJpeg).Concat(new byte[] { 0x00, 0x00, 0x00 }).ToArray();
         Assert.AreEqual("jpg", (await Download(jpeg)).Value?.Extension);
     }
 
@@ -261,9 +325,35 @@ public class SourceEndpointEmbeddedImageDownloaderTests
     [TestMethod]
     public async Task TryDownloadAsync_BmpWithZeroSizeField_IsAccepted()
     {
-        var bmp = new byte[30]; bmp[0] = (byte)'B'; bmp[1] = (byte)'M';
-        Assert.AreEqual("bmp", (await Download(bmp)).Value?.Extension);
+        Assert.AreEqual("bmp", (await Download(Bmp1x1(withPixels: true))).Value?.Extension);
     }
+
+    // PR #222 review: a zero size field is allowed, but the header's pixel extent must still be
+    // present; a bitmap cut off before its pixels is a broken image.
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task TryDownloadAsync_BmpWithZeroSizeFieldButNoPixels_IsRejected()
+    {
+        Assert.IsNull((await Download(Bmp1x1(withPixels: false))).Value);
+    }
+
+    /// <summary>A 1x1 24-bit bitmap with its size field 0: 54-byte header, one 4-byte pixel row.</summary>
+    private static byte[] Bmp1x1(bool withPixels)
+    {
+        var b = new byte[withPixels ? 58 : 54];
+        b[0] = (byte)'B'; b[1] = (byte)'M';
+        BitConverter.GetBytes(54).CopyTo(b, 10);      // pixel data offset
+        BitConverter.GetBytes(40).CopyTo(b, 14);      // BITMAPINFOHEADER
+        BitConverter.GetBytes(1).CopyTo(b, 18);       // width
+        BitConverter.GetBytes(1).CopyTo(b, 22);       // height
+        BitConverter.GetBytes((short)1).CopyTo(b, 26);  // planes
+        BitConverter.GetBytes((short)24).CopyTo(b, 28); // bits per pixel
+        if (withPixels) { b[54] = 0x00; b[55] = 0x00; b[56] = 0xFF; }
+        return b;
+    }
+
+    private const string DecodableJpeg = "/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQMEBAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBT/wAARCAABAAEDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD50ooor8MP9Uz/2Q==";
 
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
@@ -298,11 +388,29 @@ public class SourceEndpointEmbeddedImageDownloaderTests
     public async Task TryDownloadAsync_ResponseLargerThanTheCap_IsRefusedUnread()
     {
         // PR #222 review: stream, never materialise. A huge response is refused from its headers.
-        var response = Image();
+        // The body fails the test if anything reads it (PR #222 review).
+        var response = new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(new UnreadableStream()) };
+        response.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/png");
         response.Content.Headers.ContentLength = SourceEndpointEmbeddedImageDownloader.MaxImageBytes + 1;
         var handler = new RecordingHandler(_ => response);
 
         Assert.IsNull(await WithoutDelay(handler).TryDownloadAsync($"{SourceUrl}/guid/_apis/wit/attachments/abc", CancellationToken.None));
+    }
+
+    private sealed class UnreadableStream : System.IO.Stream
+    {
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => 0; set => throw new NotSupportedException(); }
+        public override void Flush() { }
+        public override int Read(byte[] buffer, int offset, int count) => throw new AssertFailedException("The oversized body was read.");
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) => throw new AssertFailedException("The oversized body was read.");
+        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) => throw new AssertFailedException("The oversized body was read.");
+        public override long Seek(long offset, System.IO.SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 
     [TestCategory("CodeTest")]

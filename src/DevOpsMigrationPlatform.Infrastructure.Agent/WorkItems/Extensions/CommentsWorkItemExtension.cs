@@ -84,9 +84,9 @@ public sealed class CommentsWorkItemExtension : IModuleExtension
         if (!IsCommentEditOrDeleteRevision(ctx.Revision))
             return;
 
-        // Only reading the comments is allowed to fail softly (an older server without the
-        // comments API). Capturing images and writing comment.json must succeed or fail the
-        // revision, so a resume exports it again instead of skipping it (PR #222 review).
+        // Only a source that positively reports no comments API is skipped. Any other read
+        // failure, a temporary one on a later page included, and any capture or write failure
+        // fails the revision, so a resume exports it again instead of skipping it (PR #222 review).
         var matchingComments = new List<WorkItemComment>();
         try
         {
@@ -99,10 +99,10 @@ public sealed class CommentsWorkItemExtension : IModuleExtension
                     matchingComments.Add(comment);
             }
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (DevOpsMigrationPlatform.Abstractions.Agent.Export.CommentsApiUnavailableException ex)
         {
             _logger?.LogWarning(ex,
-                "[Comments] Inline comment fetch failed for WI {WorkItemId} rev {RevisionIndex}.",
+                "[Comments] The source does not serve the comments API; comment edits for WI {WorkItemId} rev {RevisionIndex} are not exported.",
                 ctx.WorkItemId, ctx.RevisionIndex);
             return;
         }

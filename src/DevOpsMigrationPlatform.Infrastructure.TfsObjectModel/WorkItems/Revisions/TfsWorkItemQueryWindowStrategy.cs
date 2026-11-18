@@ -102,24 +102,84 @@ public sealed class TfsWorkItemQueryWindowStrategy : IWorkItemQueryWindowStrateg
     /// </summary>
     internal static string ToWindowBaseQuery(string? query, string project)
     {
-        var where = $"[System.TeamProject] = @project";
-        if (!string.IsNullOrWhiteSpace(query))
+        string where;
+        if (string.IsNullOrWhiteSpace(query))
         {
+            where = "[System.TeamProject] = @project";
+        }
+        else
+        {
+            // Keywords count only at the top level: not inside a quoted literal or a bracketed
+            // field name, and on any whitespace (PR #222 review).
             var q = query!.Trim();
-            var whereAt = q.IndexOf(" WHERE ", StringComparison.OrdinalIgnoreCase);
-            if (whereAt >= 0)
-            {
-                where = q.Substring(whereAt + " WHERE ".Length);
-                var orderAt = where.LastIndexOf("ORDER BY", StringComparison.OrdinalIgnoreCase);
-                if (orderAt >= 0)
-                    where = where.Substring(0, orderAt);
-                where = where.Trim();
-            }
+            var whereAt = FindTopLevelKeyword(q, "WHERE", 0);
+            if (whereAt < 0)
+                throw new InvalidOperationException(
+                    "The configured WorkItems selection query has no WHERE clause, so it cannot bound the TFS export. " +
+                    "Add a WHERE clause, or remove the query to export the whole project.");
+            var start = whereAt + "WHERE".Length;
+            if (FindTopLevelKeyword(q, "ASOF", start) >= 0)
+                throw new InvalidOperationException(
+                    "The configured WorkItems selection query uses ASOF, which a TFS export cannot apply: the export " +
+                    "selects work items in date windows. Remove ASOF from the query.");
+            var orderAt = FindTopLevelKeyword(q, "ORDER", start);
+            where = (orderAt >= 0 ? q.Substring(start, orderAt - start) : q.Substring(start)).Trim();
         }
 
-        where = System.Text.RegularExpressions.Regex.Replace(
-            where, @"@project\b", $"'{EscapeWiql(project)}'", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-        return $"SELECT [System.Id] FROM WorkItems WHERE ({where})";
+        return $"SELECT [System.Id] FROM WorkItems WHERE ({ResolveProjectMacro(where, project)})";
+    }
+
+    /// <summary>Index of <paramref name="keyword"/> as a whole word outside quotes and brackets, or -1.</summary>
+    private static int FindTopLevelKeyword(string query, string keyword, int from)
+    {
+        var inQuote = false;
+        var inBracket = false;
+        for (var i = from; i < query.Length; i++)
+        {
+            var c = query[i];
+            if (inQuote)
+            {
+                if (c == '\'')
+                {
+                    if (i + 1 < query.Length && query[i + 1] == '\'') i++; // escaped ''
+                    else inQuote = false;
+                }
+                continue;
+            }
+            if (inBracket)
+            {
+                if (c == ']') inBracket = false;
+                continue;
+            }
+            if (c == '\'') { inQuote = true; continue; }
+            if (c == '[') { inBracket = true; continue; }
+            if (i + keyword.Length <= query.Length
+                && string.Compare(query, i, keyword, 0, keyword.Length, StringComparison.OrdinalIgnoreCase) == 0
+                && (i == 0 || !IsWordChar(query[i - 1]))
+                && (i + keyword.Length == query.Length || !IsWordChar(query[i + keyword.Length])))
+                return i;
+        }
+        return -1;
+    }
+
+    private static bool IsWordChar(char c) => char.IsLetterOrDigit(c) || c == '_' || c == '@';
+
+    /// <summary>Replaces the <c>@project</c> macro outside quoted literals only.</summary>
+    private static string ResolveProjectMacro(string where, string project)
+    {
+        var result = new System.Text.StringBuilder(where.Length + project.Length);
+        var at = 0;
+        while (true)
+        {
+            var next = FindTopLevelKeyword(where, "@project", at);
+            if (next < 0)
+            {
+                result.Append(where, at, where.Length - at);
+                return result.ToString();
+            }
+            result.Append(where, at, next - at).Append('\'').Append(EscapeWiql(project)).Append('\'');
+            at = next + "@project".Length;
+        }
     }
 
     private sealed class LoggingProgressSink : IProgressSink

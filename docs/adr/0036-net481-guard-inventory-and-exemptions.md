@@ -29,7 +29,7 @@ ADR-0018 allows a `#if !NET481` guard only where net481 genuinely cannot run the
    - Nodes import: `INodesOrchestrator.ImportAsync`, `NodesModule` target endpoint, `NodesOrchestrator` replication and node creation, and the `WorkItemsNodeReadinessOrchestrator` fallback.
    - Teams import: `ITeamsOrchestrator.ImportAsync`, `TeamsModule` import, `TeamsOrchestrator.ImportAsync`.
 
-   The TFS agent never runs Prepare or Import while it advertises only the TeamFoundationServer connector as a source (ADR-0035). Marked `// net481-exempt: ADR-0036 tfs-target`. A ruling on #139 replaces this exemption with an implementation or a permanent "not supported".
+   Work-item import is not exempt: `TfsJobAgentWorker` handles `JobKind.Import` and writes work items to a TFS target through `TfsWorkItemTarget`. In the TFS-to-Azure-DevOps chain the net10 MigrationAgent runs Prepare and Import (ADR-0035); only Nodes and Teams import to a TFS target stay compiled out. Marked `// net481-exempt: ADR-0036 tfs-target`. A ruling on #139 replaces this exemption with an implementation or a permanent "not supported".
 
 4. **Pending inventory (#215).** These guards sit outside #171's scope, which is `Infrastructure.Agent` and `Abstractions.Agent`:
    - polymorphic options registration in `Infrastructure/Config/MigrationPlatformServiceExtensions`;
@@ -37,7 +37,7 @@ ADR-0018 allows a `#if !NET481` guard only where net481 genuinely cannot run the
 
    They are marked `// net481-pending: #215` and are not exemptions.
 
-5. **Enforced.** `Net481GuardClauseTests.EveryNet481Guard_RecordsItsExemptionOrTrackingItem` fails on any `#if !NET481` in `src/` without one of these markers.
+5. **Enforced.** `Net481GuardClauseTests.EveryNet481Guard_RecordsItsExemptionOrTrackingItem` fails on any `#if`/`#elif` in `src/` that negates `NET481` (in any spelling, such as `! NET481` or `(!NET481)`) without one of these markers. An exemption marker must name its category: `default-interface-member` or `tfs-target`.
 
 ## Consequences
 

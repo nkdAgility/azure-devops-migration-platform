@@ -18,5 +18,9 @@ public interface IWorkItemRevisionSourceFactory
     /// Creates a source that streams revisions. Endpoint info is resolved from DI.
     /// </summary>
     /// <param name="ct">Cancellation token for the async connection step.</param>
-    Task<IWorkItemRevisionSource> CreateAsync(CancellationToken ct);
+    /// <param name="wiqlQuery">
+    /// The configured selection query, applied by the source as it streams (PR #222 review:
+    /// stream, never materialise); null or the default means the whole project.
+    /// </param>
+    Task<IWorkItemRevisionSource> CreateAsync(string? wiqlQuery, CancellationToken ct);
 }

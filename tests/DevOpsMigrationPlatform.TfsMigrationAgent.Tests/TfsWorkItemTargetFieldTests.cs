@@ -13,6 +13,30 @@ namespace DevOpsMigrationPlatform.TfsMigrationAgent.Tests;
 [TestClass]
 public class TfsWorkItemTargetFieldTests
 {
+    // PR #222 review: the package names a non-directional link by its link type
+    // (System.LinkTypes.Related, the Azure DevOps convention); a directional one by its end.
+    // The TFS target looked up only ends, so every Related link was dropped.
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    [DataRow("System.LinkTypes.Related", "Related-Forward-End")]
+    [DataRow("System.LinkTypes.Hierarchy-Forward", "Hierarchy-Forward-End")]
+    public void ResolveLinkEnd_TypeOrEndName_ResolvesTheEnd(string relationName, string expected)
+    {
+        string? ForwardEndOfType(string name) => name == "System.LinkTypes.Related" ? "Related-Forward-End" : null;
+        string? EndByName(string name) => name == "System.LinkTypes.Hierarchy-Forward" ? "Hierarchy-Forward-End" : null;
+
+        Assert.AreEqual(expected, TfsWorkItemTarget.ResolveLinkEnd(relationName, ForwardEndOfType, EndByName));
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public void ResolveLinkEnd_UnknownName_IsNull()
+    {
+        Assert.IsNull(TfsWorkItemTarget.ResolveLinkEnd<string>("Nope", _ => null, _ => null));
+    }
+
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]

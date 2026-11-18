@@ -188,21 +188,21 @@ public sealed class TfsWorkItemTarget : IWorkItemTarget
 
         bool changed = false;
 
-        // Related work item links
+        // Related work item links. The package names a non-directional link by its link type
+        // (System.LinkTypes.Related) and a directional one by its end (PR #222 review).
         foreach (var link in relatedLinks)
         {
             if (string.IsNullOrWhiteSpace(link.ArtifactLinkType))
                 continue;
 
-            WorkItemLinkTypeEnd linkTypeEnd;
-            try
-            {
-                linkTypeEnd = _store.WorkItemLinkTypes.LinkTypeEnds[link.ArtifactLinkType];
-            }
-            catch
+            var linkTypeEnd = ResolveLinkEnd(
+                link.ArtifactLinkType,
+                name => _store.WorkItemLinkTypes.Contains(name) ? _store.WorkItemLinkTypes[name].ForwardEnd : null,
+                name => _store.WorkItemLinkTypes.LinkTypeEnds.Contains(name) ? _store.WorkItemLinkTypes.LinkTypeEnds[name] : null);
+            if (linkTypeEnd is null)
             {
                 _logger.LogWarning(
-                    "[TFS Import] Unknown link type end '{LinkType}' — skipping link on WI {Id}.",
+                    "[TFS Import] Unknown link type '{LinkType}' — skipping link on WI {Id}.",
                     link.ArtifactLinkType, workItem.Id);
                 continue;
             }
@@ -425,6 +425,15 @@ public sealed class TfsWorkItemTarget : IWorkItemTarget
 
     /// <summary>True for fields the target writes from the source revision; false for fields TFS computes.</summary>
     internal static bool IsWritten(string referenceName) => !s_excludedFieldReferences.Contains(referenceName);
+
+    /// <summary>
+    /// The link end for a package relation name: a link type reference name (non-directional,
+    /// e.g. System.LinkTypes.Related) resolves to that type's forward end; otherwise the name is
+    /// an end (directional, e.g. System.LinkTypes.Hierarchy-Forward). Null when neither matches.
+    /// </summary>
+    internal static TEnd? ResolveLinkEnd<TEnd>(string relationName, Func<string, TEnd?> forwardEndOfType, Func<string, TEnd?> endByName)
+        where TEnd : class
+        => forwardEndOfType(relationName) ?? endByName(relationName);
 
     private static void ApplyFields(WorkItem workItem, IReadOnlyList<WorkItemField> fields)
     {

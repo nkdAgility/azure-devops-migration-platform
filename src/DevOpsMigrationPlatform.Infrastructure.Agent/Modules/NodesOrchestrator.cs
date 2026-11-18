@@ -352,11 +352,8 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
             sourceEndpointInfo.OrganisationSlug,
             sourceEndpointInfo.Project,
             ct,
-#if !NET481 // net481-exempt: ADR-0036 tfs-target
+            // Source capture records the exported node count on both runtimes (PR #222 review).
             _PlatformMetrics,
-#else
-            null,
-#endif
             context.Job.JobId, context.ProgressSink, ModuleName
             ).ConfigureAwait(false);
 

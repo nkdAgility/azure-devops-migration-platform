@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using System;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.WorkItems.Revisions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -27,6 +28,49 @@ public class TfsWorkItemQueryWindowStrategyTests
         Assert.AreEqual(
             "SELECT [System.Id] FROM WorkItems WHERE ([System.TeamProject] = 'Team''s Project' AND [System.WorkItemType] <> 'Issue' OR [System.Id] = 1)",
             baseQuery);
+    }
+
+    // PR #222 review: keywords are found at the top level only, never inside a quoted literal
+    // or a bracketed field name, and on any whitespace, not only single spaces.
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public void ToWindowBaseQuery_WhereOnItsOwnLine_IsFound()
+    {
+        Assert.AreEqual(
+            "SELECT [System.Id] FROM WorkItems WHERE ([System.WorkItemType] <> 'Issue')",
+            TfsWorkItemQueryWindowStrategy.ToWindowBaseQuery("SELECT [System.Id]\r\nFROM WorkItems\r\nWHERE\r\n  [System.WorkItemType] <> 'Issue'\r\nORDER BY [System.Id]", "P"));
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public void ToWindowBaseQuery_KeywordsInsideQuotedValues_AreNotClauses()
+    {
+        Assert.AreEqual(
+            "SELECT [System.Id] FROM WorkItems WHERE ([System.Title] = 'Order by date where @project is' AND [System.TeamProject] = 'P')",
+            TfsWorkItemQueryWindowStrategy.ToWindowBaseQuery(
+                "SELECT [System.Id] FROM WorkItems WHERE [System.Title] = 'Order by date where @project is' AND [System.TeamProject] = @project", "P"));
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public void ToWindowBaseQuery_ConfiguredQueryWithoutWhere_FailsInsteadOfSelectingTheWholeProject()
+    {
+        Assert.ThrowsExactly<InvalidOperationException>(
+            () => TfsWorkItemQueryWindowStrategy.ToWindowBaseQuery("SELECT [System.Id] FROM WorkItems ORDER BY [System.Id]", "P"));
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public void ToWindowBaseQuery_AsOf_IsRejectedRatherThanDropped()
+    {
+        var ex = Assert.ThrowsExactly<InvalidOperationException>(
+            () => TfsWorkItemQueryWindowStrategy.ToWindowBaseQuery(
+                "SELECT [System.Id] FROM WorkItems WHERE [System.State] = 'Active' ORDER BY [System.Id] ASOF '2026-01-01'", "P"));
+        StringAssert.Contains(ex.Message, "ASOF");
     }
 
     [TestCategory("CodeTest")]

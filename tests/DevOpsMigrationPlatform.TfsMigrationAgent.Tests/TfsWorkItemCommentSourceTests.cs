@@ -55,6 +55,38 @@ public class TfsWorkItemCommentSourceTests
         Assert.AreEqual(new DateTimeOffset(modified), comments[0].ModifiedDate);
     }
 
+    // PR #222 review: the comments list holds only each comment's latest version, so an edit
+    // at t1 followed by another at t2 lost the t1 version. Edited comments are read with their
+    // history and every version is yielded, so each revision finds the version it changed.
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task GetCommentsAsync_EditedComment_YieldsEveryVersion()
+    {
+        var t1 = new DateTime(2026, 11, 17, 10, 0, 0, DateTimeKind.Utc);
+        var t2 = t1.AddMinutes(5);
+        var sut = new TfsWorkItemCommentSource(
+            (_, _, _, _) => Task.FromResult(new CommentList { Comments = [new Comment { Id = 9, Version = 2, Text = "second", ModifiedDate = t2 }] }),
+            NullLogger<TfsWorkItemCommentSource>.Instance,
+            (workItemId, commentId, ct) =>
+            {
+                Assert.AreEqual(42, workItemId);
+                Assert.AreEqual(9, commentId);
+                return Task.FromResult<IReadOnlyList<CommentVersion>>(
+                [
+                    new CommentVersion { Id = 9, Version = 1, Text = "first", ModifiedDate = t1 },
+                    new CommentVersion { Id = 9, Version = 2, Text = "second", ModifiedDate = t2 }
+                ]);
+            });
+
+        var comments = new List<DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.WorkItemComment>();
+        await foreach (var c in sut.GetCommentsAsync(42, includeDeleted: true, CancellationToken.None))
+            comments.Add(c);
+
+        CollectionAssert.AreEqual(new[] { "first", "second" }, comments.Select(c => c.Text).ToArray());
+        CollectionAssert.AreEqual(new[] { new DateTimeOffset(t1), new DateTimeOffset(t2) }, comments.Select(c => c.ModifiedDate).ToArray());
+    }
+
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]

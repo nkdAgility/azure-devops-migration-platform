@@ -29,17 +29,37 @@ namespace DevOpsMigrationPlatform.TfsMigrationAgent.Tests;
 [TestClass]
 public class TfsActiveJobWorkItemFetchServiceTests
 {
+    // PR #222 review: resolve what DI binds, so a wrong registration fails, not only a missing one.
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    public void AddTfsObjectModelModule_RegistersAFetchService()
+    public async Task AddTfsObjectModelModule_ResolvesFetchAndAttachmentSourcesFromTheActiveJob()
     {
         var services = new ServiceCollection();
+        services.AddLogging();
         services.AddTfsObjectModelModule(new ConfigurationBuilder().Build());
+        using var provider = services.BuildServiceProvider();
 
-        Assert.IsTrue(services.Any(d => d.ServiceType == typeof(IWorkItemFetchService)));
+        var scope = new WorkItemFetchScope(new[] { "System.Id" });
+        var attachment = new AttachmentMetadata { OriginalName = "a.png" };
+        var jobFetch = new Mock<IWorkItemFetchService>();
+        jobFetch.Setup(f => f.FetchAsync(It.IsAny<OrganisationEndpoint>(), "P", scope, It.IsAny<CancellationToken>()))
+            .Returns(Items(new FetchedWorkItem(7, new Dictionary<string, object?>())));
+        var jobAttachments = new Mock<IAttachmentBinarySource>();
+        jobAttachments.Setup(s => s.GetBytesAsync(3, 1, attachment, It.IsAny<CancellationToken>())).ReturnsAsync(new byte[] { 9 });
+        var jobServices = new Mock<ITfsJobServices>();
+        jobServices.SetupGet(s => s.FetchService).Returns(jobFetch.Object);
+        jobServices.SetupGet(s => s.AttachmentSource).Returns(jobAttachments.Object);
+        provider.GetRequiredService<ActiveTfsJobServices>().Current = jobServices.Object;
+
+        var ids = new List<int>();
+        await foreach (var item in provider.GetRequiredService<IWorkItemFetchService>().FetchAsync(new OrganisationEndpoint(), "P", scope))
+            ids.Add(item.Id);
+        var bytes = await provider.GetRequiredService<IAttachmentBinarySource>().GetBytesAsync(3, 1, attachment, CancellationToken.None);
+
+        CollectionAssert.AreEqual(new[] { 7 }, ids);
+        CollectionAssert.AreEqual(new byte[] { 9 }, bytes);
     }
-
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]

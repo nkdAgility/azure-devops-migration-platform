@@ -349,7 +349,10 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         if (lastEvt is not null)
         {
-            var importedCount = lastEvt.Metrics?.Migration?.WorkItems?.Completed ?? 0;
+            JobMetrics? telemetry = null;
+            try { telemetry = await client.GetTelemetryAsync(parsedJobId, cancellationToken).ConfigureAwait(false); }
+            catch (HttpRequestException) { /* the summary falls back to the last event */ }
+            var importedCount = ImportedCount(telemetry, lastEvt);
             ShowSuccess(console, $"Import complete — {importedCount} work items imported.");
         }
         else
@@ -1457,6 +1460,15 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         TaskUpdated t => ApplyTaskUpdate(state, t.TaskId, t.Status, t.CompletedCount),
         _ => state
     };
+
+    /// <summary>
+    /// Work items the import completed: the job's telemetry when the Control Plane has it,
+    /// else the last progress event's metrics, which usually carry none (#171).
+    /// </summary>
+    internal static long ImportedCount(JobMetrics? telemetry, ProgressEvent? lastEvent) =>
+        telemetry?.Migration?.WorkItems?.Completed is > 0 and var fromTelemetry
+            ? fromTelemetry
+            : lastEvent?.Metrics?.Migration?.WorkItems?.Completed ?? 0;
 
     private static JobProgressState ApplyTelemetry(JobProgressState state, JobMetrics metrics)
     {

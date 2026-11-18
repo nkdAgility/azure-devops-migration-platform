@@ -12,6 +12,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using Microsoft.Extensions.Logging;
 using Comment = Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models.Comment;
 using CommentList = Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models.CommentList;
+using CommentVersion = Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models.CommentVersion;
 using WorkItemComment = DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.WorkItemComment;
 
 namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.WorkItems.Comments;
@@ -27,13 +28,18 @@ internal sealed class TfsWorkItemCommentSource : IWorkItemCommentSource
     /// <summary>Fetches one page: work item ID, continuation token, include deleted.</summary>
     internal delegate Task<CommentList> FetchPage(int workItemId, string? continuationToken, bool includeDeleted, CancellationToken ct);
 
+    /// <summary>Fetches every version of one comment: work item ID, comment ID.</summary>
+    internal delegate Task<IReadOnlyList<CommentVersion>> FetchVersions(int workItemId, int commentId, CancellationToken ct);
+
     private readonly FetchPage _fetchPage;
+    private readonly FetchVersions? _fetchVersions;
     private readonly ILogger<TfsWorkItemCommentSource> _logger;
 
-    internal TfsWorkItemCommentSource(FetchPage fetchPage, ILogger<TfsWorkItemCommentSource> logger)
+    internal TfsWorkItemCommentSource(FetchPage fetchPage, ILogger<TfsWorkItemCommentSource> logger, FetchVersions? fetchVersions = null)
     {
         _fetchPage = fetchPage ?? throw new ArgumentNullException(nameof(fetchPage));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _fetchVersions = fetchVersions;
     }
 
     /// <inheritdoc/>
@@ -60,7 +66,18 @@ internal sealed class TfsWorkItemCommentSource : IWorkItemCommentSource
                 yield break;
 
             foreach (var comment in page.Comments)
+            {
+                // The list holds only the latest version. An edited comment is read with its
+                // history so every edit reaches the revision it belongs to (PR #222 review).
+                if (comment.Version > 1 && _fetchVersions is not null)
+                {
+                    var versions = await _fetchVersions(workItemId, comment.Id, cancellationToken).ConfigureAwait(false);
+                    foreach (var version in versions.OrderBy(v => v.Version))
+                        yield return Map(version, comment);
+                    continue;
+                }
                 yield return Map(comment);
+            }
 
             continuationToken = page.ContinuationToken;
             if (string.IsNullOrEmpty(continuationToken))
@@ -80,6 +97,20 @@ internal sealed class TfsWorkItemCommentSource : IWorkItemCommentSource
         CreatedDate = new DateTimeOffset(DateTime.SpecifyKind(comment.CreatedDate, DateTimeKind.Utc)),
         ModifiedBy = Identity(comment.ModifiedBy),
         ModifiedDate = new DateTimeOffset(DateTime.SpecifyKind(comment.ModifiedDate, DateTimeKind.Utc)),
+    };
+
+    private static WorkItemComment Map(CommentVersion version, Comment latest) => new()
+    {
+        CommentId = version.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        Version = version.Version,
+        Text = version.Text ?? string.Empty,
+        RenderedText = version.RenderedText,
+        Format = latest.Format.ToString().ToLowerInvariant(),
+        IsDeleted = version.IsDeleted,
+        CreatedBy = Identity(version.CreatedBy ?? latest.CreatedBy),
+        CreatedDate = new DateTimeOffset(DateTime.SpecifyKind(version.CreatedDate == default ? latest.CreatedDate : version.CreatedDate, DateTimeKind.Utc)),
+        ModifiedBy = Identity(version.ModifiedBy),
+        ModifiedDate = new DateTimeOffset(DateTime.SpecifyKind(version.ModifiedDate, DateTimeKind.Utc)),
     };
 
     private static WorkItemIdentityRef Identity(Microsoft.VisualStudio.Services.WebApi.IdentityRef? identity) => new()

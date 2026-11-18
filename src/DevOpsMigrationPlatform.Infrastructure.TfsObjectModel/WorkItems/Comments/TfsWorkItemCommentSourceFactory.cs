@@ -17,10 +17,21 @@ namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.WorkItems.Commen
 /// Creates a <see cref="TfsWorkItemCommentSource"/> for the job's source endpoint, authenticated
 /// with its access token, or Windows credentials when there is none (on-premises TFS).
 /// </summary>
-internal sealed class TfsWorkItemCommentSourceFactory : IWorkItemCommentSourceFactory
+internal sealed class TfsWorkItemCommentSourceFactory : IWorkItemCommentSourceFactory, IDisposable
 {
     private const int PageSize = 200;
     private readonly ILoggerFactory _loggerFactory;
+    // One connection per collection, disposed with the factory (a singleton): a source is created
+    // for every revision, so a connection per source was never disposed (PR #222 review).
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<VssConnection>> _connections = new(StringComparer.OrdinalIgnoreCase);
+
+    public void Dispose()
+    {
+        foreach (var connection in _connections.Values)
+            if (connection.IsValueCreated)
+                connection.Value.Dispose();
+        _connections.Clear();
+    }
 
     public TfsWorkItemCommentSourceFactory(ILoggerFactory loggerFactory)
     {
@@ -43,8 +54,9 @@ internal sealed class TfsWorkItemCommentSourceFactory : IWorkItemCommentSourceFa
         VssCredentials credentials = !string.IsNullOrWhiteSpace(token)
             ? new VssCredentials(new VssBasicCredential(string.Empty, token))
             : new VssClientCredentials(true);
-        var client = new Lazy<WorkItemTrackingHttpClient>(
-            () => new VssConnection(new Uri(organisation.ResolvedUrl), credentials).GetClient<WorkItemTrackingHttpClient>());
+        var connection = _connections.GetOrAdd(organisation.ResolvedUrl,
+            url => new Lazy<VssConnection>(() => new VssConnection(new Uri(url), credentials)));
+        var client = new Lazy<WorkItemTrackingHttpClient>(() => connection.Value.GetClient<WorkItemTrackingHttpClient>());
 
         return new TfsWorkItemCommentSource(
             (workItemId, continuationToken, includeDeleted, ct) => client.Value.GetCommentsAsync(
@@ -57,6 +69,11 @@ internal sealed class TfsWorkItemCommentSourceFactory : IWorkItemCommentSourceFa
                 order: null,
                 userState: null,
                 cancellationToken: ct),
-            _loggerFactory.CreateLogger<TfsWorkItemCommentSource>());
+            _loggerFactory.CreateLogger<TfsWorkItemCommentSource>(),
+            async (workItemId, commentId, ct) => await client.Value.GetCommentVersionsAsync(
+                project: project,
+                workItemId: workItemId,
+                commentId: commentId,
+                cancellationToken: ct).ConfigureAwait(false));
     }
 }

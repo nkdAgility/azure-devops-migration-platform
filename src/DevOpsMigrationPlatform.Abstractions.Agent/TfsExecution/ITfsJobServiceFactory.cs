@@ -35,6 +35,12 @@ public interface ITfsJobServiceFactory
 public interface ITfsJobServices : IDisposable
 {
     IWorkItemRevisionSource RevisionSource { get; }
+
+    /// <summary>
+    /// The revision source selecting with <paramref name="wiqlQuery"/>, or
+    /// <see cref="RevisionSource"/> (the whole project) when it is null (PR #222 review).
+    /// </summary>
+    IWorkItemRevisionSource RevisionSourceFor(string? wiqlQuery);
     IAttachmentBinarySource AttachmentSource { get; }
     INodeCreator NodeCreator { get; }
     IClassificationTreeSource ClassificationTreeReader { get; }

@@ -21,6 +21,15 @@ public static class ConfiguredJobEndpoints
     /// <summary>The job's <c>MigrationPlatform:Source</c> endpoint; false when no source type is set.</summary>
     public static bool TryBuildSource(IConfiguration packageConfig, out ISourceEndpointInfo endpoint)
     {
+        var connectorType = packageConfig["MigrationPlatform:Source:Type"];
+        // No source type: this job has no source here (e.g. Prepare or Import), so the generator
+        // list is not checked and the worker carries on with the target (PR #222 review).
+        if (string.IsNullOrWhiteSpace(connectorType))
+        {
+            endpoint = null!;
+            return false;
+        }
+
         var url = ConfigTokenResolver.Resolve(packageConfig["MigrationPlatform:Source:Url"])?.Trim();
         var project = packageConfig["MigrationPlatform:Source:Project"]?.Trim();
         // A job migrates one source project; multi-project migration is not supported. The
@@ -33,17 +42,10 @@ public static class ConfiguredJobEndpoints
             .Where(projectName => !string.IsNullOrWhiteSpace(projectName))
             .ToList();
         if (generated.Count > 1)
-            throw new InvalidOperationException(
-                $"MigrationPlatform:Source:Generator:Projects lists {generated.Count} projects. A migration job has one source project; list only one.");
+            throw new JobConfigurationException(
+                $"MigrationPlatform:Source:Generator:Projects lists {generated.Count} projects. A migration job has one source project; configure only one.");
         if (string.IsNullOrWhiteSpace(project))
             project = generated.FirstOrDefault();
-        var connectorType = packageConfig["MigrationPlatform:Source:Type"];
-
-        if (string.IsNullOrWhiteSpace(connectorType))
-        {
-            endpoint = null!;
-            return false;
-        }
 
         var authSection = packageConfig.GetSection("MigrationPlatform:Source:Authentication");
         endpoint = new ConfiguredSourceEndpoint(

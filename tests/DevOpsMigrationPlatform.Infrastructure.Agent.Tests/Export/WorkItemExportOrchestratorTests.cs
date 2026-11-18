@@ -391,6 +391,68 @@ public class WorkItemExportOrchestratorTests
         Assert.IsFalse(written.Any(p => p.EndsWith("revision.json")), "revision.json must not be written for a failed revision.");
     }
 
+    // PR #222 review: resume depends on revision.json being absent after the failure and on the
+    // next run exporting that revision; run the export twice with the same revision.
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task ExportAsync_AfterAnExtensionFailure_TheNextRunExportsTheRevision()
+    {
+        _mockCps.Setup(s => s.ReadCursorAsync("export.workitems", It.IsAny<CancellationToken>())).ReturnsAsync((CursorEntry?)null);
+        _mockCps.Setup(s => s.WriteCursorAsync("export.workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        var written = new List<string>();
+        _mockStore.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                  .Callback<string, string, CancellationToken>((p, _, _) => written.Add(p))
+                  .Returns(Task.CompletedTask);
+        var calls = 0;
+        var extension = new Mock<DevOpsMigrationPlatform.Abstractions.Agent.IModuleExtension>();
+        extension.SetupGet(e => e.IsEnabled).Returns(true);
+        extension.SetupGet(e => e.SupportsExport).Returns(true);
+        extension.SetupGet(e => e.Name).Returns("Comments");
+        extension.Setup(e => e.ExportAsync(It.IsAny<DevOpsMigrationPlatform.Abstractions.Agent.IExtensionContext>(), It.IsAny<CancellationToken>()))
+                 .Returns(() => ++calls == 1 ? Task.FromException(new System.IO.IOException("disk full")) : Task.CompletedTask);
+        var changed = new DateTimeOffset(2026, 11, 18, 9, 0, 0, TimeSpan.Zero);
+        SetupSource(new List<WorkItemRevision> { new() { WorkItemId = 9, RevisionIndex = 0, ChangedDate = changed } });
+
+        var first = new WorkItemExportOrchestrator(_mockPackage.Object, string.Empty, string.Empty, _mockCps.Object,
+            exportExtensions: new[] { extension.Object });
+        await Assert.ThrowsExactlyAsync<System.IO.IOException>(() => first.ExportAsync(_mockSource.Object, CancellationToken.None));
+        Assert.IsFalse(written.Any(p => p.EndsWith("revision.json")), "Run 1 must leave the revision uncommitted.");
+
+        var second = new WorkItemExportOrchestrator(_mockPackage.Object, string.Empty, string.Empty, _mockCps.Object,
+            exportExtensions: new[] { extension.Object });
+        await second.ExportAsync(_mockSource.Object, CancellationToken.None);
+
+        Assert.AreEqual(1, written.Count(p => p.EndsWith("revision.json")), "Run 2 must export the revision.");
+    }
+
+    // PR #222 review: the rethrow skipped both cleanup paths, leaving the in-flight count raised.
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task ExportAsync_ExtensionFails_ReleasesInFlightAndRecordsAFailureNotACompletion()
+    {
+        _mockCps.Setup(s => s.ReadCursorAsync("export.workitems", It.IsAny<CancellationToken>())).ReturnsAsync((CursorEntry?)null);
+        _mockStore.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        var extension = new Mock<DevOpsMigrationPlatform.Abstractions.Agent.IModuleExtension>();
+        extension.SetupGet(e => e.IsEnabled).Returns(true);
+        extension.SetupGet(e => e.SupportsExport).Returns(true);
+        extension.SetupGet(e => e.Name).Returns("Comments");
+        extension.Setup(e => e.ExportAsync(It.IsAny<DevOpsMigrationPlatform.Abstractions.Agent.IExtensionContext>(), It.IsAny<CancellationToken>()))
+                 .ThrowsAsync(new System.IO.IOException("disk full"));
+        var metrics = new Mock<IPlatformMetrics>();
+        var sut = new WorkItemExportOrchestrator(_mockPackage.Object, string.Empty, string.Empty, _mockCps.Object,
+            metrics: metrics.Object, exportExtensions: new[] { extension.Object });
+        SetupSource(new List<WorkItemRevision> { new() { WorkItemId = 9, RevisionIndex = 0, ChangedDate = DateTimeOffset.UtcNow } });
+
+        await Assert.ThrowsExactlyAsync<System.IO.IOException>(() => sut.ExportAsync(_mockSource.Object, CancellationToken.None));
+
+        metrics.Verify(m => m.IncrementInFlight(It.IsAny<MetricsTagList>()), Times.Once);
+        metrics.Verify(m => m.DecrementInFlight(It.IsAny<MetricsTagList>()), Times.Once);
+        metrics.Verify(m => m.RecordWorkItemFailed(It.IsAny<MetricsTagList>()), Times.Once);
+        metrics.Verify(m => m.RecordWorkItemCompleted(It.IsAny<MetricsTagList>()), Times.Never);
+    }
+
     // ── IsCommentEditOrDeleteRevision ─────────────────────────────────────────
 
     [TestCategory("CodeTest")]
@@ -545,6 +607,51 @@ public class WorkItemExportOrchestratorTests
             It.Is<string>(p => p.EndsWith("shot.png")),
             It.IsAny<byte[]>(),
             It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    // PR #222 review: the module always registers the comments extension, and any registered
+    // extension switched the inline attachment download off, so no export wrote attachment
+    // binaries. There is no attachment extension; inline download always runs.
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    [DataRow(true)]
+    [DataRow(false)]
+    public async Task ExportAsync_WithCommentsExtensionRegistered_StillWritesAttachmentBinaries(bool commentsEnabled)
+    {
+        _mockCps.Setup(s => s.ReadCursorAsync("export.workitems", It.IsAny<CancellationToken>()))
+                .ReturnsAsync((CursorEntry?)null);
+        _mockCps.Setup(s => s.WriteCursorAsync("export.workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+        _mockStore.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                  .Returns(Task.CompletedTask);
+        _mockStore.Setup(s => s.WriteBinaryAsync(It.IsAny<string>(), It.IsAny<byte[]>(), It.IsAny<CancellationToken>()))
+                  .Returns(Task.CompletedTask);
+        var binarySource = new Mock<IAttachmentBinarySource>();
+        binarySource.Setup(s => s.GetBytesAsync(7, 0, It.IsAny<AttachmentMetadata>(), It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(new byte[] { 0x89, 0x50 });
+        var comments = new Mock<DevOpsMigrationPlatform.Abstractions.Agent.IModuleExtension>();
+        comments.SetupGet(e => e.IsEnabled).Returns(commentsEnabled);
+        comments.SetupGet(e => e.SupportsExport).Returns(true);
+
+        var sut = new WorkItemExportOrchestrator(
+            _mockPackage.Object, "", "", _mockCps.Object, binarySource.Object, null,
+            exportExtensions: new DevOpsMigrationPlatform.Abstractions.Agent.IModuleExtension[] { comments.Object });
+
+        var revision = new WorkItemRevision
+        {
+            WorkItemId = 7,
+            RevisionIndex = 0,
+            ChangedDate = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero),
+            Attachments = new[] { new AttachmentMetadata { OriginalName = "shot.png", RelativePath = "shot.png", Sha256 = "abc", Size = 2 } }
+        };
+        var source = new Mock<IWorkItemRevisionSource>();
+        source.Setup(s => s.GetRevisionsAsync(It.IsAny<CancellationToken>()))
+              .Returns((CancellationToken ct) => new[] { revision }.ToAsyncEnumerable(ct));
+
+        await sut.ExportAsync(source.Object, CancellationToken.None);
+
+        _mockStore.Verify(s => s.WriteBinaryAsync(It.Is<string>(p => p.EndsWith("shot.png")), It.IsAny<byte[]>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [TestCategory("CodeTest")]
@@ -903,10 +1010,10 @@ public class WorkItemExportOrchestratorTests
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
-    public async Task ExportAsync_WithConfiguredWiqlAndNoFilters_ExportsOnlyTheItemsTheQueryReturns()
+    public async Task ExportAsync_WithConfiguredWiqlAndFilters_SelectionPassRunsTheQuery()
     {
-        // #171 live E2E: Selection.Query was only used to count; every item in the project was
-        // exported, on both connectors. The query now bounds the export through the pre-pass.
+        // #171 live E2E: with filters set, the selection pass must run the configured query as its
+        // base, so the query and the filters both bound the export.
         _mockCps.Setup(s => s.ReadCursorAsync("export.workitems", It.IsAny<CancellationToken>()))
                 .ReturnsAsync((CursorEntry?)null);
         _mockCps.Setup(s => s.WriteCursorAsync("export.workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
@@ -929,7 +1036,7 @@ public class WorkItemExportOrchestratorTests
 
         var sut = new WorkItemExportOrchestrator(
             _mockPackage.Object, "", "MyProject", _mockCps.Object, null, null, TestEndpoint,
-            mockFetchService.Object, filterOptions: null, wiqlQuery: query);
+            mockFetchService.Object, filterOptions: [new WorkItemFieldFilterOptions("System.Title", FilterOperator.Regex, ".*")], wiqlQuery: query);
 
         var baseDate = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
         var revisions = new[]
@@ -946,6 +1053,34 @@ public class WorkItemExportOrchestratorTests
         Assert.AreEqual(query, seenScope?.BaseQuery, "The pre-pass must run the configured query.");
         Assert.IsTrue(written.Any(p => p.Contains("-1-0/")), "Work item 1 is in the query.");
         Assert.IsFalse(written.Any(p => p.Contains("-2-0/")), "Work item 2 is outside the query.");
+    }
+
+    // PR #222 review (stream, never materialise): a query on its own is applied by the revision
+    // source; the export must not build an in-memory set of every matching ID.
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task ExportAsync_ConfiguredWiqlWithoutFilters_DoesNotBuildAnIdSet()
+    {
+        _mockCps.Setup(s => s.ReadCursorAsync("export.workitems", It.IsAny<CancellationToken>()))
+                .ReturnsAsync((CursorEntry?)null);
+        _mockCps.Setup(s => s.WriteCursorAsync("export.workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+        _mockStore.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                  .Returns(Task.CompletedTask);
+        var fetchService = new Mock<IWorkItemFetchService>(MockBehavior.Strict);
+
+        var sut = new WorkItemExportOrchestrator(
+            _mockPackage.Object, "", "MyProject", _mockCps.Object, null, null, TestEndpoint,
+            fetchService.Object, filterOptions: null,
+            wiqlQuery: "SELECT [System.Id] FROM WorkItems WHERE [System.WorkItemType] <> 'Issue'");
+        var source = new Mock<IWorkItemRevisionSource>();
+        source.Setup(s => s.GetRevisionsAsync(It.IsAny<CancellationToken>()))
+              .Returns((CancellationToken ct) => new[] { new WorkItemRevision { WorkItemId = 1, ChangedDate = DateTimeOffset.UnixEpoch } }.ToAsyncEnumerable(ct));
+
+        await sut.ExportAsync(source.Object, CancellationToken.None);
+
+        fetchService.Verify(f => f.FetchAsync(It.IsAny<OrganisationEndpoint>(), It.IsAny<string>(), It.IsAny<WorkItemFetchScope>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [TestCategory("CodeTest")]
@@ -976,7 +1111,7 @@ public class WorkItemExportOrchestratorTests
 
         var sut = new WorkItemExportOrchestrator(
             _mockPackage.Object, "", "MyProject", _mockCps.Object, null, null, endpoint: null,
-            mockFetchService.Object, filterOptions: null,
+            mockFetchService.Object, filterOptions: [new WorkItemFieldFilterOptions("System.Title", FilterOperator.Regex, ".*")],
             wiqlQuery: "SELECT [System.Id] FROM WorkItems WHERE [System.WorkItemType] <> 'Issue'",
             sourceOrganisationEndpoint: sourceEndpoint);
 
@@ -992,6 +1127,7 @@ public class WorkItemExportOrchestratorTests
         await sut.ExportAsync(mockSource.Object, CancellationToken.None);
 
         Assert.AreSame(sourceEndpoint, seenEndpoint);
+        Assert.IsTrue(written.Any(p => p.Contains("-1-0/")), "Work item 1 is selected and must be written.");
         Assert.IsFalse(written.Any(p => p.Contains("-2-0/")), "Work item 2 is outside the query.");
     }
 

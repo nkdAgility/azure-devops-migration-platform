@@ -188,6 +188,18 @@ public abstract class AgentWorkerBase : BackgroundService
                 // A job that throws must still end: without the terminal signal the Control
                 // Plane keeps it leased and every job that depends on it waits for ever.
                 _logger.LogError(ex, "Job {JobId} failed on lease {LeaseId}; reporting it failed.", lease.Job.JobId, lease.LeaseId);
+                // The terminal carries only a flag, so the reason goes first as a progress
+                // message: a configuration message is written for the operator; anything else
+                // gets a generic message, never raw exception text (PR #222 review).
+                (_eventWriter as IProgressSink)?.Emit(new ProgressEvent
+                {
+                    Module = "Job",
+                    Stage = "Job.Failed",
+                    Message = ex is DevOpsMigrationPlatform.Abstractions.Agent.Context.JobConfigurationException configuration
+                        ? configuration.Message
+                        : $"Job {lease.Job.JobId} failed on the agent before it finished. The agent's log has the details.",
+                    Timestamp = DateTimeOffset.UtcNow
+                });
                 await SignalTerminalAsync("fail", ct).ConfigureAwait(false);
             }
             finally

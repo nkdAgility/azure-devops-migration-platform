@@ -168,6 +168,61 @@ public class CommentEmbeddedImagesTests
         }, CancellationToken.None));
     }
 
+    private static async IAsyncEnumerable<WorkItemComment> FailsAfterFirst(WorkItemComment first, Exception failure)
+    {
+        yield return first;
+        await Task.Yield();
+        throw failure;
+    }
+
+    private static async Task ExportEdit(Exception fetchFailure)
+    {
+        var changed = new DateTime(2026, 11, 17, 10, 0, 0, DateTimeKind.Utc);
+        var comment = new WorkItemComment { CommentId = "1", Text = "edit", ModifiedDate = changed };
+        var source = new Mock<IWorkItemCommentSource>();
+        source.Setup(s => s.GetCommentsAsync(7, true, It.IsAny<CancellationToken>())).Returns(FailsAfterFirst(comment, fetchFailure));
+        var factory = new Mock<IWorkItemCommentSourceFactory>();
+        factory.Setup(f => f.Create(It.IsAny<MigrationEndpointOptions>(), It.IsAny<string>())).Returns(source.Object);
+        var sut = new CommentsWorkItemExtension(
+            Microsoft.Extensions.Options.Options.Create(new CommentsExtensionOptions()),
+            DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All,
+            factory.Object);
+
+        await sut.ExportAsync(new WorkItemRevisionContext
+        {
+            Package = new Mock<IPackageAccess>().Object,
+            WorkItemId = 7,
+            RevisionIndex = 3,
+            FolderPath = "WorkItems/2026-11-17/rev-7-3/",
+            SourceEndpoint = new AzureDevOpsEndpointOptions(),
+            Revision = new WorkItemRevision
+            {
+                WorkItemId = 7,
+                RevisionIndex = 3,
+                ChangedDate = changed,
+                Fields = [new WorkItemField { ReferenceName = "System.CommentCount", Value = "1" }]
+            }
+        }, CancellationToken.None);
+    }
+
+    // PR #222 review: a temporary failure on a later page discarded the matched edit and let
+    // the revision commit, so a resume never fetched it again. It now fails the revision.
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task ExportAsync_CommentFetchFailsPartWay_FailsTheRevisionSoItIsRetried()
+    {
+        await Assert.ThrowsExactlyAsync<HttpRequestException>(() => ExportEdit(new HttpRequestException("page 2: 503")));
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task ExportAsync_ConnectorReportsNoCommentsApi_SkipsCommentsAndCommits()
+    {
+        await ExportEdit(new DevOpsMigrationPlatform.Abstractions.Agent.Export.CommentsApiUnavailableException("comments API not served"));
+    }
+
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]

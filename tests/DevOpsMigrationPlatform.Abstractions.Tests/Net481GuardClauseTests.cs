@@ -18,8 +18,32 @@ namespace DevOpsMigrationPlatform.Abstractions.Tests;
 [TestClass]
 public class Net481GuardClauseTests
 {
-    private static readonly Regex Guard = new(@"^\s*#if\s+!NET481\b(?<rest>.*)$", RegexOptions.Compiled);
-    private static readonly Regex Reason = new(@"//\s*net481-(exempt:\s*ADR-0036\b|pending:\s*#215\b)", RegexOptions.Compiled);
+    // PR #222 review: match the directive's expression, not one spelling: "#if ! NET481",
+    // "#if (!NET481)" and "#elif !NET481" also compile a feature out. An ADR-0036 exemption must
+    // name its category; "net481-pending: #215" is the other accepted form.
+    private static readonly Regex Guard = new(@"^\s*#\s*(if|elif)\b(?<expr>[^/]*?!\s*\(?\s*NET481\b[^/]*)(?<rest>.*)$", RegexOptions.Compiled);
+    private static readonly Regex Reason = new(@"//\s*net481-(exempt:\s*ADR-0036\s+(default-interface-member|tfs-target)\b|pending:\s*#215\b)", RegexOptions.Compiled);
+
+    internal static bool IsUnexplainedGuard(string line) =>
+        Guard.Match(line) is { Success: true } m && !Reason.IsMatch(m.Groups["rest"].Value);
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    [DataRow("#if !NET481", true)]
+    [DataRow("#if ! NET481", true)]
+    [DataRow("#if (!NET481)", true)]
+    [DataRow("#elif !NET481", true)]
+    [DataRow("#if !NET481 // net481-exempt: ADR-0036", true)]
+    [DataRow("#if ! NET481 // net481-exempt: ADR-0036 tfs-target", false)]
+    [DataRow("#if (!NET481) // net481-exempt: ADR-0036 default-interface-member", false)]
+    [DataRow("#if !NET481 // net481-pending: #215", false)]
+    [DataRow("#if NET481", false)]
+    [DataRow("#if NET7_0_OR_GREATER", false)]
+    public void IsUnexplainedGuard_RecognisesEverySpellingAndRequiresACategory(string line, bool unexplained)
+    {
+        Assert.AreEqual(unexplained, IsUnexplainedGuard(line));
+    }
 
     private static string RepoRoot()
     {
@@ -38,7 +62,7 @@ public class Net481GuardClauseTests
         var unexplained = Directory.EnumerateFiles(src, "*.cs", SearchOption.AllDirectories)
             .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}") && !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}"))
             .SelectMany(f => File.ReadLines(f).Select((line, i) => (File: f, Line: i + 1, Text: line)))
-            .Where(l => Guard.Match(l.Text) is { Success: true } m && !Reason.IsMatch(m.Groups["rest"].Value))
+            .Where(l => IsUnexplainedGuard(l.Text))
             .Select(l => $"{Path.GetRelativePath(src, l.File)}:{l.Line}")
             .ToList();
 

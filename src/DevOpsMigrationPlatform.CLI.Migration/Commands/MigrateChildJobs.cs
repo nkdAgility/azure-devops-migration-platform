@@ -77,10 +77,19 @@ internal sealed record MigrateChildJobs(string ParentJobId, Job Export, Job Prep
 
     private static string? ValidateSide(JsonElement mp, string side)
     {
-        if (string.Equals(ReadType(mp, side), "Simulated", StringComparison.OrdinalIgnoreCase))
-            return null;
+        var simulated = string.Equals(ReadType(mp, side), "Simulated", StringComparison.OrdinalIgnoreCase);
         if (!mp.TryGetProperty(side, out var el) || el.ValueKind != JsonValueKind.Object)
-            return $"{side} is required for migrate.";
+            return simulated ? null : $"{side} is required for migrate.";
+
+        // A Simulated side may omit Url and Project (defaults apply), but what it gives is checked
+        // here, so Import does not reject it after every child is submitted (PR #222 review).
+        if (simulated)
+        {
+            if (el.TryGetProperty("Project", out var p) && p.ValueKind == JsonValueKind.String && string.IsNullOrWhiteSpace(p.GetString()))
+                return $"{side}.Project is blank. Remove it or set a project name.";
+            if (!el.TryGetProperty("Url", out var u) || u.ValueKind != JsonValueKind.String)
+                return null;
+        }
 
         string? url;
         try
@@ -95,7 +104,7 @@ internal sealed record MigrateChildJobs(string ParentJobId, Job Export, Job Prep
             return $"{side}.Url is required. Set it in the config file.";
         if (!Uri.TryCreate(url, UriKind.Absolute, out var parsed) || (parsed.Scheme != Uri.UriSchemeHttp && parsed.Scheme != Uri.UriSchemeHttps))
             return $"{side}.Url must be a valid HTTP or HTTPS URL. Got: '{url}'.";
-        if (string.IsNullOrWhiteSpace(ReadString(el, "Project")))
+        if (!simulated && string.IsNullOrWhiteSpace(ReadString(el, "Project")))
             return $"{side}.Project is required. Set it in the config file.";
         return null;
     }

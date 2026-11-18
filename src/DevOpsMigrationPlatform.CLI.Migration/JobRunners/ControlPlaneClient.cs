@@ -349,6 +349,20 @@ public sealed class ControlPlaneClient : IJobSubmissionClient, ILogsClient, ICon
     }
 
     /// <summary>
+    /// Returns the job's latest metrics snapshot, or <c>null</c> when the Control Plane has none
+    /// yet. Calls <c>GET /jobs/{jobId}/telemetry</c>. Used for the end-of-job summary: the
+    /// progress events do not carry the work item counts (#171).
+    /// </summary>
+    public async Task<JobMetrics?> GetTelemetryAsync(Guid jobId, CancellationToken ct)
+    {
+        using var response = await _http.GetAsync($"/jobs/{jobId}/telemetry", ct).ConfigureAwait(false);
+        if (response.StatusCode != System.Net.HttpStatusCode.OK)
+            return null;
+        var json = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        return JsonSerializer.Deserialize<JobMetrics>(json, _jsonOptions);
+    }
+
+    /// <summary>
     /// Returns the current <see cref="JobTaskList"/> for a job, or <c>null</c> when the
     /// agent has not yet pushed an execution plan.
     /// Calls <c>GET /jobs/{jobId}/tasks</c>.

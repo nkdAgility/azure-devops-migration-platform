@@ -357,8 +357,9 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
         if ((allFilters.Count > 0 || customQuery) && _fetchService == null)
             _logger.LogWarning("[WorkItems] A selection query or filters are configured but no IWorkItemFetchService is registered — they will be ignored and all work items will be exported. Register a connector-specific IWorkItemFetchService to enable selected export.");
 
+        // The source applies the selection query as it streams (PR #222 review).
         var source = await _sourceFactory
-            .CreateAsync(ct)
+            .CreateAsync(customQuery ? ext.Query : null, ct)
             .ConfigureAwait(false);
 
         if (_referencedPathTracker is null)

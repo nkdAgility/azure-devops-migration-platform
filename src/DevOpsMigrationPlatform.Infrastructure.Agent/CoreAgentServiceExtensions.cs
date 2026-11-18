@@ -118,6 +118,13 @@ public static class CoreAgentServiceExtensions
         services.AddSingleton<UnifiedWorkerEventWriter>();
         services.AddHostedService(sp => sp.GetRequiredService<UnifiedWorkerEventWriter>());
         services.AddSingleton<IFlushable>(sp => sp.GetRequiredService<UnifiedWorkerEventWriter>());
+        // Final metrics before the terminal state (#171): collect now instead of waiting for the
+        // next export cycle, so the job's counts reach the Control Plane before it reads Completed.
+        services.AddSingleton(sp => new JobMetricsFinalFlush(
+            sp.GetRequiredService<DevOpsMigrationPlatform.Abstractions.Telemetry.IJobMetricsStore>(),
+            sp.GetRequiredService<UnifiedWorkerEventWriter>(),
+            sp.GetService<OpenTelemetry.Metrics.MeterProvider>() is { } meters ? (Action)(() => OpenTelemetry.Metrics.MeterProviderExtensions.ForceFlush(meters, 5_000)) : null));
+        services.AddSingleton<IFlushable>(sp => sp.GetRequiredService<JobMetricsFinalFlush>());
         // Canonical worker-event port (ADR-0023 / CA-C1): workers depend on the
         // IWorkerEventSink contract, resolved to the same singleton channel.
         services.AddSingleton<DevOpsMigrationPlatform.Abstractions.Agent.Telemetry.IWorkerEventSink>(

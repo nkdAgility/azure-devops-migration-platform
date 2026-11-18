@@ -95,6 +95,31 @@ public class DiCompositionTests
         Assert.AreEqual(System.Net.HttpStatusCode.NoContent, response.StatusCode);
     }
 
+    // PR #222 review: the Control Plane holds a lease poll for up to 30 s, so each attempt must
+    // allow longer than that, or an idle poll times out instead of reaching the 204 branch.
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
+    [TestMethod]
+    public void ControlPlaneClient_AttemptTimeout_IsLongerThanTheLeaseLongPoll()
+    {
+        var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings { Args = [], Configuration = new ConfigurationManager() });
+        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["ControlPlane:BaseUrl"] = "http://localhost:5100",
+            ["Telemetry:DiagnosticsPath"] = null,
+        });
+        builder.AddServiceDefaults(Abstractions.WellKnownServiceNames.MigrationAgent);
+        builder.AddMigrationAgentServices(new Uri("http://localhost:5100"));
+        using var host = builder.Build();
+
+        var options = host.Services
+            .GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<Microsoft.Extensions.Http.Resilience.HttpStandardResilienceOptions>>()
+            .Get("ControlPlane-standard");
+
+        Assert.IsTrue(options.AttemptTimeout.Timeout > TimeSpan.FromSeconds(30),
+            $"Attempt timeout {options.AttemptTimeout.Timeout} must exceed the 30 s lease long poll.");
+    }
+
     private sealed class LongPollHandler(TimeSpan heldFor) : System.Net.Http.HttpMessageHandler
     {
         protected override async Task<System.Net.Http.HttpResponseMessage> SendAsync(System.Net.Http.HttpRequestMessage request, CancellationToken cancellationToken)

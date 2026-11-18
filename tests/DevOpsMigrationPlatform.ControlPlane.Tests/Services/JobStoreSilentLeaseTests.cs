@@ -40,9 +40,12 @@ public class JobStoreSilentLeaseTests
     private static string StateOf(JobStore store, Job job) =>
         store.GetAllRecords().Single(r => r.Job.JobId == job.JobId).State;
 
-    private static async Task<JobStore> StoreWithLeasedJob(ManualTime time, Job job)
+    private static async Task<JobStore> StoreWithLeasedJob(ManualTime time, Job job, Job? enqueueFirst = null, Action<JobStore>? beforeEnqueue = null)
     {
         var store = new JobStore(timeProvider: time);
+        beforeEnqueue?.Invoke(store);
+        if (enqueueFirst is not null)
+            store.Enqueue(enqueueFirst);
         store.Enqueue(job);
         var leased = await store.DequeueAsync(TimeSpan.FromMilliseconds(20), TfsAgent, CancellationToken.None);
         Assert.AreEqual(job.JobId, leased?.JobId, "Arrange: the agent must lease the job.");
@@ -102,6 +105,66 @@ public class JobStoreSilentLeaseTests
         Assert.AreEqual("Completed", StateOf(store, job));
     }
 
+    // PR #222 review: a job in Completed or Failed must not change state again. A silent-lease
+    // failure must not overwrite a completion that landed during the scan, and a late worker
+    // event from the abandoned lease must not revive a failed job.
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    [DataRow("Completed", "Failed")]
+    [DataRow("Failed", "Completed")]
+    [DataRow("Failed", "Running")]
+    [DataRow("Completed", "Running")]
+    public async Task SetState_FinishedJob_KeepsItsFinalState(string finalState, string lateState)
+    {
+        var time = new ManualTime();
+        var job = TfsExport();
+        var store = await StoreWithLeasedJob(time, job);
+        store.SetState(Guid.Parse(job.JobId), finalState);
+
+        store.SetState(Guid.Parse(job.JobId), lateState);
+
+        Assert.AreEqual(finalState, StateOf(store, job));
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task FailSilentLeases_JobCompletedDuringTheScan_StaysCompletedAndRaisesNothing()
+    {
+        var time = new TriggerTime();
+        var job = TfsExport();
+        var store = new JobStore(timeProvider: time);
+        store.Enqueue(job);
+        await store.DequeueAsync(TimeSpan.FromMilliseconds(20), TfsAgent, CancellationToken.None);
+        store.SetState(Guid.Parse(job.JobId), "Running");
+        var raised = new List<Guid>();
+        store.JobFailedWithoutRunning += (id, _) => raised.Add(id);
+        time.Now += Timeout + TimeSpan.FromSeconds(1);
+        // The agent's completion lands on the clock read that starts the scan.
+        time.OnNextRead = () => store.SetState(Guid.Parse(job.JobId), "Completed");
+
+        var failed = store.FailSilentLeases(Timeout);
+
+        Assert.AreEqual(0, failed.Count);
+        Assert.AreEqual("Completed", StateOf(store, job));
+        Assert.AreEqual(0, raised.Count);
+    }
+
+    private sealed class TriggerTime : TimeProvider
+    {
+        public DateTimeOffset Now { get; set; } = new(2026, 11, 18, 9, 0, 0, TimeSpan.Zero);
+        public Action? OnNextRead { get; set; }
+
+        public override DateTimeOffset GetUtcNow()
+        {
+            var trigger = OnNextRead;
+            OnNextRead = null;
+            trigger?.Invoke();
+            return Now;
+        }
+    }
+
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
@@ -109,7 +172,6 @@ public class JobStoreSilentLeaseTests
     {
         var time = new ManualTime();
         var export = TfsExport();
-        var store = new JobStore(timeProvider: time);
         var import = new Job
         {
             JobId = Guid.NewGuid().ToString(),
@@ -117,17 +179,17 @@ public class JobStoreSilentLeaseTests
             Connectors = [ConnectorType.AzureDevOps],
             DependsOnJobId = export.JobId
         };
-        var raised = new List<Guid>();
-        store.JobFailedWithoutRunning += (id, _) => raised.Add(id);
-        store.Enqueue(import);
-        store.Enqueue(export);
-        await store.DequeueAsync(TimeSpan.FromMilliseconds(20), TfsAgent, CancellationToken.None);
-        store.SetState(Guid.Parse(export.JobId), "Running");
+        var raised = new Dictionary<Guid, string>();
+        // The import is held behind the export; the helper asserts the export was leased.
+        var store = await StoreWithLeasedJob(time, export, enqueueFirst: import,
+            beforeEnqueue: s => s.JobFailedWithoutRunning += (id, reason) => raised[id] = reason);
 
         time.Now += Timeout + TimeSpan.FromSeconds(1);
         store.FailSilentLeases(Timeout);
 
         Assert.AreEqual("Failed", StateOf(store, import));
-        CollectionAssert.AreEquivalent(new[] { Guid.Parse(export.JobId), Guid.Parse(import.JobId) }, raised);
+        CollectionAssert.AreEquivalent(new[] { Guid.Parse(export.JobId), Guid.Parse(import.JobId) }, raised.Keys.ToArray());
+        // PR #222 review: the reason the monitor publishes, not only the returned tuple.
+        StringAssert.Contains(raised[Guid.Parse(export.JobId)], "sent no heartbeat");
     }
 }

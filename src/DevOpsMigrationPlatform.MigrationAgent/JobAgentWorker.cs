@@ -177,6 +177,15 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 return;
             }
         }
+        catch
+        {
+            // The accessors are singletons: a setup failure (e.g. a rejected endpoint) must not
+            // leave this job's config and endpoints set for the next lease (PR #222 review).
+            _currentPackageConfigAccessor.Clear();
+            _currentJobContextAccessor.Clear();
+            _currentJobEndpointAccessor.Clear();
+            throw;
+        }
 
         // Signal to live clients that the agent has the job and is starting up.
         ProgressSink.Emit(new ProgressEvent

@@ -209,6 +209,14 @@ public sealed class JobStore : IJobStore
         lock (_holdLock)
         {
             previousState = _states.TryGetValue(jobId, out var prev) ? prev : null;
+            // A finished job keeps its final state (PR #222 review): a silent-lease failure must
+            // not overwrite a completion, and a late event from an abandoned lease must not
+            // revive a failed job. Enqueue resets a resubmitted job directly.
+            if (previousState is "Completed" or "Failed" && previousState != state)
+            {
+                _logger?.LogWarning("[ControlPlane] Job {JobId} is {FinalState}; ignoring a late change to {LateState}.", jobId, previousState, state);
+                return;
+            }
             _states[jobId] = state;
             if (state is "Completed" or "Failed" && _held.Remove(jobId, out var dependents))
                 released = dependents;
@@ -418,9 +426,18 @@ public sealed class JobStore : IJobStore
             }
             if (now - lease.LastSeen <= timeout || !_all.TryGetValue(jobId, out var job))
                 continue;
-            // Remove only the lease entry seen here, so activity recorded meanwhile wins.
-            if (!_leasedTo.TryRemove(new KeyValuePair<Guid, (ConnectorType[], DateTimeOffset)>(jobId, lease)))
-                continue;
+
+            // The unfinished check, the lease removal and the Failed transition are one step under
+            // the hold lock, so a completion that lands meanwhile wins (PR #222 review).
+            lock (_holdLock)
+            {
+                if (_states.TryGetValue(jobId, out var current) && current is "Completed" or "Failed")
+                    continue;
+                // Remove only the lease entry seen here, so activity recorded meanwhile wins.
+                if (!_leasedTo.TryRemove(new KeyValuePair<Guid, (ConnectorType[], DateTimeOffset)>(jobId, lease)))
+                    continue;
+                SetState(jobId, "Failed");
+            }
 
             var agents = string.Join(" or ", job.Connectors.Select(AgentFor).Distinct());
             var reason = $"{job.Kind} job {job.JobId} failed: its agent ({(agents.Length == 0 ? "MigrationAgent" : agents)}) " +
@@ -428,7 +445,6 @@ public sealed class JobStore : IJobStore
                          "Check the agent's log, then run the migration again; completed work is skipped.";
             _logger?.LogWarning("[ControlPlane] {Reason}", reason);
             JobFailedWithoutRunning?.Invoke(jobId, reason);
-            SetState(jobId, "Failed");
             failed.Add((jobId, reason));
         }
         return failed;

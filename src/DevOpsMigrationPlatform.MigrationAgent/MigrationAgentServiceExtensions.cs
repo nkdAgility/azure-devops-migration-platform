@@ -59,8 +59,8 @@ public static class MigrationAgentServiceExtensions
         // The /agents/lease endpoint is a long-poll held open by the server for ~10s.
         // Increase timeouts to prevent Polly from firing spurious timeouts on every idle poll.
         // Polly validation constraints:
-        //   TotalRequestTimeout >= AttemptTimeout * (MaxRetries + 1)  →  150s >= 30s * 4 = 120s ✓
-        //   CircuitBreaker.SamplingDuration >= 2 * AttemptTimeout     →  61s  >= 2 * 30s = 60s  ✓
+        //   TotalRequestTimeout >= AttemptTimeout * (MaxRetries + 1)  →  200s >= 45s * 4 = 180s ✓
+        //   CircuitBreaker.SamplingDuration >= 2 * AttemptTimeout     →  91s  >= 2 * 45s = 90s  ✓
         // RemoveAllResilienceHandlers first: AddServiceDefaults puts the standard handler (10 s
         // attempt timeout) on every client, and it would cut each lease long-poll short (#171).
         // EXTEXP0001: RemoveAllResilienceHandlers is the documented way to replace that default.
@@ -68,9 +68,11 @@ public static class MigrationAgentServiceExtensions
         builder.Services.AddCoreAgentServices(builder.Configuration, controlPlaneBaseUrl,
             httpBuilder => httpBuilder.RemoveAllResilienceHandlers().AddStandardResilienceHandler(options =>
             {
-                options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(30);
-                options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(150);
-                options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(61);
+                // Longer than the Control Plane's 30 s lease long poll, so an idle poll reaches
+                // the 204 branch instead of timing out (PR #222 review).
+                options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(45);
+                options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(200);
+                options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(91);
             }));
 #pragma warning restore EXTEXP0001
 

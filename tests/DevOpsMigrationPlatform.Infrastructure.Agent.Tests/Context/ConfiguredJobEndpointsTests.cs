@@ -76,7 +76,7 @@ public class ConfiguredJobEndpointsTests
             ("MigrationPlatform:Source:Generator:Projects:0:Name", "Alpha"),
             ("MigrationPlatform:Source:Generator:Projects:1:Name", "Beta"));
 
-        var ex = Assert.ThrowsExactly<InvalidOperationException>(() => ConfiguredJobEndpoints.TryBuildSource(config, out _));
+        var ex = Assert.ThrowsExactly<DevOpsMigrationPlatform.Abstractions.Agent.Context.JobConfigurationException>(() => ConfiguredJobEndpoints.TryBuildSource(config, out _));
         StringAssert.Contains(ex.Message, "one source project");
     }
 
@@ -93,7 +93,23 @@ public class ConfiguredJobEndpointsTests
             ("MigrationPlatform:Source:Generator:Projects:0:Name", "Alpha"),
             ("MigrationPlatform:Source:Generator:Projects:1:Name", "Beta"));
 
-        Assert.ThrowsExactly<InvalidOperationException>(() => ConfiguredJobEndpoints.TryBuildSource(config, out _));
+        var ex = Assert.ThrowsExactly<DevOpsMigrationPlatform.Abstractions.Agent.Context.JobConfigurationException>(() => ConfiguredJobEndpoints.TryBuildSource(config, out _));
+        StringAssert.Contains(ex.Message, "one source project");
+    }
+
+    // PR #222 review: with no source type the job has no source here (a Prepare or Import job), so
+    // the generator list is not checked and the worker carries on building the target.
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public void TryBuildSource_NoSourceTypeWithSeveralGeneratedProjects_ReturnsFalse()
+    {
+        var config = Config(
+            ("MigrationPlatform:Source:Project", "Alpha"),
+            ("MigrationPlatform:Source:Generator:Projects:0:Name", "Alpha"),
+            ("MigrationPlatform:Source:Generator:Projects:1:Name", "Beta"));
+
+        Assert.IsFalse(ConfiguredJobEndpoints.TryBuildSource(config, out _));
     }
 
     [TestCategory("CodeTest")]
