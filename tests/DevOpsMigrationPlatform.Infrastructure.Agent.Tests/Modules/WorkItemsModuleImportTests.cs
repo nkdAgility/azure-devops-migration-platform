@@ -593,6 +593,79 @@ public sealed class WorkItemsModuleImportTests
         processorFactory.Verify();
     }
 
+    // #171 live E2E: the import job reported 6 work items completed for 3. Package folders are in
+    // date order, so revisions of different work items interleave, and a completion was recorded
+    // each time the work item changed. A work item now completes once, when its first revision lands.
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
+    [TestMethod]
+    public async Task ImportAsync_InterleavedRevisions_CountsEachWorkItemOnce()
+    {
+        string[] folders =
+        [
+            "WorkItems/2026-05-13/638827200000000000-41-0/",
+            "WorkItems/2026-05-13/638827200000000001-42-0/",
+            "WorkItems/2026-05-13/638827200000000002-41-1/",
+            "WorkItems/2026-05-13/638827200000000003-42-1/"
+        ];
+        var package = new Mock<IPackageAccess>();
+        package.Setup(p => p.EnumerateContentAsync(It.Is<PackageContentContext>(c => c.IsCollectionRequest), It.IsAny<CancellationToken>()))
+               .Returns(EnumerateFoldersAsync(folders));
+        package.Setup(p => p.OpenNativeDatabaseAsync(PackageMetaKind.IdMapDb, It.IsAny<CancellationToken>()))
+               .Returns(new ValueTask<System.Data.Common.DbConnection>(new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:")));
+        var target = new Mock<IWorkItemTarget>();
+        var importTargetFactory = new Mock<IWorkItemTargetFactory>();
+        importTargetFactory.Setup(f => f.CreateAsync(It.IsAny<CancellationToken>())).ReturnsAsync(target.Object);
+        var checkpointing = new Mock<ICheckpointingService>();
+        checkpointing.Setup(c => c.ReadCursorAsync("import.workitems", It.IsAny<CancellationToken>())).ReturnsAsync((CursorEntry?)null);
+        var checkpointFactory = new Mock<ICheckpointingServiceFactory>();
+        checkpointFactory.Setup(f => f.Create(It.IsAny<IPackageAccess>())).Returns(checkpointing.Object);
+        var resolutionStrategy = new Mock<IWorkItemResolutionStrategy>();
+        var resolutionStrategyFactory = new Mock<IWorkItemResolutionStrategyFactory>();
+        resolutionStrategyFactory.Setup(f => f.CreateAsync(It.IsAny<WorkItemResolutionStrategyOptions>(), It.IsAny<IWorkItemTarget>(), It.IsAny<ITargetEndpointInfo>(), It.IsAny<CancellationToken>()))
+                                 .ReturnsAsync(resolutionStrategy.Object);
+        var idMapStore = new Mock<IIdMapStore>();
+        idMapStore.Setup(s => s.CheckIntegrityAsync(It.IsAny<System.Func<int, CancellationToken, Task<bool>>>(), It.IsAny<CancellationToken>())).ReturnsAsync([]);
+        idMapStore.Setup(s => s.GetLastRevisionIndexAsync(It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync((int?)null);
+        var idMapStoreFactory = new Mock<IIdMapStoreFactory>();
+        idMapStoreFactory.Setup(f => f.Create(It.IsAny<System.Data.Common.DbConnection>())).Returns(idMapStore.Object);
+        var revisionProcessor = new Mock<IWorkItemResolutionProcessor>();
+        var processorFactory = new Mock<IWorkItemResolutionProcessorFactory>();
+        processorFactory.Setup(f => f.Create(It.IsAny<IWorkItemTarget>(), It.IsAny<IIdMapStore>(), It.IsAny<ICheckpointingService>(), It.IsAny<IIdentityTranslationTool?>(),
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<ProjectMapping?>(), It.IsAny<bool>()))
+            .Returns(revisionProcessor.Object);
+        var targetEndpoint = new Mock<ITargetEndpointInfo>();
+        targetEndpoint.SetupGet(s => s.Project).Returns("TargetProject");
+        targetEndpoint.SetupGet(s => s.ConnectorType).Returns("Simulated");
+        var metrics = new Mock<IPlatformMetrics>();
+
+        var module = WorkItemsModuleTestFactory.Create(
+            importTargetFactory: importTargetFactory.Object,
+            resolutionStrategyFactory: resolutionStrategyFactory.Object,
+            checkpointingFactory: checkpointFactory.Object,
+            idMapStoreFactory: idMapStoreFactory.Object,
+            processorFactory: processorFactory.Object,
+            targetEndpointInfo: targetEndpoint.Object,
+            metrics: metrics.Object);
+
+        await module.ImportAsync(new ImportContext
+        {
+            Job = new Job { JobId = "job-count", Kind = JobKind.Import, ConfigPayload = "{\"MigrationPlatform\":{\"Package\":{\"WorkingDirectory\":\"file:///package\"}}}" },
+            Package = package.Object,
+            ProgressSink = Mock.Of<IProgressSink>()
+        }, CancellationToken.None);
+
+        revisionProcessor.Verify(p => p.ImportRevisionAsync(It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<IWorkItemResolutionStrategy>(), It.IsAny<CancellationToken>()), Times.Exactly(4));
+        metrics.Verify(m => m.RecordWorkItemCompleted(It.IsAny<MetricsTagList>()), Times.Exactly(2));
+    }
+
+    private static async IAsyncEnumerable<string> EnumerateFoldersAsync(string[] folderPaths)
+    {
+        foreach (var folderPath in folderPaths)
+            yield return folderPath;
+        await Task.CompletedTask;
+    }
+
     private static PackagePayload CreatePayload<T>(T value)
     {
         var json = JsonSerializer.Serialize(value, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });

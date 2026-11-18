@@ -198,7 +198,10 @@ public sealed class JobStore : IJobStore
     }
 
     /// <inheritdoc />
-    public void SetState(Guid jobId, string state)
+    public void SetState(Guid jobId, string state) => TrySetState(jobId, state);
+
+    /// <inheritdoc />
+    public bool TrySetState(Guid jobId, string state)
     {
         using var activity = ActivitySource.StartActivity("job.setState", ActivityKind.Internal);
         activity?.SetTag("job.id", jobId.ToString());
@@ -212,10 +215,11 @@ public sealed class JobStore : IJobStore
             // A finished job keeps its final state (PR #222 review): a silent-lease failure must
             // not overwrite a completion, and a late event from an abandoned lease must not
             // revive a failed job. Enqueue resets a resubmitted job directly.
-            if (previousState is "Completed" or "Failed" && previousState != state)
+            if (previousState is "Completed" or "Failed")
             {
-                _logger?.LogWarning("[ControlPlane] Job {JobId} is {FinalState}; ignoring a late change to {LateState}.", jobId, previousState, state);
-                return;
+                if (previousState != state)
+                    _logger?.LogWarning("[ControlPlane] Job {JobId} is {FinalState}; ignoring a late change to {LateState}.", jobId, previousState, state);
+                return false;
             }
             _states[jobId] = state;
             if (state is "Completed" or "Failed" && _held.Remove(jobId, out var dependents))
@@ -270,6 +274,7 @@ public sealed class JobStore : IJobStore
 
         if (released is not null)
             ReleaseDependents(jobId, state, released);
+        return true;
     }
 
     /// <inheritdoc />
@@ -427,17 +432,13 @@ public sealed class JobStore : IJobStore
             if (now - lease.LastSeen <= timeout || !_all.TryGetValue(jobId, out var job))
                 continue;
 
-            // The unfinished check, the lease removal and the Failed transition are one step under
-            // the hold lock, so a completion that lands meanwhile wins (PR #222 review).
-            lock (_holdLock)
-            {
-                if (_states.TryGetValue(jobId, out var current) && current is "Completed" or "Failed")
-                    continue;
-                // Remove only the lease entry seen here, so activity recorded meanwhile wins.
-                if (!_leasedTo.TryRemove(new KeyValuePair<Guid, (ConnectorType[], DateTimeOffset)>(jobId, lease)))
-                    continue;
-                SetState(jobId, "Failed");
-            }
+            // Remove only the lease entry seen here, so activity recorded meanwhile wins.
+            if (!_leasedTo.TryRemove(new KeyValuePair<Guid, (ConnectorType[], DateTimeOffset)>(jobId, lease)))
+                continue;
+            // The transition itself decides: a completion that landed first keeps the job
+            // Completed and nothing is published. Side effects run outside any lock (PR #222 review).
+            if (!TrySetState(jobId, "Failed"))
+                continue;
 
             var agents = string.Join(" or ", job.Connectors.Select(AgentFor).Distinct());
             var reason = $"{job.Kind} job {job.JobId} failed: its agent ({(agents.Length == 0 ? "MigrationAgent" : agents)}) " +

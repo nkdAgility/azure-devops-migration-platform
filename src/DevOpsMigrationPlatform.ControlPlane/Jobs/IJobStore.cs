@@ -54,6 +54,13 @@ public interface IJobStore
     void SetState(Guid jobId, string state);
 
     /// <summary>
+    /// Sets the state and returns true only when this call changed it: a job already Completed
+    /// or Failed keeps its final state and the call returns false (PR #222 review). Callers that
+    /// publish a terminal outcome do so only when this returns true.
+    /// </summary>
+    bool TrySetState(Guid jobId, string state);
+
+    /// <summary>
     /// Returns the state of a parent job, built from the children that carry its id
     /// (<see cref="Job.ParentJobId"/>): Failed if any child failed, Completed when every
     /// child completed, Queued while no child has started, otherwise Running.

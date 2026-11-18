@@ -118,6 +118,13 @@ public sealed class WorkerEventsController : ControllerBase
                 var progress = Deserialize<ProgressEvent>(evt.PayloadJson, evt.Seq);
                 if (progress is not null)
                 {
+                    // A finished job keeps its final state, and a late event from an abandoned
+                    // lease is dropped instead of reaching its stream (PR #222 review).
+                    if (!_jobStore.TrySetState(jobId, "Running"))
+                    {
+                        _logger.LogDebug("Dropped late progress event {Seq} for finished job {JobId}.", evt.Seq, jobId);
+                        break;
+                    }
                     // Assign the monotonic sequence from the WorkerEvent so the SSE
                     // controller can track replay boundaries and clients can skip-replay.
                     progress = progress with { EventSequence = evt.Seq };
@@ -127,7 +134,6 @@ public sealed class WorkerEventsController : ControllerBase
                     if (progress.TaskId is not null && progress.TaskStatus is not null)
                         _taskStore.UpdateTask(jobId, progress.TaskId, progress.TaskStatus.Value,
                             progress.CompletedCount, progress.KnownTotal, progress.Timestamp);
-                    _jobStore.SetState(jobId, "Running");
                 }
                 break;
 
@@ -158,9 +164,15 @@ public sealed class WorkerEventsController : ControllerBase
             case WorkerEventKind.Terminal:
                 var failed = Deserialize<TerminalPayload>(evt.PayloadJson, evt.Seq);
                 var isFailed = failed?.Failed ?? false;
+                // Only the event that ends the job completes its streams: a late terminal from an
+                // abandoned lease must not replace a recorded failure with success (PR #222 review).
+                if (!_jobStore.TrySetState(jobId, isFailed ? "Failed" : "Completed"))
+                {
+                    _logger.LogWarning("Dropped late terminal event {Seq} for job {JobId}, which has already finished.", evt.Seq, jobId);
+                    break;
+                }
                 _progressStore.CompleteJob(jobId, isFailed);
                 _diagnosticStore.CompleteJob(jobId, isFailed);
-                _jobStore.SetState(jobId, isFailed ? "Failed" : "Completed");
                 break;
 
             default:

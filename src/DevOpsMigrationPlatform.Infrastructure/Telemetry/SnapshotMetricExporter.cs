@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NETFRAMEWORK
 using System;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 
-namespace DevOpsMigrationPlatform.Infrastructure.ControlPlane.Metrics;
+namespace DevOpsMigrationPlatform.Infrastructure.Telemetry;
 
 /// <summary>
 /// OTel SDK <see cref="BaseExporter{T}"/> that converts aggregated <see cref="Metric"/> batches
@@ -15,13 +16,20 @@ namespace DevOpsMigrationPlatform.Infrastructure.ControlPlane.Metrics;
 /// Registered alongside OTLP and Azure Monitor exporters through a single
 /// <see cref="PeriodicExportingMetricReader"/> — all exporters share the same aggregation cycle.
 /// </summary>
-internal sealed class SnapshotMetricExporter : BaseExporter<Metric>
+public sealed class SnapshotMetricExporter : BaseExporter<Metric>
 {
     private readonly IJobMetricsStore _store;
+    private readonly Func<string?>? _currentJobId;
 
-    public SnapshotMetricExporter(IJobMetricsStore store)
+    /// <param name="currentJobId">
+    /// In an agent, the job it is running: counters are cumulative for the life of the process
+    /// and an agent runs jobs one after another, so only points tagged with this job.id count.
+    /// Null (the Control Plane) counts every point.
+    /// </param>
+    public SnapshotMetricExporter(IJobMetricsStore store, Func<string?>? currentJobId = null)
     {
         _store = store;
+        _currentJobId = currentJobId;
     }
 
     public override ExportResult Export(in Batch<Metric> batch)
@@ -298,23 +306,26 @@ internal sealed class SnapshotMetricExporter : BaseExporter<Metric>
     }
 
     // Sums all MetricPoints for a cumulative or delta counter.
-    private static long ReadCounterSum(Metric metric)
+    private long ReadCounterSum(Metric metric)
     {
         long sum = 0;
         foreach (ref readonly MetricPoint mp in metric.GetMetricPoints())
-            sum += mp.GetSumLong();
+            if (IsCurrentJob(mp))
+                sum += mp.GetSumLong();
         return sum;
     }
 
     // Returns sum(count * sum) / total_count across all MetricPoints for a histogram,
     // providing a weighted mean. Returns null when no measurements have been recorded.
-    private static double? ReadHistogramMean(Metric metric)
+    private double? ReadHistogramMean(Metric metric)
     {
         double totalSum = 0;
         long totalCount = 0;
 
         foreach (ref readonly MetricPoint mp in metric.GetMetricPoints())
         {
+            if (!IsCurrentJob(mp))
+                continue;
             totalSum += mp.GetHistogramSum();
             totalCount += mp.GetHistogramCount();
         }
@@ -325,12 +336,26 @@ internal sealed class SnapshotMetricExporter : BaseExporter<Metric>
     // Reads the latest reported value from an ObservableGauge instrument.
     // The SDK invokes the gauge callback on each collection cycle and reports
     // the value as a sum across MetricPoints.
-    private static int ReadGaugeLatest(Metric metric)
+    private int ReadGaugeLatest(Metric metric)
     {
         long latest = 0;
         foreach (ref readonly MetricPoint mp in metric.GetMetricPoints())
-            latest = mp.GetSumLong();
+            if (IsCurrentJob(mp))
+                latest = mp.GetSumLong();
         return (int)latest;
     }
+
+    /// <summary>True when no job filter is set, or the point is tagged with the current job.</summary>
+    private bool IsCurrentJob(in MetricPoint point)
+    {
+        if (_currentJobId is null)
+            return true;
+        var jobId = _currentJobId();
+        if (string.IsNullOrEmpty(jobId))
+            return false;
+        foreach (var tag in point.Tags)
+            if (tag.Key == "job.id")
+                return string.Equals(tag.Value as string, jobId, StringComparison.Ordinal);
+        return false;
+    }
 }
-#endif

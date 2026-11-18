@@ -87,6 +87,56 @@ public class TfsWorkItemCommentSourceTests
         CollectionAssert.AreEqual(new[] { new DateTimeOffset(t1), new DateTimeOffset(t2) }, comments.Select(c => c.ModifiedDate).ToArray());
     }
 
+    // Martin, 2026-11-18: the TFS source supports TFS 2015 and later. Servers before the 5.1
+    // comments API (TFS 2015-2018, Azure DevOps Server 2019 RTM) have no comment edits: their
+    // comments are System.History, already in each revision. The source reports the API as
+    // unavailable, so the extension skips instead of failing every revision.
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task GetCommentsAsync_ServerWithoutTheCommentsApi_ReportsItUnavailable()
+    {
+        var sut = new TfsWorkItemCommentSource(
+            (_, _, _, _) => throw new Microsoft.VisualStudio.Services.WebApi.VssResourceNotFoundException(Guid.NewGuid()),
+            NullLogger<TfsWorkItemCommentSource>.Instance);
+
+        await Assert.ThrowsExactlyAsync<DevOpsMigrationPlatform.Abstractions.Agent.Export.CommentsApiUnavailableException>(async () =>
+        {
+            await foreach (var _ in sut.GetCommentsAsync(42, includeDeleted: true, CancellationToken.None)) { }
+        });
+    }
+
+    // Martin, 2026-11-18: TFS 2008 has no REST API at all; the request gets a plain 404.
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task GetCommentsAsync_ServerWithNoRestApi_ReportsItUnavailable()
+    {
+        var notFound = new System.Net.Http.HttpRequestException("Response status code does not indicate success: 404 (Not Found).");
+        notFound.Data["StatusCode"] = System.Net.HttpStatusCode.NotFound;
+        var sut = new TfsWorkItemCommentSource((_, _, _, _) => throw notFound, NullLogger<TfsWorkItemCommentSource>.Instance);
+
+        await Assert.ThrowsExactlyAsync<DevOpsMigrationPlatform.Abstractions.Agent.Export.CommentsApiUnavailableException>(async () =>
+        {
+            await foreach (var _ in sut.GetCommentsAsync(42, includeDeleted: true, CancellationToken.None)) { }
+        });
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task GetCommentsAsync_OtherFailure_IsNotReportedAsUnavailable()
+    {
+        var sut = new TfsWorkItemCommentSource(
+            (_, _, _, _) => throw new System.Net.Http.HttpRequestException("503"),
+            NullLogger<TfsWorkItemCommentSource>.Instance);
+
+        await Assert.ThrowsExactlyAsync<System.Net.Http.HttpRequestException>(async () =>
+        {
+            await foreach (var _ in sut.GetCommentsAsync(42, includeDeleted: true, CancellationToken.None)) { }
+        });
+    }
+
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]

@@ -739,19 +739,23 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
                     {
                         if (lastImportedWorkItemId != 0 && _metrics != null)
                         {
-                            _metrics.RecordWorkItemCompleted(importTags);
                             _metrics.RecordWorkItemDuration(workItemStopwatch.Elapsed.TotalMilliseconds, importTags);
                             _metrics.RecordRevisionCount(revisionsForCurrentWorkItem, importTags);
                             _metrics.DecrementInFlight(importTags);
                         }
                         workItemActivity?.Dispose();
 
-                        _metrics?.RecordWorkItemAttempted(importTags);
+                        // Revisions of different work items interleave in date order, so a work
+                        // item is attempted and completed once, at its first revision (#171).
+                        if (revIdx == 0)
+                        {
+                            _metrics?.RecordWorkItemAttempted(importTags);
+                            workItemsProcessed++;
+                        }
                         _metrics?.IncrementInFlight(importTags);
                         workItemStopwatch.Restart();
                         revisionsForCurrentWorkItem = 1;
                         lastImportedWorkItemId = wiId;
-                        workItemsProcessed++;
 
                         workItemActivity = s_activitySource.StartActivity("workitem.import", ActivityKind.Internal);
                         workItemActivity?.SetTag("job.id", scope.JobId ?? "not-set");
@@ -772,6 +776,8 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
                         .ConfigureAwait(false);
 
                     await scope.IdMapStore.UpdateLastRevisionIndexAsync(wiId, revIdx, ct).ConfigureAwait(false);
+                    if (revIdx == 0)
+                        _metrics?.RecordWorkItemCompleted(importTags);
                 }
                 else
                 {
@@ -805,7 +811,6 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
 
         if (lastImportedWorkItemId != 0 && _metrics != null)
         {
-            _metrics.RecordWorkItemCompleted(importTags);
             _metrics.RecordWorkItemDuration(workItemStopwatch.Elapsed.TotalMilliseconds, importTags);
             _metrics.RecordRevisionCount(revisionsForCurrentWorkItem, importTags);
         }

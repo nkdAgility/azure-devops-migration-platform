@@ -205,6 +205,74 @@ public class CommentEmbeddedImagesTests
         }, CancellationToken.None);
     }
 
+    // PR #222 review: with versions 1, 2 and 3 of one comment (edited at t2, then t3), each
+    // edit revision exports its own version, not only the latest.
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task ExportAsync_CommentEditedTwice_EachEditRevisionExportsItsOwnVersion()
+    {
+        var t1 = new DateTime(2026, 11, 17, 10, 0, 0, DateTimeKind.Utc);
+        var t2 = t1.AddMinutes(5);
+        var t3 = t1.AddMinutes(10);
+        WorkItemComment Version(int v, DateTime at) => new() { CommentId = "1", Version = v, Text = $"text v{v}", ModifiedDate = at };
+        var source = new Mock<IWorkItemCommentSource>();
+        source.Setup(s => s.GetCommentsAsync(7, true, It.IsAny<CancellationToken>()))
+              .Returns((int _, bool _, CancellationToken ct) => Versions(ct, Version(1, t1), Version(2, t2), Version(3, t3)));
+        var factory = new Mock<IWorkItemCommentSourceFactory>();
+        factory.Setup(f => f.Create(It.IsAny<MigrationEndpointOptions>(), It.IsAny<string>())).Returns(source.Object);
+        var written = new List<string>();
+        var package = new Mock<IPackageAccess>();
+        package.Setup(p => p.PersistContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()))
+               .Callback<PackageContentContext, PackagePayload, CancellationToken>((_, payload, _) =>
+               {
+                   using var reader = new StreamReader(payload.Content);
+                   written.Add(reader.ReadToEnd());
+               })
+               .Returns(ValueTask.CompletedTask);
+        var sut = new CommentsWorkItemExtension(
+            Microsoft.Extensions.Options.Options.Create(new CommentsExtensionOptions()),
+            DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All,
+            factory.Object);
+
+        foreach (var (rev, at) in new[] { (2, t2), (3, t3) })
+            await sut.ExportAsync(new WorkItemRevisionContext
+            {
+                Package = package.Object,
+                WorkItemId = 7,
+                RevisionIndex = rev,
+                FolderPath = $"WorkItems/2026-11-17/rev-7-{rev}/",
+                SourceEndpoint = new AzureDevOpsEndpointOptions(),
+                Revision = new WorkItemRevision
+                {
+                    WorkItemId = 7,
+                    RevisionIndex = rev,
+                    ChangedDate = at,
+                    Fields = [new WorkItemField { ReferenceName = "System.CommentCount", Value = "1" }]
+                }
+            }, CancellationToken.None);
+
+        // comment.json for revision 2 is written first, then revision 3's.
+        var comments = written.Where(w => w.Contains("text v")).ToList();
+        Assert.AreEqual(2, comments.Count);
+        var rev2 = comments[0];
+        var rev3 = comments[1];
+        StringAssert.Contains(rev2, "text v2");
+        Assert.IsFalse(rev2.Contains("text v3"), "Revision 2 must hold version 2, not the latest.");
+        StringAssert.Contains(rev3, "text v3");
+    }
+
+    private static async IAsyncEnumerable<WorkItemComment> Versions(
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct, params WorkItemComment[] versions)
+    {
+        foreach (var version in versions)
+        {
+            ct.ThrowIfCancellationRequested();
+            yield return version;
+        }
+        await Task.CompletedTask;
+    }
+
     // PR #222 review: a temporary failure on a later page discarded the matched edit and let
     // the revision commit, so a resume never fetched it again. It now fails the revision.
     [TestCategory("CodeTest")]

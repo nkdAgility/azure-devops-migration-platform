@@ -14,6 +14,7 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using OpenTelemetry.Metrics;
 using System.Net.Http;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent;
@@ -88,6 +89,19 @@ public static class CoreAgentServiceExtensions
     {
         services.AddAgentTelemetryServices(configuration);
         services.AddAgentJobMetricsServices();
+        // The agent's own snapshot exporter (Martin, 2026-11-18; ADR-0020): it turns the agent's
+        // counters into JobMetrics in the agent's store, which ControlPlaneTelemetryTimer and the
+        // final pre-terminal flush push through the worker-event channel. It counts the current
+        // job only, because counters are cumulative across the jobs an agent runs.
+        var telemetryOptions = new DevOpsMigrationPlatform.Abstractions.TelemetryOptions();
+        configuration.GetSection(DevOpsMigrationPlatform.Abstractions.TelemetryOptions.SectionName).Bind(telemetryOptions);
+        var snapshotIntervalMs = Math.Max(1, telemetryOptions.SnapshotIntervalSeconds) * 1_000;
+        services.ConfigureOpenTelemetryMeterProvider((sp, meters) => meters.AddReader(
+            new OpenTelemetry.Metrics.PeriodicExportingMetricReader(
+                new DevOpsMigrationPlatform.Infrastructure.Telemetry.SnapshotMetricExporter(
+                    sp.GetRequiredService<DevOpsMigrationPlatform.Abstractions.Telemetry.IJobMetricsStore>(),
+                    () => sp.GetRequiredService<ActivePackageState>().CurrentJob?.JobId),
+                snapshotIntervalMs)));
         services.AddDiagnosticsServices(controlPlaneBaseUrl);
         services.AddSingleton<PackageProgressSink>();
         services.AddSingleton<IHostedService>(sp => sp.GetRequiredService<PackageProgressSink>());
