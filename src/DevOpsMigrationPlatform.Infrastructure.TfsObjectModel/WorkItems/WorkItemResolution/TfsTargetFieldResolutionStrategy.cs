@@ -9,32 +9,31 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
-using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Storage;
-using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
-using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
 using PlatformWorkItemField = DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.WorkItemField;
 
 namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.WorkItems.WorkItemResolution;
 
 /// <summary>
-/// Seeds and resolves target work items by querying a configured provenance field on TeamFoundationServer targets.
+/// Seeds and resolves target work items by querying a configured provenance field on
+/// TeamFoundationServer targets. Queries run through the Object Model
+/// (<see cref="ITfsWorkItemQuery"/>), not REST, so TFS 2008 targets work too (Martin, 2026-11-18).
 /// </summary>
 public sealed class TfsTargetFieldResolutionStrategy : IWorkItemResolutionStrategy
 {
     private static readonly Regex FieldNamePattern = new(@"^[A-Za-z0-9_.-]+$", RegexOptions.Compiled);
-    private readonly WorkItemTrackingHttpClient _witClient;
+    private readonly ITfsWorkItemQuery _query;
     private readonly IWorkItemTarget _target;
     private readonly string _project;
     private readonly string _fieldName;
 
     public TfsTargetFieldResolutionStrategy(
-        WorkItemTrackingHttpClient witClient,
+        ITfsWorkItemQuery query,
         IWorkItemTarget target,
         string project,
         string fieldName)
     {
-        _witClient = witClient ?? throw new ArgumentNullException(nameof(witClient));
+        _query = query ?? throw new ArgumentNullException(nameof(query));
         _target = target ?? throw new ArgumentNullException(nameof(target));
         _project = project ?? throw new ArgumentNullException(nameof(project));
         _fieldName = fieldName ?? throw new ArgumentNullException(nameof(fieldName));
@@ -44,70 +43,37 @@ public sealed class TfsTargetFieldResolutionStrategy : IWorkItemResolutionStrate
     public async Task SeedAsync(IIdMapStore idMapStore, CancellationToken ct)
     {
         EnsureValidFieldName();
-        var safeProject = EscapeWiqlLiteral(_project);
-        var wiql = new Wiql
-        {
-            Query = $"SELECT [System.Id], [{_fieldName}] FROM WorkItems " +
-                    $"WHERE [System.TeamProject] = '{safeProject}' " +
-                    $"AND [{_fieldName}] <> '' " +
-                    $"ORDER BY [System.Id]"
-        };
+        var wiql = $"SELECT [System.Id], [{_fieldName}] FROM WorkItems " +
+                   $"WHERE [System.TeamProject] = '{EscapeWiqlLiteral(_project)}' " +
+                   $"AND [{_fieldName}] <> '' " +
+                   $"ORDER BY [System.Id]";
 
-        var result = await _witClient
-            .QueryByWiqlAsync(wiql, _project, top: null, cancellationToken: ct)
-            .ConfigureAwait(false);
-
-        if (result.WorkItems is null || !result.WorkItems.Any())
-            return;
-
-        var ids = result.WorkItems.Select(r => r.Id).ToList();
-        const int batchSize = 200;
-
+        // Streams the Object Model's paged result one item at a time.
         async IAsyncEnumerable<IdMapEntry> GetMappings()
         {
-            for (int i = 0; i < ids.Count; i += batchSize)
+            foreach (var (targetId, rawSourceId) in _query.Query(wiql, _fieldName))
             {
-                var batch = ids.Skip(i).Take(batchSize).ToList();
-                var workItems = await _witClient.GetWorkItemsAsync(
-                    batch,
-                    fields: new[] { "System.Id", _fieldName },
-                    cancellationToken: ct).ConfigureAwait(false);
-
-                foreach (var wi in workItems)
-                {
-                    if (wi.Fields is null)
-                        continue;
-                    if (!wi.Fields.TryGetValue(_fieldName, out var rawSourceId))
-                        continue;
-                    if (!int.TryParse(rawSourceId?.ToString(), out var sourceId))
-                        continue;
-                    var targetId = wi.Id ?? 0;
-                    if (sourceId > 0 && targetId > 0)
-                        yield return new IdMapEntry { SourceId = sourceId, TargetId = targetId };
-                }
+                ct.ThrowIfCancellationRequested();
+                if (int.TryParse(rawSourceId, out var sourceId) && sourceId > 0 && targetId > 0)
+                    yield return new IdMapEntry { SourceId = sourceId, TargetId = targetId };
             }
+            await Task.CompletedTask.ConfigureAwait(false);
         }
 
         await idMapStore.SeedWorkItemMappingsAsync(GetMappings(), ct).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
-    public async Task<int?> ResolveSingleAsync(int sourceWorkItemId, CancellationToken ct)
+    public Task<int?> ResolveSingleAsync(int sourceWorkItemId, CancellationToken ct)
     {
         EnsureValidFieldName();
-        var safeProject = EscapeWiqlLiteral(_project);
-        var wiql = new Wiql
-        {
-            Query = $"SELECT [System.Id] FROM WorkItems " +
-                    $"WHERE [System.TeamProject] = '{safeProject}' " +
-                    $"AND [{_fieldName}] = '{sourceWorkItemId}'"
-        };
+        var wiql = $"SELECT [System.Id] FROM WorkItems " +
+                   $"WHERE [System.TeamProject] = '{EscapeWiqlLiteral(_project)}' " +
+                   $"AND [{_fieldName}] = '{sourceWorkItemId}'";
 
-        var result = await _witClient
-            .QueryByWiqlAsync(wiql, _project, top: 1, cancellationToken: ct)
-            .ConfigureAwait(false);
-
-        return result.WorkItems?.FirstOrDefault()?.Id;
+        foreach (var (targetId, _) in _query.Query(wiql, _fieldName))
+            return Task.FromResult<int?>(targetId);
+        return Task.FromResult<int?>(null);
     }
 
     /// <inheritdoc/>

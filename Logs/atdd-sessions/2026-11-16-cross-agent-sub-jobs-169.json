@@ -163,13 +163,17 @@
     "src/DevOpsMigrationPlatform.Infrastructure/Telemetry/SnapshotMetricExporter.cs",
     "tests/DevOpsMigrationPlatform.ControlPlane.Tests/Progress/LateWorkerEventTests.cs",
     "tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/WorkItemsModuleImportTests.cs",
-    "tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Telemetry/SnapshotMetricExporterTests.cs"
+    "tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Telemetry/SnapshotMetricExporterTests.cs",
+    "src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/WorkItems/WorkItemResolution/ITfsWorkItemQuery.cs",
+    "src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/WorkItems/WorkItemResolution/TfsResolutionStrategyFactory.cs",
+    "tests/DevOpsMigrationPlatform.TfsMigrationAgent.Tests/TfsResolutionStrategyFactoryTests.cs",
+    "tests/DevOpsMigrationPlatform.TfsMigrationAgent.Tests/TfsTargetFieldResolutionStrategyTests.cs"
   ],
   "suites": [
     {
       "suite": "UnitTests",
       "run": true,
-      "passed": 1227,
+      "passed": 1234,
       "failed": 0
     },
     {
@@ -181,7 +185,7 @@
     {
       "suite": "IntegrationTests",
       "run": true,
-      "passed": 669,
+      "passed": 670,
       "failed": 0
     },
     {
@@ -193,7 +197,7 @@
     {
       "suite": "SystemTest_Live",
       "run": false,
-      "not_run_reason": "Runs in CI on the PR. The item live E2E (scratchpad e2e171-cycle, TFS Object Model source to Azure DevOps target) passed every section 6 check on run 169-m-mh-202611180954, again on 169-m-mh-202611181143 after the second review round, and on 169-m-mh-202611181155 with the agent telemetry exporter (import summary: 3 work items imported; resume: 0): selection 3 of 5 (WIQL and title filter), counts 3=3, field-by-field incl. state, related link, comment image and cleared assignee, no duplicates, resume run re-imported nothing; its adpe2e- projects were deleted. Earlier runs on 2026-11-17/18 were the RED evidence for the TFS link-name, full-url related link, selection and DI defects fixed in this round."
+      "not_run_reason": "Runs in CI on the PR. The item live E2E (scratchpad e2e171-cycle, TFS Object Model source to Azure DevOps target) passed every section 6 check on run 169-m-mh-202611180954, again on 169-m-mh-202611181143 after the second review round, on 169-m-mh-202611181155 with the agent telemetry exporter, and on 169-m-mh-202611181221 after the no-REST TFS changes (import summary: 3 work items imported; resume: 0): selection 3 of 5 (WIQL and title filter), counts 3=3, field-by-field incl. state, related link, comment image and cleared assignee, no duplicates, resume run re-imported nothing; its adpe2e- projects were deleted. Earlier runs on 2026-11-17/18 were the RED evidence for the TFS link-name, full-url related link, selection and DI defects fixed in this round."
     },
     {
       "suite": "SystemTest_Smoke",
@@ -229,6 +233,8 @@
     "Martin ruled on 2026-11-18: restore the agent-side telemetry path. Register the snapshot metric exporter in both agents so their work-item counters reach the Control Plane through the worker-event channel (ADR-0020), rather than a CLI-only count. Root cause found 2026-11-18: SnapshotMetricExporter is registered only in ControlPlaneHost, so the agents never update IJobMetricsStore and job telemetry carries no work-item counts.",
     "Martin ruled on 2026-11-18: the TFS source must support TFS 2015 and later.",
     "Martin, 2026-11-18 (fact): the platform also works with TFS 2008, which has no REST API. The TFS source must not depend on REST for anything a TFS 2008 export needs; where a REST-only feature (comment edits) is absent, it is reported unavailable and skipped, never failed.",
+    "Martin ruled on 2026-11-18: build the TFS agent as if there may be no REST API. Everything it needs works through the TFS Object Model; anything that uses REST is optional, detected once, and skipped cleanly when the server does not serve it.",
+    "Applied 2026-11-18 (no REST API on the TFS agent): the TargetField resolution strategy queries the TFS target through the Object Model (ITfsWorkItemQuery on TfsWorkItemTarget) instead of the REST WIQL client; the comment source records a missing comments API once per collection and skips later revisions without asking again. Still REST-only: project create/delete and process read on a TFS target (TfsProjectLifecycleProvider, TfsProjectProcessProvider); this belongs with Decision #139 (is TFS a supported target). Unverified: whether the TFS Object Model package in use connects to TFS 2008.",
     "Martin, 2026-11-18 (fact): older TFS has no comment editing, so skipping comment-edit export where the comments API is absent loses nothing; comments travel in each revision's History.",
     "Martin ruled on 2026-11-18 on the ADR-0021 Tier 1 (connectivity) review finding: not in this PR; add it to the backlog. A CLI-side reachability check gives a false positive when the CLI can reach an endpoint the agent cannot, so the check must be made where the work runs (the agent)."
   ],

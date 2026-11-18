@@ -24,6 +24,8 @@ internal sealed class TfsWorkItemCommentSourceFactory : IWorkItemCommentSourceFa
     // One connection per collection, disposed with the factory (a singleton): a source is created
     // for every revision, so a connection per source was never disposed (PR #222 review).
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<VssConnection>> _connections = new(StringComparer.OrdinalIgnoreCase);
+    // Per collection: once the comments API is found missing it is not asked again (Martin, 2026-11-18).
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, TfsWorkItemCommentSource.ApiAvailability> _availability = new(StringComparer.OrdinalIgnoreCase);
 
     public void Dispose()
     {
@@ -74,6 +76,7 @@ internal sealed class TfsWorkItemCommentSourceFactory : IWorkItemCommentSourceFa
                 project: project,
                 workItemId: workItemId,
                 commentId: commentId,
-                cancellationToken: ct).ConfigureAwait(false));
+                cancellationToken: ct).ConfigureAwait(false),
+            _availability.GetOrAdd(organisation.ResolvedUrl, _ => new TfsWorkItemCommentSource.ApiAvailability()));
     }
 }

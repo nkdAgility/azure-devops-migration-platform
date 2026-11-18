@@ -201,6 +201,20 @@ public sealed class JobStore : IJobStore
     public void SetState(Guid jobId, string state) => TrySetState(jobId, state);
 
     /// <inheritdoc />
+    public bool RunIfActive(Guid jobId, Action write)
+    {
+        // Under the lock every transition takes, so a terminal transition either happens before
+        // (the write is refused) or waits until the write is done (PR #222 review).
+        lock (_holdLock)
+        {
+            if (_states.TryGetValue(jobId, out var state) && state is "Completed" or "Failed")
+                return false;
+            write();
+            return true;
+        }
+    }
+
+    /// <inheritdoc />
     public bool TrySetState(Guid jobId, string state)
     {
         using var activity = ActivitySource.StartActivity("job.setState", ActivityKind.Internal);
@@ -423,20 +437,15 @@ public sealed class JobStore : IJobStore
         var now = _time.GetUtcNow();
         foreach (var (jobId, lease) in _leasedTo)
         {
-            var state = _states.TryGetValue(jobId, out var s) ? s : null;
-            if (state is "Completed" or "Failed")
-            {
-                _leasedTo.TryRemove(jobId, out _);
-                continue;
-            }
             if (now - lease.LastSeen <= timeout || !_all.TryGetValue(jobId, out var job))
                 continue;
 
             // Remove only the lease entry seen here, so activity recorded meanwhile wins.
             if (!_leasedTo.TryRemove(new KeyValuePair<Guid, (ConnectorType[], DateTimeOffset)>(jobId, lease)))
                 continue;
-            // The transition itself decides: a completion that landed first keeps the job
-            // Completed and nothing is published. Side effects run outside any lock (PR #222 review).
+            // No separate state read: the transition alone decides. A job that already finished,
+            // at any point before this line, refuses it, so nothing is published; its lease is
+            // simply cleared. Side effects run outside any lock (PR #222 review).
             if (!TrySetState(jobId, "Failed"))
                 continue;
 

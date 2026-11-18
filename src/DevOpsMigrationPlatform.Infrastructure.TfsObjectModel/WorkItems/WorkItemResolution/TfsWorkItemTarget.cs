@@ -20,8 +20,20 @@ namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.WorkItems.WorkIt
 /// Connects to a TFS or Azure DevOps target project and creates/updates work items
 /// using <see cref="WorkItemStore"/> APIs.
 /// </summary>
-public sealed class TfsWorkItemTarget : IWorkItemTarget
+public sealed class TfsWorkItemTarget : IWorkItemTarget, ITfsWorkItemQuery
 {
+    /// <inheritdoc/>
+    /// <remarks>Object Model only, so TFS 2008 targets work (Martin, 2026-11-18). The
+    /// <see cref="WorkItemCollection"/> pages from the server as it is enumerated.</remarks>
+    public IEnumerable<(int Id, string? Value)> Query(string wiql, string fieldName)
+    {
+        foreach (WorkItem workItem in _store.Query(wiql))
+        {
+            var value = workItem.Fields.Contains(fieldName) ? workItem.Fields[fieldName].Value?.ToString() : null;
+            yield return (workItem.Id, value);
+        }
+    }
+
     private static readonly HashSet<string> s_excludedFieldReferences = new(StringComparer.OrdinalIgnoreCase)
     {
         "System.TeamProject",

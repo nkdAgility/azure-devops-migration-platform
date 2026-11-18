@@ -61,6 +61,13 @@ public interface IJobStore
     bool TrySetState(Guid jobId, string state);
 
     /// <summary>
+    /// Runs <paramref name="write"/> only while the job has not finished, atomically with
+    /// terminal transitions, and returns whether it ran. A worker event's store writes use it so
+    /// nothing is added to a job after it reached Completed or Failed (PR #222 review).
+    /// </summary>
+    bool RunIfActive(Guid jobId, Action write);
+
+    /// <summary>
     /// Returns the state of a parent job, built from the children that carry its id
     /// (<see cref="Job.ParentJobId"/>): Failed if any child failed, Completed when every
     /// child completed, Queued while no child has started, otherwise Running.

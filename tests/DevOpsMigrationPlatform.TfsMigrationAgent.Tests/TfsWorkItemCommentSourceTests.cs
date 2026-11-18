@@ -122,6 +122,28 @@ public class TfsWorkItemCommentSourceTests
         });
     }
 
+    // Martin, 2026-11-18: build the TFS agent as if there may be no REST API. The gap is found
+    // once per collection; later revisions skip without another request.
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task GetCommentsAsync_AfterTheApiIsFoundMissing_DoesNotAskAgain()
+    {
+        var calls = 0;
+        var state = new TfsWorkItemCommentSource.ApiAvailability();
+        TfsWorkItemCommentSource Source() => new(
+            (_, _, _, _) => { calls++; throw new Microsoft.VisualStudio.Services.WebApi.VssResourceNotFoundException(Guid.NewGuid()); },
+            NullLogger<TfsWorkItemCommentSource>.Instance, fetchVersions: null, availability: state);
+
+        foreach (var workItemId in new[] { 1, 2, 3 })
+            await Assert.ThrowsExactlyAsync<DevOpsMigrationPlatform.Abstractions.Agent.Export.CommentsApiUnavailableException>(async () =>
+            {
+                await foreach (var _ in Source().GetCommentsAsync(workItemId, includeDeleted: true, CancellationToken.None)) { }
+            });
+
+        Assert.AreEqual(1, calls);
+    }
+
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]

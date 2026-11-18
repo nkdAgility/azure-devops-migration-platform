@@ -118,29 +118,33 @@ public sealed class WorkerEventsController : ControllerBase
                 var progress = Deserialize<ProgressEvent>(evt.PayloadJson, evt.Seq);
                 if (progress is not null)
                 {
-                    // A finished job keeps its final state, and a late event from an abandoned
-                    // lease is dropped instead of reaching its stream (PR #222 review).
-                    if (!_jobStore.TrySetState(jobId, "Running"))
+                    // Assign the monotonic sequence from the WorkerEvent so the SSE
+                    // controller can track replay boundaries and clients can skip-replay.
+                    progress = progress with { EventSequence = evt.Seq };
+                    // The writes run atomically with terminal transitions, so a late event from an
+                    // abandoned lease never reaches a finished job's stream (PR #222 review).
+                    var written = _jobStore.RunIfActive(jobId, () =>
+                    {
+                        _progressStore.Append(jobId, progress);
+                        if (progress.Metrics is not null)
+                            _metricsStore.Store(jobId, progress.Metrics);
+                        if (progress.TaskId is not null && progress.TaskStatus is not null)
+                            _taskStore.UpdateTask(jobId, progress.TaskId, progress.TaskStatus.Value,
+                                progress.CompletedCount, progress.KnownTotal, progress.Timestamp);
+                    });
+                    if (!written)
                     {
                         _logger.LogDebug("Dropped late progress event {Seq} for finished job {JobId}.", evt.Seq, jobId);
                         break;
                     }
-                    // Assign the monotonic sequence from the WorkerEvent so the SSE
-                    // controller can track replay boundaries and clients can skip-replay.
-                    progress = progress with { EventSequence = evt.Seq };
-                    _progressStore.Append(jobId, progress);
-                    if (progress.Metrics is not null)
-                        _metricsStore.Store(jobId, progress.Metrics);
-                    if (progress.TaskId is not null && progress.TaskStatus is not null)
-                        _taskStore.UpdateTask(jobId, progress.TaskId, progress.TaskStatus.Value,
-                            progress.CompletedCount, progress.KnownTotal, progress.Timestamp);
+                    _jobStore.TrySetState(jobId, "Running");
                 }
                 break;
 
             case WorkerEventKind.Diagnostic:
                 var records = Deserialize<DiagnosticLogRecord[]>(evt.PayloadJson, evt.Seq);
-                if (records is not null)
-                    _diagnosticStore.Add(jobId, records);
+                if (records is not null && !_jobStore.RunIfActive(jobId, () => _diagnosticStore.Add(jobId, records)))
+                    _logger.LogDebug("Dropped late diagnostic event {Seq} for finished job {JobId}.", evt.Seq, jobId);
                 break;
 
             case WorkerEventKind.Metrics:

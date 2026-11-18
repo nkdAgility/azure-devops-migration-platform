@@ -31,16 +31,34 @@ internal sealed class TfsWorkItemCommentSource : IWorkItemCommentSource
     /// <summary>Fetches every version of one comment: work item ID, comment ID.</summary>
     internal delegate Task<IReadOnlyList<CommentVersion>> FetchVersions(int workItemId, int commentId, CancellationToken ct);
 
+    /// <summary>
+    /// Whether a collection serves the comments API, shared by every source for that collection:
+    /// once it is found missing, later revisions skip without another request (Martin,
+    /// 2026-11-18: build the TFS agent as if there may be no REST API).
+    /// </summary>
+    internal sealed class ApiAvailability
+    {
+        private volatile bool _missing;
+        public bool Missing => _missing;
+        public void MarkMissing() => _missing = true;
+    }
+
     private readonly FetchPage _fetchPage;
     private readonly FetchVersions? _fetchVersions;
     private readonly ILogger<TfsWorkItemCommentSource> _logger;
+    private readonly ApiAvailability _availability;
 
-    internal TfsWorkItemCommentSource(FetchPage fetchPage, ILogger<TfsWorkItemCommentSource> logger, FetchVersions? fetchVersions = null)
+    internal TfsWorkItemCommentSource(FetchPage fetchPage, ILogger<TfsWorkItemCommentSource> logger, FetchVersions? fetchVersions = null, ApiAvailability? availability = null)
     {
         _fetchPage = fetchPage ?? throw new ArgumentNullException(nameof(fetchPage));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _fetchVersions = fetchVersions;
+        _availability = availability ?? new ApiAvailability();
     }
+
+    private static CommentsApiUnavailableException Unavailable(Exception? inner = null) => new(
+        "This TFS server does not serve the work item comments API (Azure DevOps Server 2019 Update 1 or later). " +
+        "Comments are exported from each revision's History; there are no comment edits to export.", inner);
 
     /// <inheritdoc/>
     public async IAsyncEnumerable<WorkItemComment> GetCommentsAsync(
@@ -48,6 +66,9 @@ internal sealed class TfsWorkItemCommentSource : IWorkItemCommentSource
         bool includeDeleted,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
+        if (_availability.Missing)
+            throw Unavailable();
+
         string? continuationToken = null;
         while (!cancellationToken.IsCancellationRequested)
         {
@@ -62,9 +83,8 @@ internal sealed class TfsWorkItemCommentSource : IWorkItemCommentSource
             // skips; any other failure fails the revision.
             catch (Exception ex) when (IsCommentsApiMissing(ex))
             {
-                throw new CommentsApiUnavailableException(
-                    "This TFS server does not serve the work item comments API (Azure DevOps Server 2019 Update 1 or later). " +
-                    "Comments are exported from each revision's History; there are no comment edits to export.", ex);
+                _availability.MarkMissing();
+                throw Unavailable(ex);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
