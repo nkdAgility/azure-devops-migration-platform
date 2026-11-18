@@ -200,6 +200,74 @@ public sealed class NodePathValidatorTests
         Assert.AreEqual(0, findings.Count);
     }
 
+    // #169 live E2E: Prepare checked the raw source path (SourceProject\Team A) on the target.
+    // It must check the path the import will write, after node translation.
+    private static Mock<IPackageAccess> PackageWithOneRevision(string areaPath)
+    {
+        const string revision = "WorkItems/2026-11-16/638990000000000000-256-0/revision.json";
+        var package = PackageTestFactory.CreateLooseMock();
+        package
+            .Setup(p => p.EnumerateContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext _, CancellationToken _) => EnumerateManyAsync([revision]));
+        package
+            .Setup(p => p.RequestContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext _, CancellationToken _) => ValueTask.FromResult<PackagePayload?>(CreatePayload(new WorkItemRevision
+            {
+                Fields = [new WorkItemField { ReferenceName = "System.AreaPath", Value = areaPath }]
+            })));
+        return package;
+    }
+
+    private static Mock<INodeTranslationTool> Translation(bool autoCreate)
+    {
+        var tool = new Mock<INodeTranslationTool>();
+        tool.SetupGet(t => t.IsEnabled).Returns(true);
+        tool.SetupGet(t => t.AutoCreateNodes).Returns(autoCreate);
+        tool.Setup(t => t.TranslatePath("System.AreaPath", @"SourceProject\Team A", It.Is<ProjectMapping>(m =>
+                m.SourceProjectName == "SourceProject" && m.TargetProjectName == "ProjectA")))
+            .Returns(new PathTranslation(@"ProjectA\Team A", true, false, false));
+        return tool;
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task EvaluateAsync_ChecksTheTranslatedTargetPath_NotTheSourcePath()
+    {
+        var package = PackageWithOneRevision(@"SourceProject\Team A");
+        var nodeCreator = new Mock<INodeCreator>(MockBehavior.Strict);
+        nodeCreator
+            .Setup(n => n.NodeExistsAsync(ClassificationNodeType.Area, @"ProjectA\Team A", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var sut = new NodePathValidator(nodeCreator.Object, nodeTranslation: Translation(autoCreate: false).Object);
+
+        var findings = await sut.EvaluateAsync(
+            new ImportFailurePatternContext(CreatePrepareContext(package.Object), new WorkItemsModuleOptions(), "testorg", "SourceProject"),
+            CancellationToken.None);
+
+        Assert.AreEqual(@"System.AreaPath|ProjectA\Team A", findings.Single().EvidenceKey);
+        nodeCreator.VerifyAll();
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task EvaluateAsync_AutoCreateNodes_MissingTargetNodeIsNotBlocking()
+    {
+        var package = PackageWithOneRevision(@"SourceProject\Team A");
+        var nodeCreator = new Mock<INodeCreator>(MockBehavior.Strict);
+
+        var sut = new NodePathValidator(nodeCreator.Object, nodeTranslation: Translation(autoCreate: true).Object);
+
+        var findings = await sut.EvaluateAsync(
+            new ImportFailurePatternContext(CreatePrepareContext(package.Object), new WorkItemsModuleOptions(), "testorg", "SourceProject"),
+            CancellationToken.None);
+
+        Assert.AreEqual(0, findings.Count, "Import creates missing nodes when AutoCreateNodes is on.");
+        nodeCreator.VerifyNoOtherCalls();
+    }
+
     private static PrepareContext CreatePrepareContext(IPackageAccess package)
     {
         var targetEndpoint = new Mock<ITargetEndpointInfo>();

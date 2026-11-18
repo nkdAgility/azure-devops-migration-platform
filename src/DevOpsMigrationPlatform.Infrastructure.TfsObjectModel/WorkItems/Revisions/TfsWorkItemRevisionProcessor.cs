@@ -56,7 +56,7 @@ public class TfsWorkItemRevisionProcessor : IWorkItemRevisionProcessor
             fields.Add(new WorkItemField
             {
                 ReferenceName = field.ReferenceName,
-                Value = field.Value?.ToString()
+                Value = TfsFieldValueFormatter.Format(field.Value)
             });
         }
 
@@ -79,7 +79,9 @@ public class TfsWorkItemRevisionProcessor : IWorkItemRevisionProcessor
                     case ExternalLink e:
                         externalLinks.Add(new ExternalWorkItemLink
                         {
-                            ArtifactLinkType = e.ArtifactLinkType.ToString(),
+                            // Package link names match the Azure DevOps export: ToString() on these
+                            // SDK objects gives the .NET type name, which no target accepts (#171).
+                            ArtifactLinkType = e.ArtifactLinkType.Name,
                             Comment = string.IsNullOrEmpty(e.Comment) ? null : e.Comment,
                             LinkedArtifactUri = e.LinkedArtifactUri
                         });
@@ -88,9 +90,9 @@ public class TfsWorkItemRevisionProcessor : IWorkItemRevisionProcessor
                     case RelatedLink r:
                         relatedLinks.Add(new RelatedWorkItemLink
                         {
-                            ArtifactLinkType = r.ArtifactLinkType.ToString(),
+                            ArtifactLinkType = RelationName(r.LinkTypeEnd),
                             Comment = string.IsNullOrEmpty(r.Comment) ? null : r.Comment,
-                            LinkTypeEnd = r.LinkTypeEnd.ToString(),
+                            LinkTypeEnd = RelationName(r.LinkTypeEnd),
                             RelatedWorkItemId = r.RelatedWorkItemId
                         });
                         break;
@@ -98,7 +100,7 @@ public class TfsWorkItemRevisionProcessor : IWorkItemRevisionProcessor
                     case Hyperlink h:
                         hyperlinks.Add(new HyperlinkWorkItemLink
                         {
-                            ArtifactLinkType = h.ArtifactLinkType.ToString(),
+                            ArtifactLinkType = "Hyperlink",
                             Comment = string.IsNullOrEmpty(h.Comment) ? null : h.Comment,
                             Location = h.Location
                         });
@@ -183,4 +185,12 @@ public class TfsWorkItemRevisionProcessor : IWorkItemRevisionProcessor
             _ => null
         };
     }
+
+    /// <summary>
+    /// The relation name Azure DevOps uses: a directional link names its end
+    /// (System.LinkTypes.Hierarchy-Forward); a non-directional one names the link type
+    /// (System.LinkTypes.Related, not its end's Related-Forward).
+    /// </summary>
+    private static string RelationName(WorkItemLinkTypeEnd end) =>
+        end.LinkType.IsDirectional ? end.ImmutableName : end.LinkType.ReferenceName;
 }

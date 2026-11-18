@@ -52,4 +52,60 @@ public interface IJobStore
     /// Updates the tracked state for a job (e.g. Queued → Leased → Running → Completed/Failed).
     /// </summary>
     void SetState(Guid jobId, string state);
+
+    /// <summary>
+    /// Sets the state and returns true only when this call changed it: a job already Completed
+    /// or Failed keeps its final state and the call returns false (PR #222 review). Callers that
+    /// publish a terminal outcome do so only when this returns true.
+    /// </summary>
+    bool TrySetState(Guid jobId, string state);
+
+    /// <summary>
+    /// Runs <paramref name="write"/> only while the job has not finished, atomically with
+    /// terminal transitions, and returns whether it ran. A worker event's store writes use it so
+    /// nothing is added to a job after it reached Completed or Failed (PR #222 review).
+    /// </summary>
+    bool RunIfActive(Guid jobId, Action write);
+
+    /// <summary>
+    /// Returns the state of a parent job, built from the children that carry its id
+    /// (<see cref="Job.ParentJobId"/>): Failed if any child failed, Completed when every
+    /// child completed, Queued while no child has started, otherwise Running.
+    /// Returns <c>null</c> when no child carries the id.
+    /// </summary>
+    string? GetParentState(Guid parentJobId);
+
+    /// <summary>
+    /// Records that an agent advertising <paramref name="capabilities"/> asked for work now.
+    /// Lease polls are the Control Plane's only sign of which agents are connected.
+    /// </summary>
+    void RecordAgentPoll(IReadOnlyList<ConnectorType> capabilities);
+
+    /// <summary>
+    /// Records that the agent holding <paramref name="jobId"/>'s lease is alive (it sent worker
+    /// events). An agent running a job does not poll, so its lease counts as a connected agent
+    /// only while this activity is recent.
+    /// </summary>
+    void RecordLeaseActivity(Guid jobId);
+
+    /// <summary>
+    /// Fails every job that has been leasable for at least <paramref name="timeout"/> while no
+    /// agent able to serve its connectors asked for work within that time (#169, ADR-0035).
+    /// Returns each failed job with an actionable reason. Held jobs are never failed here.
+    /// </summary>
+    IReadOnlyList<(Guid JobId, string Reason)> FailUnservableJobs(TimeSpan timeout);
+
+    /// <summary>
+    /// Fails every leased, unfinished job whose agent sent no heartbeat or worker event within
+    /// <paramref name="timeout"/>: the agent has stopped, so the job would otherwise stay leased
+    /// for ever (#171). Its dependents fail with it; a re-run resumes the work.
+    /// </summary>
+    IReadOnlyList<(Guid JobId, string Reason)> FailSilentLeases(TimeSpan timeout);
+
+    /// <summary>
+    /// Raised when the Control Plane itself fails a job, which no agent will report: its
+    /// dependency failed, no connected agent can serve it, or its agent went silent mid-job.
+    /// Carries the job id and an actionable reason.
+    /// </summary>
+    event Action<Guid, string>? JobFailedWithoutRunning;
 }

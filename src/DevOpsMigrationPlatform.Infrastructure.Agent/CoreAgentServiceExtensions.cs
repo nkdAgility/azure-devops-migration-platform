@@ -14,6 +14,7 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using OpenTelemetry.Metrics;
 using System.Net.Http;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent;
@@ -88,6 +89,19 @@ public static class CoreAgentServiceExtensions
     {
         services.AddAgentTelemetryServices(configuration);
         services.AddAgentJobMetricsServices();
+        // The agent's own snapshot exporter (Martin, 2026-11-18; ADR-0020): it turns the agent's
+        // counters into JobMetrics in the agent's store, which ControlPlaneTelemetryTimer and the
+        // final pre-terminal flush push through the worker-event channel. It counts the current
+        // job only, because counters are cumulative across the jobs an agent runs.
+        var telemetryOptions = new DevOpsMigrationPlatform.Abstractions.TelemetryOptions();
+        configuration.GetSection(DevOpsMigrationPlatform.Abstractions.TelemetryOptions.SectionName).Bind(telemetryOptions);
+        var snapshotIntervalMs = Math.Max(1, telemetryOptions.SnapshotIntervalSeconds) * 1_000;
+        services.ConfigureOpenTelemetryMeterProvider((sp, meters) => meters.AddReader(
+            new OpenTelemetry.Metrics.PeriodicExportingMetricReader(
+                new DevOpsMigrationPlatform.Infrastructure.Telemetry.SnapshotMetricExporter(
+                    sp.GetRequiredService<DevOpsMigrationPlatform.Abstractions.Telemetry.IJobMetricsStore>(),
+                    () => sp.GetRequiredService<ActivePackageState>().CurrentJob?.JobId),
+                snapshotIntervalMs)));
         services.AddDiagnosticsServices(controlPlaneBaseUrl);
         services.AddSingleton<PackageProgressSink>();
         services.AddSingleton<IHostedService>(sp => sp.GetRequiredService<PackageProgressSink>());
@@ -118,6 +132,13 @@ public static class CoreAgentServiceExtensions
         services.AddSingleton<UnifiedWorkerEventWriter>();
         services.AddHostedService(sp => sp.GetRequiredService<UnifiedWorkerEventWriter>());
         services.AddSingleton<IFlushable>(sp => sp.GetRequiredService<UnifiedWorkerEventWriter>());
+        // Final metrics before the terminal state (#171): collect now instead of waiting for the
+        // next export cycle, so the job's counts reach the Control Plane before it reads Completed.
+        services.AddSingleton(sp => new JobMetricsFinalFlush(
+            sp.GetRequiredService<DevOpsMigrationPlatform.Abstractions.Telemetry.IJobMetricsStore>(),
+            sp.GetRequiredService<UnifiedWorkerEventWriter>(),
+            sp.GetService<OpenTelemetry.Metrics.MeterProvider>() is { } meters ? (Action)(() => OpenTelemetry.Metrics.MeterProviderExtensions.ForceFlush(meters, 5_000)) : null));
+        services.AddSingleton<IFlushable>(sp => sp.GetRequiredService<JobMetricsFinalFlush>());
         // Canonical worker-event port (ADR-0023 / CA-C1): workers depend on the
         // IWorkerEventSink contract, resolved to the same singleton channel.
         services.AddSingleton<DevOpsMigrationPlatform.Abstractions.Agent.Telemetry.IWorkerEventSink>(

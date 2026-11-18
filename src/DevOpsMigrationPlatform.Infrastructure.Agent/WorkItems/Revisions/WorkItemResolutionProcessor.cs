@@ -41,6 +41,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Revisions;
 /// </summary>
 public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
 {
+
     private readonly IWorkItemTarget _target;
     private readonly IIdMapStore _idMapStore;
     private readonly ICheckpointingService _checkpointing;
@@ -206,15 +207,21 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
         revActivity?.SetTag("workitem.id", revision.WorkItemId);
         revActivity?.SetTag("revision.index", revision.RevisionIndex);
 
-        // Stage A — CreatedOrUpdated
-        if (WorkItemRevisionStagePipeline.ShouldRunStage(CursorStage.CreatedOrUpdated, resumeAtStage))
+        // One source revision = one save on the target (#169). Resolve the target item (no write),
+        // prepare the revision once, then either create the item from the whole revision or apply
+        // the revision to the existing item. The cursor moves past both stages after that save.
+        if (WorkItemRevisionStagePipeline.ShouldRunStage(CursorStage.AppliedFields, resumeAtStage))
         {
-            _logger.LogDebug("[WorkItems] Stage marker: {Stage} for {Folder}", CursorStage.CreatedOrUpdated, folderPath);
+            _logger.LogDebug("[WorkItems] Stage marker: {Stage} for {Folder}", CursorStage.AppliedFields, folderPath);
             var targetId = await _idMapStore.GetTargetWorkItemIdAsync(revision.WorkItemId, ct).ConfigureAwait(false);
 
             if (targetId is null)
             {
                 targetId = await resolutionStrategy.ResolveSingleAsync(revision.WorkItemId, ct).ConfigureAwait(false);
+                // The strategy found the item on the target (e.g. from a provenance field): save
+                // the mapping so this and later revisions, links and resumes find it.
+                if (targetId is not null)
+                    await _idMapStore.SetWorkItemMappingAsync(revision.WorkItemId, targetId.Value, ct).ConfigureAwait(false);
             }
             else
             {
@@ -230,46 +237,10 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
                 }
             }
 
-            if (targetId is null)
-            {
-                var workItemType = GetWorkItemType(importFields);
-                var createFields = importFields
-                    .Where(field =>
-                        !string.Equals(field.ReferenceName, "System.TeamProject", StringComparison.OrdinalIgnoreCase) &&
-                        !string.Equals(field.ReferenceName, "System.State", StringComparison.OrdinalIgnoreCase))
-                    .ToArray();
-                var result = await _target.CreateWorkItemAsync(workItemType, createFields, ct).ConfigureAwait(false);
-                targetId = result.TargetWorkItemId;
-                await _idMapStore.SetWorkItemMappingAsync(revision.WorkItemId, targetId.Value, ct).ConfigureAwait(false);
-                await resolutionStrategy.WriteProvenanceAsync(revision.WorkItemId, targetId.Value, ct).ConfigureAwait(false);
-                _logger.LogDebug("[WorkItems] Created target WI {TargetId} for source {SourceId}", targetId, revision.WorkItemId);
-            }
-            else
-            {
-                _logger.LogDebug("[WorkItems] Source {SourceId} already mapped to target {TargetId} — updating.", revision.WorkItemId, targetId);
-            }
-
-            await WriteCursorAsync(folderPath, CursorStage.CreatedOrUpdated, ct).ConfigureAwait(false);
-        }
-
-        // Resolve target ID for remaining stages
-        var resolvedTargetId = await _idMapStore.GetTargetWorkItemIdAsync(revision.WorkItemId, ct).ConfigureAwait(false)
-            ?? throw new InvalidOperationException($"No target ID mapping for source work item {revision.WorkItemId} after Stage A.");
-
-        // Stage B — AppliedFields (combined: fields + links + attachments in a single PATCH)
-        // On resume, AppliedLinks and UploadedAttachments cursors from previous runs are treated as
-        // equivalent to AppliedFields (all three are now subsumed). ShouldRunStage uses lexicographic
-        // ordering: if resumeAtStage >= AppliedFields this block is skipped, which covers all three
-        // old cursor values since AppliedLinks > AppliedFields and UploadedAttachments > AppliedLinks.
-        if (WorkItemRevisionStagePipeline.ShouldRunStage(CursorStage.AppliedFields, resumeAtStage))
-        {
-            _logger.LogDebug("[WorkItems] Stage marker: {Stage} for {Folder}", CursorStage.AppliedFields, folderPath);
-            // Identity resolution — NOTE: IIdentityMappingService.Resolve is synchronous per the existing interface.
-            // Full identity mapping logic is added in T031 (US4). For now, pass fields as-is.
+            // Prepare the revision: identity resolution, embedded images, node path translation.
             var identityResolutionContext = new IdentityResolutionContext();
             var fields = ApplyIdentityResolution(importFields, identityResolutionContext);
 
-            // Embedded images — upload and rewrite URLs if extension enabled
             if (_embeddedImagesEnabled && revision.EmbeddedImages.Count > 0)
             {
                 fields = await _embeddedImageReplayService
@@ -277,7 +248,6 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
                     .ConfigureAwait(false);
             }
 
-            // NodeTranslation path translation
             if (_nodeStructureTool != null && _nodeStructureTool.IsEnabled && _nodeTranslationContext != null)
             {
                 if (!TryApplyNodeTranslation(fields, _nodeTranslationContext, out var translatedFields))
@@ -290,28 +260,61 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
                 fields = translatedFields;
             }
 
-            // Pre-step: upload all attachment binaries (separate POST calls — returns URLs)
             var availableBinaryPaths = await EnumerateAttachmentBinariesAsync(folderPath, ct).ConfigureAwait(false);
             var replayService = new AttachmentReplayService(
                 _target,
                 _idMapStore,
                 _logger as ILogger<AttachmentReplayService> ?? NullLogger<AttachmentReplayService>.Instance);
-            var attachmentResults = await replayService.UploadBinariesAsync(
-                revision, folderPath, resolvedTargetId, ReadPackageBinaryAsync, availableBinaryPaths, ct)
-                .ConfigureAwait(false);
 
-            // Single PATCH: fields + all link relations + all attachment relations
-            await _target.ApplyRevisionAsync(
-                resolvedTargetId,
-                fields,
-                revision.RelatedLinks,
-                revision.ExternalLinks,
-                revision.Hyperlinks,
-                attachmentResults,
-                ct).ConfigureAwait(false);
+            // Related links name source work items; the target needs their target IDs. A link to
+            // an item not imported yet is made when that item arrives, from its reverse link.
+            var relatedLinks = await MapRelatedLinksAsync(revision.RelatedLinks, ct).ConfigureAwait(false);
+
+            if (targetId is null)
+            {
+                // New item: create it from the whole revision in one save, including the strategy's
+                // provenance marker so it is not written by a second save (#169).
+                var provenance = resolutionStrategy.ProvenanceFor(revision.WorkItemId);
+                var result = await _target.CreateFromRevisionAsync(
+                    GetWorkItemType(importFields),
+                    fields.Concat(provenance.Fields).ToList(),
+                    relatedLinks,
+                    revision.ExternalLinks,
+                    revision.Hyperlinks.Concat(provenance.Hyperlinks).ToList(),
+                    replayService.BuildPendingAttachments(revision, folderPath, ReadPackageBinaryAsync, availableBinaryPaths),
+                    ct).ConfigureAwait(false);
+                await _idMapStore.SetWorkItemMappingAsync(revision.WorkItemId, result.TargetWorkItemId, ct).ConfigureAwait(false);
+                // Save the stored attachments before the cursor moves, so a resume of this
+                // revision reuses them instead of uploading the binaries again.
+                foreach (var created in result.CreatedAttachments)
+                {
+                    await _idMapStore.SetAttachmentMappingAsync(
+                        revision.WorkItemId, revision.RevisionIndex, created.RelativePath, created.AttachmentId, ct).ConfigureAwait(false);
+                }
+                _logger.LogDebug("[WorkItems] Created target WI {TargetId} for source {SourceId}", result.TargetWorkItemId, revision.WorkItemId);
+            }
+            else
+            {
+                // Existing item: upload the binaries, then apply the revision in one save.
+                var attachmentResults = await replayService.UploadBinariesAsync(
+                    revision, folderPath, targetId.Value, ReadPackageBinaryAsync, availableBinaryPaths, ct)
+                    .ConfigureAwait(false);
+                await _target.ApplyRevisionAsync(
+                    targetId.Value,
+                    fields,
+                    relatedLinks,
+                    revision.ExternalLinks,
+                    revision.Hyperlinks,
+                    attachmentResults,
+                    ct).ConfigureAwait(false);
+            }
 
             await WriteCursorAsync(folderPath, CursorStage.AppliedFields, ct).ConfigureAwait(false);
         }
+
+        // Target ID for the extension stages (set by the save above, or by an earlier run).
+        var resolvedTargetId = await _idMapStore.GetTargetWorkItemIdAsync(revision.WorkItemId, ct).ConfigureAwait(false)
+            ?? throw new InvalidOperationException($"No target ID mapping for source work item {revision.WorkItemId} after the revision save.");
 
         // Extension stages — comments and any injected stages.
         // AppliedLinks and UploadedAttachments are intentionally omitted from the default list:
@@ -330,6 +333,16 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
             IdMapStore = _idMapStore,
             ReadBinaryAsync = ReadPackageBinaryAsync,
             ReadTextAsync = ReadPackageTextAsync,
+            RewriteEmbeddedImagesAsync = _embeddedImagesEnabled
+                ? async (text, images, token) =>
+                {
+                    // Same replay as revision fields: upload each captured image, swap its URL.
+                    var rewritten = await _embeddedImageReplayService
+                        .RewriteFieldValuesAsync([new WorkItemField { ReferenceName = "Comment.Text", Value = text }], images, folderPath, ReadPackageBinaryAsync, token)
+                        .ConfigureAwait(false);
+                    return rewritten[0].Value ?? text;
+                }
+                : null,
         };
 
         IReadOnlyList<WorkItemRevisionStage> extensionStages = _injectedExtensionStages ??
@@ -427,6 +440,27 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
     }
 
     // --- Helpers ---
+
+    /// <summary>
+    /// The revision's related links with each source ID replaced by its target ID. Links whose
+    /// item has no target mapping yet are left out; that item's own revision adds the link.
+    /// </summary>
+    private async Task<IReadOnlyList<RelatedWorkItemLink>> MapRelatedLinksAsync(
+        IReadOnlyList<RelatedWorkItemLink> links, CancellationToken ct)
+    {
+        var mapped = new List<RelatedWorkItemLink>(links.Count);
+        foreach (var link in links)
+        {
+            var targetId = await _idMapStore.GetTargetWorkItemIdAsync(link.RelatedWorkItemId, ct).ConfigureAwait(false);
+            if (targetId is null)
+            {
+                _logger.LogDebug("[WorkItems] Link to source WI {SourceId} waits until that item is imported.", link.RelatedWorkItemId);
+                continue;
+            }
+            mapped.Add(link with { RelatedWorkItemId = targetId.Value });
+        }
+        return mapped;
+    }
 
     private static string GetWorkItemType(IReadOnlyList<WorkItemField> fields)
     {

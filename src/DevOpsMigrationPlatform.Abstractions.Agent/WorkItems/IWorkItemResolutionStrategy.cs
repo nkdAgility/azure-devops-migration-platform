@@ -30,10 +30,8 @@ public interface IWorkItemResolutionStrategy
     Task<int?> ResolveSingleAsync(int sourceWorkItemId, CancellationToken ct);
 
     /// <summary>
-    /// After creating a new work item in the target, write the provenance marker
-    /// (e.g. a custom field value or hyperlink) so that the mapping is discoverable
-    /// in future import runs.
-    /// A no-op implementation is acceptable when no provenance tracking is configured.
+    /// The provenance marker for a source work item (#169), written as part of the single save that
+    /// creates the target item: a field, a hyperlink, or nothing. Must not write to the target.
     /// </summary>
-    Task WriteProvenanceAsync(int sourceWorkItemId, int targetWorkItemId, CancellationToken ct);
+    ImportProvenance ProvenanceFor(int sourceWorkItemId);
 }

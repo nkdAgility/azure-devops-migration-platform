@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using DevOpsMigrationPlatform.Abstractions.Options;
 using System;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -47,6 +48,12 @@ public static class TfsObjectModelModuleServiceExtensions
         // TFS adapter implementations for module contracts.
         services.AddSingleton<IClassificationTreeCapture, TfsClassificationTreeCapture>();
         services.AddSingleton<IWorkItemRevisionSourceFactory, TfsActiveJobWorkItemRevisionSourceFactory>();
+        // Attachment binaries for export, from the active job (#171).
+        services.TryAddSingleton<global::DevOpsMigrationPlatform.Abstractions.Agent.Attachments.IAttachmentBinarySource,
+            Attachments.TfsActiveJobAttachmentBinarySource>();
+        // Selection pass (query and filters) for export, from the active job (#171).
+        services.TryAddSingleton<global::DevOpsMigrationPlatform.Abstractions.Agent.Export.IWorkItemFetchService,
+            WorkItems.Revisions.TfsActiveJobWorkItemFetchService>();
         services.AddSingleton<IIdentitySource, TfsActiveJobIdentitySource>();
         // TFS identity adapter (reduced capability: empty + Warning) for full connector coverage (FR-019).
         // Registered via the keyed composite dispatch seam so identity lookups route by connector type.
@@ -58,6 +65,10 @@ public static class TfsObjectModelModuleServiceExtensions
             TfsConnectorCapabilityProvider>();
         services.AddSingleton<global::DevOpsMigrationPlatform.Abstractions.Agent.Teams.ITeamBoardAdapter,
             TfsNullBoardAdapter>();
+        // Comment edits and deletes for the Comments extension (#171): the capability provider
+        // declares WorkItemComments, so the extension needs a comment source.
+        services.TryAddSingleton<global::DevOpsMigrationPlatform.Abstractions.Agent.Export.IWorkItemCommentSourceFactory,
+            WorkItems.Comments.TfsWorkItemCommentSourceFactory>();
         services.AddSingleton<INodeCreator, TfsActiveJobNodeCreator>();
         services.AddSingleton<TfsActiveJobWorkItemTypeReadinessTargetFactory>();
         services.TryAddSingleton<IWorkItemTypeReadinessTargetFactory>(sp => sp.GetRequiredService<TfsActiveJobWorkItemTypeReadinessTargetFactory>());
@@ -102,24 +113,31 @@ public static class TfsObjectModelModuleServiceExtensions
     /// not at DI resolution time, so that it works for Import jobs where no
     /// TFS Object Model connection is established.
     /// </summary>
-    private sealed class DeferredTfsSourceEndpointInfo : ISourceEndpointInfo
+    internal sealed class DeferredTfsSourceEndpointInfo : ISourceEndpointInfo
     {
-        private readonly ActiveTfsJobServices _activeServices;
+        private readonly Func<MigrationEndpointOptions?> _endpoint;
 
         public DeferredTfsSourceEndpointInfo(ActiveTfsJobServices activeServices)
-            => _activeServices = activeServices;
+            : this(() => activeServices.Current?.Endpoint)
+        {
+        }
+
+        internal DeferredTfsSourceEndpointInfo(Func<MigrationEndpointOptions?> endpoint)
+            => _endpoint = endpoint ?? throw new ArgumentNullException(nameof(endpoint));
 
         public string Url
-            => _activeServices.Current?.Endpoint.GetResolvedUrl() ?? string.Empty;
+            => _endpoint()?.GetResolvedUrl() ?? string.Empty;
 
         public string Project
-            => _activeServices.Current?.Endpoint.GetProject() ?? string.Empty;
+            => _endpoint()?.GetProject() ?? string.Empty;
 
         public string ConnectorType => "TeamFoundationServer";
 
         public string OrganisationSlug => OrganisationEndpointSlug.ExtractSlug(Url);
 
+        // The active job's endpoint, credentials included (#169): consumers such as the embedded
+        // image downloader authenticate to the source with it.
         public OrganisationEndpoint ToOrganisationEndpoint()
-            => new OrganisationEndpoint { ResolvedUrl = Url, Type = ConnectorType };
+            => _endpoint()?.ToOrganisationEndpoint() ?? new OrganisationEndpoint { ResolvedUrl = Url, Type = ConnectorType };
     }
 }

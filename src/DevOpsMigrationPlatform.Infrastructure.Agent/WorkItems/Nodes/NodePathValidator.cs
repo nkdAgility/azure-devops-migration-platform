@@ -11,9 +11,15 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Revisions;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Nodes;
 
+/// <summary>
+/// Blocks Prepare when a work item's area or iteration path will not exist on the target.
+/// It checks the path the import will write: the source path after node translation (#169).
+/// When AutoCreateNodes is on, the import creates missing nodes, so none is blocking.
+/// </summary>
 internal sealed class NodePathValidator(
     INodeCreator nodeCreator,
-    IWorkItemRevisionReader? revisionReader = null) : IImportFailurePattern
+    IWorkItemRevisionReader? revisionReader = null,
+    INodeTranslationTool? nodeTranslation = null) : IImportFailurePattern
 {
     private readonly IWorkItemRevisionReader _revisionReader =
         revisionReader ?? new WorkItemsPrepareRevisionReader();
@@ -58,6 +64,18 @@ internal sealed class NodePathValidator(
                 }
             }
         }
+
+        if (nodeTranslation is { IsEnabled: true, AutoCreateNodes: true })
+            return [];
+
+        var mapping = new ProjectMapping(context.Project, context.PrepareContext.TargetEndpoint?.Project ?? context.Project);
+        string ToTarget(string fieldName, string sourcePath) =>
+            nodeTranslation is { IsEnabled: true }
+                ? nodeTranslation.TranslatePath(fieldName, sourcePath, mapping).TargetPath ?? sourcePath
+                : sourcePath;
+
+        areaPaths = new HashSet<string>(areaPaths.Select(p => ToTarget("System.AreaPath", p)), System.StringComparer.OrdinalIgnoreCase);
+        iterationPaths = new HashSet<string>(iterationPaths.Select(p => ToTarget("System.IterationPath", p)), System.StringComparer.OrdinalIgnoreCase);
 
         var findings = new List<ImportFailureFinding>();
         findings.AddRange(await EvaluateNodeTypeAsync(

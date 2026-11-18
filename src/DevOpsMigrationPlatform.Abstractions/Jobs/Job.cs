@@ -36,6 +36,19 @@ public class Job
     /// </summary>
     public ConnectorType[] Connectors { get; init; } = [];
 
+    /// <summary>
+    /// When set, this job is one child of a parent job (ADR-0035). The parent has no job of
+    /// its own: its status is built by the Control Plane from the children that carry its id.
+    /// </summary>
+    public string? ParentJobId { get; init; }
+
+    /// <summary>
+    /// When set, the Control Plane holds this job until the job with this id has completed,
+    /// and fails it without running if that job fails (ADR-0035). The dependency is generic:
+    /// the Control Plane does not know what either job does.
+    /// </summary>
+    public string? DependsOnJobId { get; init; }
+
     /// <summary>Optional diagnostics configuration for the agent's log sinks.</summary>
     public JobDiagnostics? Diagnostics { get; init; }
 

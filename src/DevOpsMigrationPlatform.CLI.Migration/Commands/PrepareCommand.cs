@@ -123,7 +123,7 @@ public sealed class PrepareCommand : ControlPlaneCommandBase<MigrationCommandSet
 
         if (jobFailed)
         {
-            console.MarkupLine($"[red]✗[/] Prepare job failed: {Markup.Escape(failureReason ?? "Job failed on the agent.")}");
+            console.MarkupLine($"[red]✗[/] Prepare job failed: {Markup.Escape(failureReason ?? "Job failed. The reason is in the messages above.")}");
             return 1;
         }
 

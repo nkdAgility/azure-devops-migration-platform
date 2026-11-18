@@ -71,6 +71,8 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
     private readonly IPlatformMetrics? _metrics;
     private readonly IOptions<WorkItemsModuleOptions> _options;
     private readonly ISourceEndpointInfo _sourceEndpointInfo;
+    private readonly IEmbeddedImageDownloader? _embeddedImageDownloader;
+    private readonly ILoggerFactory? _loggerFactory;
 
     // Import deps (absorbed from WorkItemsImportRuntime)
     private readonly IWorkItemTargetFactory _importTargetFactory;
@@ -111,9 +113,13 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
         IOptions<NodesModuleOptions>? nodesModuleOptions = null,
         IInventoryOrchestrator? inventoryOrchestrator = null,
         IRepoDiscoveryService? repoDiscoveryService = null,
-        IProjectInventoryWriter? projectInventory = null)
+        IProjectInventoryWriter? projectInventory = null,
+        IEmbeddedImageDownloader? embeddedImageDownloader = null,
+        ILoggerFactory? loggerFactory = null)
     {
         _projectInventory = projectInventory ?? new Infrastructure.Agent.Discovery.ProjectInventoryFileStore();
+        _embeddedImageDownloader = embeddedImageDownloader;
+        _loggerFactory = loggerFactory;
         _sourceFactory = sourceFactory ?? throw new ArgumentNullException(nameof(sourceFactory));
         _attachmentBinarySource = attachmentBinarySource;
         _fetchService = fetchService;
@@ -331,7 +337,6 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
         var orgSlug = _sourceEndpointInfo.OrganisationSlug;
         var project = _sourceEndpointInfo.Project;
 
-#if !NET481
         var ext = WorkItemsModuleExtensions.FromOptions(_options.Value);
 
         using (_logger.BeginDataScope(DataClassification.Customer))
@@ -348,30 +353,23 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
 
         var allFilters = ext.IncludeFilters.Concat(ext.ExcludeFilters).ToList();
 
-        if (allFilters.Count > 0 && _fetchService == null)
-            _logger.LogWarning("[WorkItems] IncludeFilters/ExcludeFilters are configured but no IWorkItemFetchService is registered — filters will be ignored and all work items will be exported. Register a connector-specific IWorkItemFetchService to enable filtered export.");
-#else
-        _logger.LogInformation("[WorkItems] Exporting from {OrgUrl}/{Project} (attachments=true, comments=false)", orgUrl, project);
-        var wiqlQuery = (string?)null;
-        var discoveryService481 = _discoveryService;
-        var allFilters = new List<WorkItemFieldFilterOptions>();
-#endif
+        var customQuery = !string.Equals(ext.Query, WorkItemsModuleExtensions.DefaultWiqlQuery, StringComparison.OrdinalIgnoreCase);
+        if ((allFilters.Count > 0 || customQuery) && _fetchService == null)
+            _logger.LogWarning("[WorkItems] A selection query or filters are configured but no IWorkItemFetchService is registered — they will be ignored and all work items will be exported. Register a connector-specific IWorkItemFetchService to enable selected export.");
 
+        // The source applies the selection query as it streams (PR #222 review).
         var source = await _sourceFactory
-            .CreateAsync(ct)
+            .CreateAsync(customQuery ? ext.Query : null, ct)
             .ConfigureAwait(false);
 
-#if !NET481
         if (_referencedPathTracker is null)
             _logger.LogWarning("[WorkItems] IReferencedPathLifecycle is not available — referenced path tracking will be skipped.");
 
         if (_referencedPathTracker is not null)
             await _referencedPathTracker.InitializeAsync(context.Package, orgSlug, project, ct).ConfigureAwait(false);
-#endif
 
         var checkpointingService = _checkpointingFactory.Create(context.Package);
 
-#if !NET481
         // Attachment binary download is always-on inline behaviour; pass _attachmentBinarySource directly.
         // Only CommentsWorkItemExtension remains as an extension-based facet.
         var exportExtensions = new List<IModuleExtension>
@@ -379,26 +377,32 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
             _commentsExtension
         };
         var sourceEndpoint = context.Organisations.Count > 0 ? context.Organisations[0].Endpoint : null;
-#endif
 
+        // Embedded images (#169, #154): capture source-hosted images into the package when the
+        // connector provides a downloader and the config enables them.
+        var imageExport = _embeddedImageDownloader != null && _options.Value.Data.EmbeddedImages.Enabled
+            ? new Infrastructure.Agent.Export.EmbeddedImageExportService(
+                _embeddedImageDownloader,
+                context.Package,
+                _sourceEndpointInfo,
+                _loggerFactory?.CreateLogger<Infrastructure.Agent.Export.EmbeddedImageExportService>()
+                    ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<Infrastructure.Agent.Export.EmbeddedImageExportService>.Instance)
+            : null;
         var orchestrator = _exportOrchestratorFactory.Create(
             context.Package,
             orgSlug,
             project,
             checkpointingService,
-#if !NET481
             _attachmentBinarySource,
-#else
-            _attachmentBinarySource,
-#endif
             context.ProgressSink,
-            fetchService: allFilters.Count > 0 ? _fetchService : null,
+            // Always forwarded: the export orchestrator runs its selection pass for filters or a
+            // configured query (#171), and skips it otherwise.
+            fetchService: _fetchService,
             filterOptions: allFilters.Count > 0 ? allFilters : null,
             metrics: _metrics,
             jobId: job.JobId,
             logger: _logger,
             taskId: context.TaskId,
-#if !NET481
             wiqlQuery: ext.Query,
             discoveryService: _discoveryService,
             exportProgressStoreFactory: _exportProgressStoreFactory,
@@ -406,12 +410,8 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
             referencedPathTracker: _referencedPathTracker,
             exportExtensions: exportExtensions,
             endpoint: sourceEndpoint
-#else
-            wiqlQuery: wiqlQuery,
-            discoveryService: discoveryService481,
-            exportProgressStoreFactory: _exportProgressStoreFactory,
-            packageUri: null
-#endif
+            , embeddedImageExport: imageExport
+            , sourceOrganisationEndpoint: _sourceEndpointInfo.ToOrganisationEndpoint()
             );
 
         await orchestrator.ExportAsync(source, ct).ConfigureAwait(false);
@@ -739,19 +739,23 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
                     {
                         if (lastImportedWorkItemId != 0 && _metrics != null)
                         {
-                            _metrics.RecordWorkItemCompleted(importTags);
                             _metrics.RecordWorkItemDuration(workItemStopwatch.Elapsed.TotalMilliseconds, importTags);
                             _metrics.RecordRevisionCount(revisionsForCurrentWorkItem, importTags);
                             _metrics.DecrementInFlight(importTags);
                         }
                         workItemActivity?.Dispose();
 
-                        _metrics?.RecordWorkItemAttempted(importTags);
+                        // Revisions of different work items interleave in date order, so a work
+                        // item is attempted and completed once, at its first revision (#171).
+                        if (revIdx == 0)
+                        {
+                            _metrics?.RecordWorkItemAttempted(importTags);
+                            workItemsProcessed++;
+                        }
                         _metrics?.IncrementInFlight(importTags);
                         workItemStopwatch.Restart();
                         revisionsForCurrentWorkItem = 1;
                         lastImportedWorkItemId = wiId;
-                        workItemsProcessed++;
 
                         workItemActivity = s_activitySource.StartActivity("workitem.import", ActivityKind.Internal);
                         workItemActivity?.SetTag("job.id", scope.JobId ?? "not-set");
@@ -772,6 +776,8 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
                         .ConfigureAwait(false);
 
                     await scope.IdMapStore.UpdateLastRevisionIndexAsync(wiId, revIdx, ct).ConfigureAwait(false);
+                    if (revIdx == 0)
+                        _metrics?.RecordWorkItemCompleted(importTags);
                 }
                 else
                 {
@@ -805,7 +811,6 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
 
         if (lastImportedWorkItemId != 0 && _metrics != null)
         {
-            _metrics.RecordWorkItemCompleted(importTags);
             _metrics.RecordWorkItemDuration(workItemStopwatch.Elapsed.TotalMilliseconds, importTags);
             _metrics.RecordRevisionCount(revisionsForCurrentWorkItem, importTags);
         }

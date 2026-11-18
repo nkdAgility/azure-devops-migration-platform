@@ -70,4 +70,11 @@ public sealed record WorkItemExtensionContext : IExtensionContext
     /// plumbing or the legacy-path fallback logic. Null when not applicable.
     /// </summary>
     public System.Func<string, System.Threading.CancellationToken, System.Threading.Tasks.Task<string?>>? ReadTextAsync { get; init; }
+
+    /// <summary>
+    /// Re-hosts the given captured images on the target and returns the text with their source
+    /// URLs replaced (#154), or null when embedded images are off. Used for text the revision
+    /// fields do not carry, such as an edited comment.
+    /// </summary>
+    public System.Func<string, System.Collections.Generic.IReadOnlyList<DevOpsMigrationPlatform.Abstractions.Agent.Attachments.EmbeddedImageMetadata>, System.Threading.CancellationToken, System.Threading.Tasks.Task<string>>? RewriteEmbeddedImagesAsync { get; init; }
 }

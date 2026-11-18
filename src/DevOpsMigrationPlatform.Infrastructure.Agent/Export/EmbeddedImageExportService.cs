@@ -17,8 +17,6 @@ using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 
-#if !NET481
-
 /// <summary>
 /// Processes HTML and Markdown text to discover, download, and rewrite embedded images.
 /// Reference parsing/rewriting is delegated to the canonical
@@ -79,6 +77,57 @@ public class EmbeddedImageExportService : IEmbeddedImageExportService
         return _referenceTool.RewriteMarkdownImageReferences(markdown, urlMap);
     }
 
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<EmbeddedImageMetadata>> CaptureFromFieldsAsync(
+        IReadOnlyList<DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.WorkItemField> fields,
+        string folderPath,
+        CancellationToken cancellationToken)
+    {
+        var captured = new List<EmbeddedImageMetadata>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var field in fields)
+        {
+            if (field.Value is not string text || string.IsNullOrEmpty(text))
+                continue;
+
+            var urls = new List<string>(_referenceTool.ParseHtmlImageSources(text));
+            urls.AddRange(_referenceTool.ParseMarkdownImageReferences(text));
+
+            foreach (var url in urls)
+            {
+                if (string.IsNullOrEmpty(url) || !seen.Add(url))
+                    continue;
+
+                var result = await _downloader.TryDownloadAsync(url, cancellationToken).ConfigureAwait(false);
+                if (result == null)
+                {
+                    using (DataClassificationScope.Begin(DataClassification.Customer))
+                        _logger.LogWarning("Could not download embedded image {url}; it keeps its original URL.", url);
+                    continue;
+                }
+
+                var fileName = ComputeImageFilename(result.Bytes, result.Extension);
+                await PersistImageAsync(folderPath, fileName, result.Bytes, cancellationToken).ConfigureAwait(false);
+                captured.Add(new EmbeddedImageMetadata
+                {
+                    OriginalUrl = url,
+                    RelativePath = fileName,
+                    Extension = result.Extension,
+                    Sha256 = ComputeSha256Hex(result.Bytes),
+                    Size = result.Bytes.LongLength
+                });
+            }
+        }
+
+        return captured;
+    }
+
+    private static string ComputeSha256Hex(byte[] bytes)
+    {
+        using var sha256 = SHA256.Create();
+        return BitConverter.ToString(sha256.ComputeHash(bytes)).Replace("-", "").ToLowerInvariant();
+    }
     /// <summary>
     /// Downloads each distinct referenced image once, persists it to the package, and
     /// returns the source-URL → local-filename map for rewriting. Failed downloads are
@@ -148,4 +197,3 @@ public class EmbeddedImageExportService : IEmbeddedImageExportService
     }
 }
 
-#endif

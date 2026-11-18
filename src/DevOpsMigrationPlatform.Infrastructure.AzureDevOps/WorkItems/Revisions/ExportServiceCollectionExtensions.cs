@@ -44,7 +44,6 @@ public static class ExportServiceCollectionExtensions
     ///   <item><see cref="IWorkItemProgressStoreFactory"/> as <see cref="WorkItemProgressStoreFactory"/> — SQLite-backed per-work-item export progress for fast-forward resume.</item>
     ///   <item><see cref="AzureDevOpsAttachmentRegistry"/> — per-export-run attachment URL store (scoped).</item>
     ///   <item><see cref="IWorkItemCommentSourceFactory"/> as <see cref="AzureDevOpsWorkItemCommentSourceFactory"/> — creates comment sources per job (used for inline comment fetching when the Comments extension is enabled).</item>
-    ///   <item><see cref="IEmbeddedImageDownloader"/> as <see cref="AzureDevOpsEmbeddedImageDownloader"/> — downloads embedded images with Polly resilience.</item>
     ///   <item><see cref="IEmbeddedImageExportService"/> as <see cref="EmbeddedImageExportService"/> — processes HTML/Markdown for image URLs and rewrites them.</item>
     /// </list>
 
@@ -104,11 +103,7 @@ public static class ExportServiceCollectionExtensions
         services.TryAddSingleton<global::DevOpsMigrationPlatform.Abstractions.Agent.Teams.ITeamBoardAdapter,
             global::DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Teams.AzureDevOpsBoardAdapter>();
 
-        // Embedded image download and processing
-        services.AddHttpClient<AzureDevOpsEmbeddedImageDownloader>()
-            .AddPolicyHandler(GetRetryPolicy());
-        services.AddScoped<IEmbeddedImageDownloader>(
-            sp => sp.GetRequiredService<AzureDevOpsEmbeddedImageDownloader>());
+        // Embedded images: downloaded by the agent host's source-connector downloader (#169, #154).
         // Note: IEmbeddedImageExportService is created on-demand by WorkItemExportOrchestrator,
         // not registered here, because it requires IArtefactStore which is only available at export time.
 

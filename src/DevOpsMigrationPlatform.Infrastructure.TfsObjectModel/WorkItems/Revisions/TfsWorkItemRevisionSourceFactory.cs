@@ -45,11 +45,11 @@ public sealed class TfsWorkItemRevisionSourceFactory : IWorkItemRevisionSourceFa
     }
 
     /// <inheritdoc/>
-    public Task<IWorkItemRevisionSource> CreateAsync(CancellationToken ct)
+    public Task<IWorkItemRevisionSource> CreateAsync(string? wiqlQuery, CancellationToken ct)
     {
         var project = _endpointInfo.Project;
         var escapedProject = project.Replace("'", "''");
-        var wiqlQuery = $"SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = '{escapedProject}'";
+        var query = wiqlQuery ?? $"SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = '{escapedProject}'";
 
         IWorkItemRevisionSource source = new TfsWorkItemRevisionSource(
             _workItemStore,
@@ -57,7 +57,7 @@ public sealed class TfsWorkItemRevisionSourceFactory : IWorkItemRevisionSourceFa
             _windowStrategy,
             _registry,
             project,
-            wiqlQuery,
+            query,
             _logger);
 
         return Task.FromResult(source);

@@ -81,13 +81,47 @@ internal class AzureDevOpsWorkItemCommentSource : IWorkItemCommentSource
                 yield break;
 
             foreach (var adoComment in response.Comments)
+            {
+                // The list holds only the latest version. An edited comment is read with its
+                // history so every edit reaches the revision it belongs to (PR #222 review).
+                if (adoComment.Version > 1)
+                {
+                    var versions = await client.GetCommentVersionsAsync(
+                        _project, workItemId, adoComment.Id, cancellationToken: cancellationToken).ConfigureAwait(false);
+                    foreach (var version in versions.OrderBy(v => v.Version))
+                        yield return MapVersion(version, adoComment);
+                    continue;
+                }
                 yield return MapCommentFromAdoSdk(adoComment);
+            }
 
             // CommentList.ContinuationToken is null when there are no more pages.
             continuationToken = response.ContinuationToken;
             if (string.IsNullOrEmpty(continuationToken))
                 yield break;
         }
+    }
+
+    /// <summary>Maps one historical version of a comment; the latest supplies what a version lacks.</summary>
+    private static WorkItemComment MapVersion(
+        Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models.CommentVersion version,
+        Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models.Comment latest)
+    {
+        var mapped = MapCommentFromAdoSdk(latest);
+        return mapped with
+        {
+            Version = version.Version,
+            Text = version.Text ?? string.Empty,
+            RenderedText = version.RenderedText,
+            IsDeleted = version.IsDeleted,
+            ModifiedBy = new WorkItemIdentityRef
+            {
+                DisplayName = version.ModifiedBy?.DisplayName ?? "Unknown",
+                UniqueName = version.ModifiedBy?.UniqueName ?? "unknown",
+                Descriptor = version.ModifiedBy?.Descriptor ?? string.Empty,
+            },
+            ModifiedDate = new DateTimeOffset(version.ModifiedDate),
+        };
     }
 
     /// <summary>

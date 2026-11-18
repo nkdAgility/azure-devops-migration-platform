@@ -60,8 +60,8 @@ public class SkipUnresolvableContext
             .Returns(Task.CompletedTask);
         ResolutionStrategyMock.Setup(s => s.ResolveSingleAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((int?)null);
-        ResolutionStrategyMock.Setup(s => s.WriteProvenanceAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+        ResolutionStrategyMock.Setup(s => s.ProvenanceFor(It.IsAny<int>()))
+            .Returns(ImportProvenance.Empty);
     }
 
     public void SetPaths(string areaPath, string iterationPath)

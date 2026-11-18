@@ -84,11 +84,13 @@ public sealed class CommentsWorkItemExtension : IModuleExtension
         if (!IsCommentEditOrDeleteRevision(ctx.Revision))
             return;
 
+        // Only a source that positively reports no comments API is skipped. Any other read
+        // failure, a temporary one on a later page included, and any capture or write failure
+        // fails the revision, so a resume exports it again instead of skipping it (PR #222 review).
+        var matchingComments = new List<WorkItemComment>();
         try
         {
             var commentSource = _commentSourceFactory.Create(ctx.SourceEndpoint, ctx.ProjectName);
-            var matchingComments = new List<WorkItemComment>();
-
             await foreach (var comment in commentSource.GetCommentsAsync(
                 ctx.WorkItemId, includeDeleted: true, ct))
             {
@@ -96,38 +98,36 @@ public sealed class CommentsWorkItemExtension : IModuleExtension
                 if (deltaSeconds <= 1.0)
                     matchingComments.Add(comment);
             }
-
-            if (matchingComments.Count > 0)
-            {
-                var commentJson = JsonSerializer.Serialize(matchingComments, _exportJsonOptions);
-                var commentPath = $"{ctx.FolderPath}comment.json";
-                var revisionFolderPath = GetRevisionFolderPath(commentPath);
-                var fileName = GetFileName(commentPath);
-                using var stream = new MemoryStream(Encoding.UTF8.GetBytes(commentJson), writable: false);
-                await ctx.Package.PersistContentAsync(
-                    new PackageContentContext(
-                        PackageContentKind.Artefact,
-                        Organisation: ctx.Organisation,
-                        Project: ctx.ProjectName,
-                        Module: "WorkItems",
-                        Address: new WorkItemAttachmentAddress(revisionFolderPath, fileName)),
-                    new PackagePayload(stream, "application/json"),
-                    ct).ConfigureAwait(false);
-
-                _logger?.LogDebug("[Comments] WI {WorkItemId} rev {RevisionIndex}: wrote {Count} comment(s) to comment.json.",
-                    ctx.WorkItemId, ctx.RevisionIndex, matchingComments.Count);
-            }
         }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
+        catch (DevOpsMigrationPlatform.Abstractions.Agent.Export.CommentsApiUnavailableException ex)
         {
             _logger?.LogWarning(ex,
-                "[Comments] Inline comment fetch failed for WI {WorkItemId} rev {RevisionIndex}.",
+                "[Comments] The source does not serve the comments API; comment edits for WI {WorkItemId} rev {RevisionIndex} are not exported.",
                 ctx.WorkItemId, ctx.RevisionIndex);
+            return;
         }
+
+        if (matchingComments.Count == 0)
+            return;
+
+        await CaptureCommentImagesAsync(ctx, matchingComments, ct).ConfigureAwait(false);
+        var commentJson = JsonSerializer.Serialize(matchingComments, _exportJsonOptions);
+        var commentPath = $"{ctx.FolderPath}comment.json";
+        var revisionFolderPath = GetRevisionFolderPath(commentPath);
+        var fileName = GetFileName(commentPath);
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(commentJson), writable: false);
+        await ctx.Package.PersistContentAsync(
+            new PackageContentContext(
+                PackageContentKind.Artefact,
+                Organisation: ctx.Organisation,
+                Project: ctx.ProjectName,
+                Module: "WorkItems",
+                Address: new WorkItemAttachmentAddress(revisionFolderPath, fileName)),
+            new PackagePayload(stream, "application/json"),
+            ct).ConfigureAwait(false);
+
+        _logger?.LogDebug("[Comments] WI {WorkItemId} rev {RevisionIndex}: wrote {Count} comment(s) to comment.json.",
+            ctx.WorkItemId, ctx.RevisionIndex, matchingComments.Count);
     }
 
     public async Task ImportAsync(IExtensionContext context, CancellationToken ct)
@@ -145,12 +145,66 @@ public sealed class CommentsWorkItemExtension : IModuleExtension
         var comments = JsonSerializer.Deserialize<List<WorkItemComment>>(commentJson, _jsonOptions);
         if (comments is null || comments.Count == 0) return;
 
+        // Only when embedded images are on: the processor then supplies the rewrite.
+        var images = ctx.RewriteEmbeddedImagesAsync is null
+            ? Array.Empty<DevOpsMigrationPlatform.Abstractions.Agent.Attachments.EmbeddedImageMetadata>()
+            : await ReadCommentImagesAsync(ctx, ct).ConfigureAwait(false);
+
         foreach (var comment in comments)
         {
             if (comment.IsDeleted) continue;
             var text = comment.RenderedText ?? comment.Text;
+            if (images.Count > 0 && ctx.RewriteEmbeddedImagesAsync is not null)
+                text = await ctx.RewriteEmbeddedImagesAsync(text, images, ct).ConfigureAwait(false);
             await ctx.Target.CreateCommentAsync(ctx.TargetWorkItemId, text, ct).ConfigureAwait(false);
         }
+    }
+
+    private const string CommentImagesFileName = "comment-images.json";
+
+    /// <summary>
+    /// Captures the images in the comments' text into the revision folder and lists them in
+    /// comment-images.json (#154). revision.json is already written when extensions run, so a
+    /// comment's images are listed beside the comment, not in the revision.
+    /// </summary>
+    private async Task CaptureCommentImagesAsync(WorkItemRevisionContext ctx, IReadOnlyList<WorkItemComment> comments, CancellationToken ct)
+    {
+        if (ctx.EmbeddedImageExport is null)
+            return;
+
+        var texts = new List<WorkItemField>();
+        foreach (var comment in comments)
+        {
+            texts.Add(new WorkItemField { ReferenceName = "Comment.Text", Value = comment.Text });
+            if (!string.IsNullOrEmpty(comment.RenderedText))
+                texts.Add(new WorkItemField { ReferenceName = "Comment.RenderedText", Value = comment.RenderedText });
+        }
+
+        var images = await ctx.EmbeddedImageExport.CaptureFromFieldsAsync(texts, ctx.FolderPath, ct).ConfigureAwait(false);
+        if (images.Count == 0)
+            return;
+
+        var imagesPath = $"{ctx.FolderPath}{CommentImagesFileName}";
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(images, _exportJsonOptions)), writable: false);
+        await ctx.Package.PersistContentAsync(
+            new PackageContentContext(
+                PackageContentKind.Artefact,
+                Organisation: ctx.Organisation,
+                Project: ctx.ProjectName,
+                Module: "WorkItems",
+                Address: new WorkItemAttachmentAddress(GetRevisionFolderPath(imagesPath), CommentImagesFileName)),
+            new PackagePayload(stream, "application/json"),
+            ct).ConfigureAwait(false);
+    }
+
+    private async Task<IReadOnlyList<DevOpsMigrationPlatform.Abstractions.Agent.Attachments.EmbeddedImageMetadata>> ReadCommentImagesAsync(
+        WorkItemExtensionContext ctx, CancellationToken ct)
+    {
+        var json = await ctx.ReadTextAsync!($"{ctx.FolderPath}/{CommentImagesFileName}", ct).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(json))
+            return Array.Empty<DevOpsMigrationPlatform.Abstractions.Agent.Attachments.EmbeddedImageMetadata>();
+        return JsonSerializer.Deserialize<List<DevOpsMigrationPlatform.Abstractions.Agent.Attachments.EmbeddedImageMetadata>>(json!, _jsonOptions)
+            ?? new List<DevOpsMigrationPlatform.Abstractions.Agent.Attachments.EmbeddedImageMetadata>();
     }
 
     /// <summary>

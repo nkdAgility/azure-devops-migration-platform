@@ -48,19 +48,14 @@ public sealed class TfsResolutionStrategyFactory : IWorkItemResolutionStrategyFa
             throw new InvalidOperationException(
                 "WorkItemResolutionStrategy.FieldName must be configured when strategy is \"TargetField\" for TeamFoundationServer targets.");
 
-        var orgEndpoint = endpoint.ToOrganisationEndpoint();
-        var resolvedUrl = orgEndpoint.ResolvedUrl?.Trim();
-        if (string.IsNullOrWhiteSpace(resolvedUrl))
-            throw new InvalidOperationException("TeamFoundationServer target endpoint URL was not provided.");
-
-        VssCredentials credentials = orgEndpoint.Authentication.Type == AuthenticationType.AccessToken &&
-                                     !string.IsNullOrWhiteSpace(orgEndpoint.Authentication.ResolvedAccessToken)
-            ? new VssCredentials(new VssBasicCredential(string.Empty, orgEndpoint.Authentication.ResolvedAccessToken))
-            : new VssClientCredentials(true);
-
-        var witClient = new WorkItemTrackingHttpClient(new Uri(resolvedUrl), credentials);
+        // The target's own Object Model connection runs the queries: no REST client, so TFS 2008
+        // targets work too (Martin, 2026-11-18: build the TFS agent as if there may be no REST API).
+        if (target is not ITfsWorkItemQuery query)
+            throw new InvalidOperationException(
+                "The TargetField strategy for TeamFoundationServer needs the TFS Object Model target; " +
+                $"got {target.GetType().Name}.");
 
         return Task.FromResult<IWorkItemResolutionStrategy>(
-            new TfsTargetFieldResolutionStrategy(witClient, target, endpoint.Project, options.FieldName));
+            new TfsTargetFieldResolutionStrategy(query, target, endpoint.Project, options.FieldName));
     }
 }

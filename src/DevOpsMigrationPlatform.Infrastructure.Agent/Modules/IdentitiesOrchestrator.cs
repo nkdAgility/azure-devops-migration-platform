@@ -27,9 +27,7 @@ using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Abstractions.Validation;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
-#if !NET481
 using DevOpsMigrationPlatform.Infrastructure.Telemetry;
-#endif
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
@@ -148,9 +146,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
             }
             catch (Exception ex)
             {
-#if !NET481
                 using (_logger.BeginDataScope(DataClassification.Customer))
-#endif
                 _logger.LogWarning(ex, "Failed to enumerate identities for project {Project}; skipping.", project);
             }
         }
@@ -215,9 +211,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
         activity?.SetTag("organisation", organisation);
         activity?.SetTag("project", project);
 
-#if !NET481
         using (_logger.BeginDataScope(DataClassification.Customer))
-#endif
         _logger.LogInformation("[Identities] Starting identity export for project '{Project}'.", project);
 
         var sink = context.ProgressSink;

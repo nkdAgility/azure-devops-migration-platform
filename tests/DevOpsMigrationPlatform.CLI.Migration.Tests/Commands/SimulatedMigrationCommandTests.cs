@@ -200,6 +200,47 @@ public class SimulatedMigrationCommandTests
             $"Expected at least one file under discovered WorkItems directories in {outputDir}.");
     }
 
+    /// <summary>
+    /// #169 / ADR-0035: Migrate runs as one parent job (Export → Prepare → Import children,
+    /// handed off through the package). Re-running it without --force-fresh resumes from the
+    /// package cursors: it succeeds and writes no duplicate files into the package.
+    /// </summary>
+    [TestCategory("SystemTest")]
+    [TestCategory("SystemTest_Simulated")]
+    [TestMethod]
+    public async Task Queue_Migrate_Sim_ReRunAfterHandOff_ResumesWithoutDuplicates()
+    {
+        var first = await CliRunner.RunTestAsync(
+            testName: nameof(Queue_Migrate_Sim_ReRunAfterHandOff_ResumesWithoutDuplicates),
+            args: ["queue", "--config", "scenarios/SystemTest-Simulated-Migrate-Roundtrip.json", "--force-fresh"],
+            timeout: TimeSpan.FromMinutes(4),
+            cleanOutputFolder: true);
+        Assert.AreEqual(0, first.ExitCode,
+            $"First run must succeed. STDOUT:\n{first.StandardOutput}\nSTDERR:\n{first.StandardError}");
+        StringAssert.Contains(first.StandardOutput, "Migration job",
+            "Migrate must report the one parent job ID the operator follows.");
+
+        string[] PackageWorkItemFiles() => Directory
+            .GetDirectories(first.OutputDirectory, "workitems", SearchOption.AllDirectories)
+            .SelectMany(dir => Directory.GetFiles(dir, "*", SearchOption.AllDirectories))
+            .Select(f => Path.GetRelativePath(first.OutputDirectory, f))
+            .OrderBy(f => f, StringComparer.Ordinal)
+            .ToArray();
+        var afterFirst = PackageWorkItemFiles();
+        Assert.IsTrue(afterFirst.Length > 0, "First run must write work items into the package.");
+
+        var second = await CliRunner.RunTestAsync(
+            testName: nameof(Queue_Migrate_Sim_ReRunAfterHandOff_ResumesWithoutDuplicates),
+            args: ["queue", "--config", "scenarios/SystemTest-Simulated-Migrate-Roundtrip.json"],
+            timeout: TimeSpan.FromMinutes(4));
+
+        Assert.IsFalse(second.TimedOut, "Re-run timed out.");
+        Assert.AreEqual(0, second.ExitCode,
+            $"Re-run without --force-fresh must resume. STDOUT:\n{second.StandardOutput}\nSTDERR:\n{second.StandardError}");
+        CollectionAssert.AreEqual(afterFirst, PackageWorkItemFiles(),
+            "Resuming across the hand-off must not add or duplicate files in the package.");
+    }
+
     // ─────────────────────────────────────────────────────────────────────
     // Spec 007 Observability verification (T010+T015+T055 consolidated)
     // ─────────────────────────────────────────────────────────────────────

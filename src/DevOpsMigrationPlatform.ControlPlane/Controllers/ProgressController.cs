@@ -26,13 +26,16 @@ public sealed class ProgressController : ControllerBase
 
     private readonly JobProgressStore _store;
     private readonly ILeaseJobResolver _resolver;
+    private readonly IJobStore? _jobStore;
 
     public ProgressController(
         JobProgressStore store,
-        ILeaseJobResolver resolver)
+        ILeaseJobResolver resolver,
+        IJobStore? jobStore = null)
     {
         _store = store;
         _resolver = resolver;
+        _jobStore = jobStore;
     }
 
     /// <summary>
@@ -46,6 +49,8 @@ public sealed class ProgressController : ControllerBase
     {
         if (!_resolver.RecordHeartbeat(leaseId))
             return NotFound($"Lease '{leaseId}' is not recognised.");
+        if (_resolver.ResolveJobId(leaseId) is { } jobId)
+            _jobStore?.RecordLeaseActivity(jobId);
         return NoContent();
     }
 

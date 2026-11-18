@@ -77,7 +77,7 @@ public class ImportCursorResumeDslTests
 
     private static void SetupTargetNoOp(ImportCursorResumeContext ctx, int targetId = 10, bool alreadyMapped = false)
     {
-        ctx.MockTarget.Setup(t => t.CreateWorkItemAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()))
+        ctx.MockTarget.Setup(t => t.CreateFromRevisionAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<PendingAttachment>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new ImportedWorkItemResult { TargetWorkItemId = targetId, IsNewlyCreated = true });
         ctx.MockTarget.Setup(t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
         ctx.MockTarget.Setup(t => t.WorkItemExistsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
@@ -90,7 +90,7 @@ public class ImportCursorResumeDslTests
     {
         ctx.MockResolutionStrategy.Setup(s => s.SeedAsync(It.IsAny<IIdMapStore>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
         ctx.MockResolutionStrategy.Setup(s => s.ResolveSingleAsync(It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync((int?)null);
-        ctx.MockResolutionStrategy.Setup(s => s.WriteProvenanceAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        ctx.MockResolutionStrategy.Setup(s => s.ProvenanceFor(It.IsAny<int>())).Returns(ImportProvenance.Empty);
     }
 
     // ── Scenario: Interrupted import resumes from the last cursor position ─────
@@ -131,7 +131,7 @@ public class ImportCursorResumeDslTests
         await orchestrator.ImportAsync(ctx.Extensions, ResumeMode.Auto, CancellationToken.None);
 
         ctx.MockTarget.Verify(
-            t => t.CreateWorkItemAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()),
+            t => t.CreateFromRevisionAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<PendingAttachment>>(), It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -174,7 +174,7 @@ public class ImportCursorResumeDslTests
 
         // CreateWorkItemAsync must NOT be called (already mapped)
         ctx.MockTarget.Verify(
-            t => t.CreateWorkItemAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()),
+            t => t.CreateFromRevisionAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<PendingAttachment>>(), It.IsAny<CancellationToken>()),
             Times.Never);
         // ApplyRevisionAsync must NOT be called (cursor is AppliedFields — combined B stage is done)
         ctx.MockTarget.Verify(
@@ -224,7 +224,7 @@ public class ImportCursorResumeDslTests
             Times.Never);
         // Processing started from beginning
         ctx.MockTarget.Verify(
-            t => t.CreateWorkItemAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()),
+            t => t.CreateFromRevisionAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<PendingAttachment>>(), It.IsAny<CancellationToken>()),
             Times.Once);
     }
 }

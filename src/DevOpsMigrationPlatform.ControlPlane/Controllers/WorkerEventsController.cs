@@ -83,6 +83,9 @@ public sealed class WorkerEventsController : ControllerBase
             return NotFound($"Lease '{batch.LeaseId}' is not recognised.");
         }
 
+        // Any worker event shows the agent holding this lease is alive (ADR-0035 fail-fast).
+        _jobStore.RecordLeaseActivity(jobId.Value);
+
         long lastAccepted = 0;
 
         foreach (var evt in batch.Events)
@@ -118,46 +121,64 @@ public sealed class WorkerEventsController : ControllerBase
                     // Assign the monotonic sequence from the WorkerEvent so the SSE
                     // controller can track replay boundaries and clients can skip-replay.
                     progress = progress with { EventSequence = evt.Seq };
-                    _progressStore.Append(jobId, progress);
-                    if (progress.Metrics is not null)
-                        _metricsStore.Store(jobId, progress.Metrics);
-                    if (progress.TaskId is not null && progress.TaskStatus is not null)
-                        _taskStore.UpdateTask(jobId, progress.TaskId, progress.TaskStatus.Value,
-                            progress.CompletedCount, progress.KnownTotal, progress.Timestamp);
-                    _jobStore.SetState(jobId, "Running");
+                    // The writes run atomically with terminal transitions, so a late event from an
+                    // abandoned lease never reaches a finished job's stream (PR #222 review).
+                    var written = _jobStore.RunIfActive(jobId, () =>
+                    {
+                        _progressStore.Append(jobId, progress);
+                        if (progress.Metrics is not null)
+                            _metricsStore.Store(jobId, progress.Metrics);
+                        if (progress.TaskId is not null && progress.TaskStatus is not null)
+                            _taskStore.UpdateTask(jobId, progress.TaskId, progress.TaskStatus.Value,
+                                progress.CompletedCount, progress.KnownTotal, progress.Timestamp);
+                    });
+                    if (!written)
+                    {
+                        _logger.LogDebug("Dropped late progress event {Seq} for finished job {JobId}.", evt.Seq, jobId);
+                        break;
+                    }
+                    _jobStore.TrySetState(jobId, "Running");
                 }
                 break;
 
             case WorkerEventKind.Diagnostic:
                 var records = Deserialize<DiagnosticLogRecord[]>(evt.PayloadJson, evt.Seq);
-                if (records is not null)
-                    _diagnosticStore.Add(jobId, records);
+                if (records is not null && !_jobStore.RunIfActive(jobId, () => _diagnosticStore.Add(jobId, records)))
+                    _logger.LogDebug("Dropped late diagnostic event {Seq} for finished job {JobId}.", evt.Seq, jobId);
                 break;
 
             case WorkerEventKind.Metrics:
+                // Agents flush their final metrics before the terminal, so a finished job's
+                // later Metrics, Snapshot and Tasks events are dropped too (PR #222 review).
                 var metrics = Deserialize<JobMetrics>(evt.PayloadJson, evt.Seq);
-                if (metrics is not null)
-                    _metricsStore.Store(jobId, metrics);
+                if (metrics is not null && !_jobStore.RunIfActive(jobId, () => _metricsStore.Store(jobId, metrics)))
+                    _logger.LogDebug("Dropped late metrics event {Seq} for finished job {JobId}.", evt.Seq, jobId);
                 break;
 
             case WorkerEventKind.Snapshot:
                 var snapshot = Deserialize<JobSnapshot>(evt.PayloadJson, evt.Seq);
-                if (snapshot is not null)
-                    _snapshotStore.Store(jobId, snapshot);
+                if (snapshot is not null && !_jobStore.RunIfActive(jobId, () => _snapshotStore.Store(jobId, snapshot)))
+                    _logger.LogDebug("Dropped late snapshot event {Seq} for finished job {JobId}.", evt.Seq, jobId);
                 break;
 
             case WorkerEventKind.Tasks:
                 var tasks = Deserialize<JobTaskList>(evt.PayloadJson, evt.Seq);
-                if (tasks is not null)
-                    _taskStore.Store(jobId, tasks);
+                if (tasks is not null && !_jobStore.RunIfActive(jobId, () => _taskStore.Store(jobId, tasks)))
+                    _logger.LogDebug("Dropped late tasks event {Seq} for finished job {JobId}.", evt.Seq, jobId);
                 break;
 
             case WorkerEventKind.Terminal:
                 var failed = Deserialize<TerminalPayload>(evt.PayloadJson, evt.Seq);
                 var isFailed = failed?.Failed ?? false;
+                // Only the event that ends the job completes its streams: a late terminal from an
+                // abandoned lease must not replace a recorded failure with success (PR #222 review).
+                if (!_jobStore.TrySetState(jobId, isFailed ? "Failed" : "Completed"))
+                {
+                    _logger.LogWarning("Dropped late terminal event {Seq} for job {JobId}, which has already finished.", evt.Seq, jobId);
+                    break;
+                }
                 _progressStore.CompleteJob(jobId, isFailed);
                 _diagnosticStore.CompleteJob(jobId, isFailed);
-                _jobStore.SetState(jobId, isFailed ? "Failed" : "Completed");
                 break;
 
             default:

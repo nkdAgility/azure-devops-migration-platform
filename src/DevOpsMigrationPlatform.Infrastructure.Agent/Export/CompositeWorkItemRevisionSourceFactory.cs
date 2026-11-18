@@ -37,7 +37,7 @@ public sealed class CompositeWorkItemRevisionSourceFactory : IWorkItemRevisionSo
     }
 
     /// <inheritdoc/>
-    public Task<IWorkItemRevisionSource> CreateAsync(CancellationToken cancellationToken)
+    public Task<IWorkItemRevisionSource> CreateAsync(string? wiqlQuery, CancellationToken cancellationToken)
     {
         var typeKey = _endpointInfo.ConnectorType;
 
@@ -50,7 +50,7 @@ public sealed class CompositeWorkItemRevisionSourceFactory : IWorkItemRevisionSo
                 "Register one with AddRevisionSourceFactory(key, factory).");
 
         var factory = (IWorkItemRevisionSourceFactory)_serviceProvider.GetRequiredService(factoryType);
-        return factory.CreateAsync(cancellationToken);
+        return factory.CreateAsync(wiqlQuery, cancellationToken);
     }
 }
 

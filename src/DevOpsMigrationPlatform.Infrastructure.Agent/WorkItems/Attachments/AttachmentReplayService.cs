@@ -94,6 +94,29 @@ public sealed class AttachmentReplayService
     }
 
     /// <summary>
+    /// The revision's attachments as <see cref="PendingAttachment"/>s, for creating a work item
+    /// from the revision in one save (#169). Each binary is opened from the package on demand.
+    /// </summary>
+    public IReadOnlyList<PendingAttachment> BuildPendingAttachments(
+        WorkItemRevision revision,
+        string folderPath,
+        Func<string, CancellationToken, Task<Stream?>> readBinaryAsync,
+        ISet<string>? availableBinaryPaths)
+    {
+        var pending = new List<PendingAttachment>();
+        foreach (var attachment in revision.Attachments)
+        {
+            if (!TryBuildReplayAttachment(folderPath, attachment, availableBinaryPaths, out var replayAttachment))
+                continue;
+            var binaryPath = replayAttachment.BinaryPath;
+            pending.Add(new PendingAttachment(replayAttachment.OriginalName, token => readBinaryAsync(binaryPath, token))
+            {
+                RelativePath = replayAttachment.RelativePath
+            });
+        }
+        return pending;
+    }
+    /// <summary>
     /// Uploads all attachment binaries and immediately adds the attachment relations to the work item.
     /// Kept for backward-compatibility with callers that do not use <c>ApplyRevisionAsync</c>.
     /// </summary>

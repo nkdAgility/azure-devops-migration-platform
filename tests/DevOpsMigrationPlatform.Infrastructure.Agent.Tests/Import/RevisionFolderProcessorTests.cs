@@ -121,7 +121,152 @@ public class WorkItemResolutionProcessorTests
         var sut = CreateSut();
         await sut.ImportRevisionAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
-        _mockTarget.Verify(t => t.CreateWorkItemAsync("Task", It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()), Times.Once);
+        // #169: one source revision = one save — an unmapped item is created once, from the whole revision.
+        _mockTarget.Verify(t => t.CreateFromRevisionAsync("Task", It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<PendingAttachment>>(), It.IsAny<CancellationToken>()), Times.Once);
+        // PR #222 review: and the created item is not then saved again from the same revision.
+        _mockTarget.Verify(t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    // ── ProcessAsync_WhenCreatingWithAttachments_PersistsAttachmentMappings ───
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task ProcessAsync_WhenCreatingWithAttachments_PersistsAttachmentMappings()
+    {
+        // PR #222 review: if the run stops after the create but before the cursor moves, the
+        // resume takes the existing-item path; the attachment mappings must already be saved so
+        // it reuses the uploaded attachments instead of uploading them again.
+        var json = """{"WorkItemId":1,"RevisionIndex":0,"Fields":[{"ReferenceName":"System.WorkItemType","Value":"Task"}],"Attachments":[{"RelativePath":"attachments/a.txt","OriginalName":"a.txt"}],"RelatedLinks":[],"ExternalLinks":[],"Hyperlinks":[],"EmbeddedImages":[]}""";
+        SetupRevisionJson(json);
+        SetupPackageBinary($"{Folder}/attachments/a.txt", new byte[] { 1, 2, 3 });
+        SetupNoMapping();
+        _mockIdMapStore
+            .SetupSequence(s => s.GetTargetWorkItemIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((int?)null)
+            .ReturnsAsync(99);
+        SetupCursorWrites();
+        SetupResolutionStrategyNoOp();
+        _mockIdMapStore
+            .Setup(s => s.SetAttachmentMappingAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        IReadOnlyList<PendingAttachment>? passed = null;
+        _mockTarget
+            .Setup(t => t.CreateFromRevisionAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<PendingAttachment>>(), It.IsAny<CancellationToken>()))
+            .Callback<string, IReadOnlyList<WorkItemField>, IReadOnlyList<RelatedWorkItemLink>, IReadOnlyList<ExternalWorkItemLink>, IReadOnlyList<HyperlinkWorkItemLink>, IReadOnlyList<PendingAttachment>, CancellationToken>((_, _, _, _, _, attachments, _) => passed = attachments)
+            .ReturnsAsync(() => new ImportedWorkItemResult
+            {
+                TargetWorkItemId = 99,
+                IsNewlyCreated = true,
+                CreatedAttachments = [new CreatedAttachment(passed![0].RelativePath!, "https://target/_apis/wit/attachments/a")]
+            });
+
+        var sut = CreateSut();
+        await sut.ImportRevisionAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
+
+        Assert.AreEqual("attachments/a.txt", passed!.Single().RelativePath);
+        _mockIdMapStore.Verify(s => s.SetAttachmentMappingAsync(1, 0, "attachments/a.txt", "https://target/_apis/wit/attachments/a", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    // ── ProcessAsync_WhenStrategyFindsTheTarget_PersistsTheMapping ────────────
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task ProcessAsync_WhenStrategyFindsTheTarget_PersistsTheMapping()
+    {
+        // PR #222 review: the live fallback (e.g. a provenance field on the target) found item 55
+        // for source 1; without saving that mapping the later lookup fails and the next revision
+        // would not find it either.
+        SetupRevisionJson();
+        _mockIdMapStore.Setup(s => s.GetTargetWorkItemIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync((int?)null);
+        _mockIdMapStore.Setup(s => s.SetWorkItemMappingAsync(1, 55, It.IsAny<CancellationToken>()))
+            .Callback(() => _mockIdMapStore.Setup(s => s.GetTargetWorkItemIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(55))
+            .Returns(Task.CompletedTask);
+        _mockIdMapStore.Setup(s => s.GetAttachmentIdAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync((string?)null);
+        _mockResolutionStrategy.Setup(s => s.ResolveSingleAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(55);
+        _mockResolutionStrategy.Setup(s => s.ProvenanceFor(It.IsAny<int>())).Returns(ImportProvenance.Empty);
+        SetupCursorWrites();
+        _mockTarget
+            .Setup(t => t.ApplyRevisionAsync(55, It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var sut = CreateSut();
+        await sut.ImportRevisionAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
+
+        _mockIdMapStore.Verify(s => s.SetWorkItemMappingAsync(1, 55, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    // ── ProcessAsync_LinkedPair_LinkIsMadeWhenTheSecondItemArrives ────────────
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task ProcessAsync_LinkedPair_LinkIsMadeWhenTheSecondItemArrives()
+    {
+        // PR #222 review: source items 1 and 2 are linked; each side's revision carries the link.
+        // Item 1 is imported first, so its link to 2 waits; item 2 then arrives with the reverse
+        // link to 1, which is mapped, so the target link is made from item 2's side.
+        const string folder2 = "WorkItems/2024-01-01/00000638000000000002-2-0";
+        SetupRevisionJson("""{"WorkItemId":1,"RevisionIndex":0,"Fields":[{"ReferenceName":"System.WorkItemType","Value":"Task"}],"Attachments":[],"RelatedLinks":[{"ArtifactLinkType":"System.LinkTypes.Related","RelatedWorkItemId":2}],"ExternalLinks":[],"Hyperlinks":[],"EmbeddedImages":[]}""");
+        SetupPackageText($"{folder2}/revision.json", """{"WorkItemId":2,"RevisionIndex":0,"Fields":[{"ReferenceName":"System.WorkItemType","Value":"Task"}],"Attachments":[],"RelatedLinks":[{"ArtifactLinkType":"System.LinkTypes.Related","RelatedWorkItemId":1}],"ExternalLinks":[],"Hyperlinks":[],"EmbeddedImages":[]}""");
+        SetupPackageText($"{folder2}/comment.json", null);
+
+        var map = new Dictionary<int, int>();
+        _mockIdMapStore.Setup(s => s.GetTargetWorkItemIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((int id, CancellationToken _) => map.TryGetValue(id, out var t) ? t : (int?)null);
+        _mockIdMapStore.Setup(s => s.SetWorkItemMappingAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Callback<int, int, CancellationToken>((s, t, _) => map[s] = t).Returns(Task.CompletedTask);
+        SetupCursorWrites();
+        SetupResolutionStrategyNoOp();
+        var created = new List<(int Target, IReadOnlyList<RelatedWorkItemLink> Links)>();
+        var nextId = 100;
+        _mockTarget
+            .Setup(t => t.CreateFromRevisionAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<PendingAttachment>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string _, IReadOnlyList<WorkItemField> _, IReadOnlyList<RelatedWorkItemLink> links, IReadOnlyList<ExternalWorkItemLink> _, IReadOnlyList<HyperlinkWorkItemLink> _, IReadOnlyList<PendingAttachment> _, CancellationToken _) =>
+            {
+                var id = ++nextId;
+                created.Add((id, links));
+                return new ImportedWorkItemResult { TargetWorkItemId = id, IsNewlyCreated = true };
+            });
+
+        var sut = CreateSut();
+        await sut.ImportRevisionAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
+        await sut.ImportRevisionAsync(folder2, null, _mockResolutionStrategy.Object, CancellationToken.None);
+
+        Assert.AreEqual(0, created[0].Links.Count, "Item 1's link waits: item 2 is not on the target yet.");
+        Assert.AreEqual(map[1], created[1].Links.Single().RelatedWorkItemId, "Item 2 links to item 1's target ID.");
+    }
+
+    // ── ProcessAsync_RelatedLinks_AreRemappedToTargetIds ──────────────────────
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task ProcessAsync_RelatedLinks_AreRemappedToTargetIds()
+    {
+        // PR #222 review: a link to source item 2 must point at its target item (202), never at
+        // target item 2. A link to an item not yet imported is left for that item's own revision,
+        // which carries the reverse link.
+        var json = """{"WorkItemId":1,"RevisionIndex":0,"Fields":[{"ReferenceName":"System.WorkItemType","Value":"Task"}],"Attachments":[],"RelatedLinks":[{"ArtifactLinkType":"System.LinkTypes.Related","RelatedWorkItemId":2},{"ArtifactLinkType":"System.LinkTypes.Related","RelatedWorkItemId":3}],"ExternalLinks":[],"Hyperlinks":[],"EmbeddedImages":[]}""";
+        SetupRevisionJson(json);
+        SetupNoMapping();
+        _mockIdMapStore.Setup(s => s.GetTargetWorkItemIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(77);
+        _mockIdMapStore.Setup(s => s.GetTargetWorkItemIdAsync(2, It.IsAny<CancellationToken>())).ReturnsAsync(202);
+        _mockIdMapStore.Setup(s => s.GetTargetWorkItemIdAsync(3, It.IsAny<CancellationToken>())).ReturnsAsync((int?)null);
+        _mockTarget.Setup(t => t.WorkItemExistsAsync(77, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        SetupCursorWrites();
+        SetupResolutionStrategyNoOp();
+        IReadOnlyList<RelatedWorkItemLink>? passed = null;
+        _mockTarget
+            .Setup(t => t.ApplyRevisionAsync(77, It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()))
+            .Callback<int, IReadOnlyList<WorkItemField>, IReadOnlyList<RelatedWorkItemLink>, IReadOnlyList<ExternalWorkItemLink>, IReadOnlyList<HyperlinkWorkItemLink>, IReadOnlyList<AttachmentUploadResult>, CancellationToken>((_, _, links, _, _, _, _) => passed = links)
+            .Returns(Task.CompletedTask);
+
+        var sut = CreateSut();
+        await sut.ImportRevisionAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
+
+        Assert.AreEqual(202, passed!.Single().RelatedWorkItemId);
     }
 
     // ── ProcessAsync_WhenWorkItemAlreadyMapped_DoesNotCreateDuplicate ─────────
@@ -144,7 +289,7 @@ public class WorkItemResolutionProcessorTests
         var sut = CreateSut();
         await sut.ImportRevisionAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
-        _mockTarget.Verify(t => t.CreateWorkItemAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockTarget.Verify(t => t.CreateFromRevisionAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<PendingAttachment>>(), It.IsAny<CancellationToken>()), Times.Never);
         _mockTarget.Verify(t => t.ApplyRevisionAsync(77, It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -254,7 +399,7 @@ public class WorkItemResolutionProcessorTests
         await sut.ImportRevisionAsync(Folder, CursorStage.AppliedLinks, _mockResolutionStrategy.Object, CancellationToken.None);
 
         // Stage A and B should both be skipped (AppliedLinks > AppliedFields lexicographically)
-        _mockTarget.Verify(t => t.CreateWorkItemAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockTarget.Verify(t => t.CreateFromRevisionAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<PendingAttachment>>(), It.IsAny<CancellationToken>()), Times.Never);
         _mockTarget.Verify(t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -397,7 +542,9 @@ public class WorkItemResolutionProcessorTests
 
         await sut.ImportRevisionAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
-        _mockTarget.Verify(t => t.CreateWorkItemAsync("Task", It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()), Times.Once);
+        // #169: one source revision = one save. A revision skipped for an unresolvable path is
+        // skipped before that save, so no empty work item is left on the target.
+        _mockTarget.Verify(t => t.CreateFromRevisionAsync("Task", It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<PendingAttachment>>(), It.IsAny<CancellationToken>()), Times.Never);
         _mockTarget.Verify(t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()), Times.Never);
         _mockIdMapStore.Verify(s => s.RecordSkippedRevisionAsync(1, "UnresolvablePath", It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -569,7 +716,7 @@ public class WorkItemResolutionProcessorTests
     private void SetupTargetCreate(int newTargetId)
     {
         _mockTarget
-            .Setup(t => t.CreateWorkItemAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()))
+            .Setup(t => t.CreateFromRevisionAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<PendingAttachment>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new ImportedWorkItemResult { TargetWorkItemId = newTargetId, IsNewlyCreated = true });
     }
 
@@ -679,8 +826,8 @@ public class WorkItemResolutionProcessorTests
             .Setup(s => s.ResolveSingleAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((int?)null);
         _mockResolutionStrategy
-            .Setup(s => s.WriteProvenanceAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+            .Setup(s => s.ProvenanceFor(It.IsAny<int>()))
+            .Returns(ImportProvenance.Empty);
     }
 
     private static async IAsyncEnumerable<string> EnumeratePaths(params string[] paths)

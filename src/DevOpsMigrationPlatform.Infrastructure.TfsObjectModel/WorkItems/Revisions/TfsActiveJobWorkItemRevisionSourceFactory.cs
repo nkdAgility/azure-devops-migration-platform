@@ -28,9 +28,9 @@ public sealed class TfsActiveJobWorkItemRevisionSourceFactory : IWorkItemRevisio
     }
 
     /// <inheritdoc/>
-    public Task<IWorkItemRevisionSource> CreateAsync(CancellationToken ct)
+    public Task<IWorkItemRevisionSource> CreateAsync(string? wiqlQuery, CancellationToken ct)
     {
         var services = _activeServices.Require();
-        return Task.FromResult(services.RevisionSource);
+        return Task.FromResult(services.RevisionSourceFor(wiqlQuery));
     }
 }

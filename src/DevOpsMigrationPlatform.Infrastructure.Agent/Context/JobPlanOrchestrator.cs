@@ -927,7 +927,15 @@ public sealed class JobPlanOrchestrator : IJobPlanOrchestrator
                                         {
                                             _currentJobEndpointAccessor.SetTarget(scopedTarget);
                                         }
-                                        if (TryBuildTaskSourceEndpointInfo(task, endpointsByUrl, previousSource, out var scopedSource))
+                                        // Import tasks are named after the target project, but the package was
+                                        // written under the source project. When the job configured its own source
+                                        // (MigrationPlatform:Source), keep it as-is during Import (#169).
+                                        var keepConfiguredSource = !string.IsNullOrWhiteSpace(previousSource?.Project);
+                                        if (keepConfiguredSource)
+                                        {
+                                            // The configured source endpoint stays active for this task.
+                                        }
+                                        else if (TryBuildTaskSourceEndpointInfo(task, endpointsByUrl, previousSource, out var scopedSource))
                                         {
                                             _currentJobEndpointAccessor.SetSource(scopedSource);
                                             sourceScopeApplied = true;

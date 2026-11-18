@@ -177,6 +177,15 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 return;
             }
         }
+        catch
+        {
+            // The accessors are singletons: a setup failure (e.g. a rejected endpoint) must not
+            // leave this job's config and endpoints set for the next lease (PR #222 review).
+            _currentPackageConfigAccessor.Clear();
+            _currentJobContextAccessor.Clear();
+            _currentJobEndpointAccessor.Clear();
+            throw;
+        }
 
         // Signal to live clients that the agent has the job and is starting up.
         ProgressSink.Emit(new ProgressEvent
@@ -254,92 +263,19 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
     private void SetCurrentEndpointContext(IConfiguration packageConfig)
     {
-        if (TryBuildSourceEndpoint(packageConfig, out var sourceEndpoint))
+        if (ConfiguredJobEndpoints.TryBuildSource(packageConfig, out var sourceEndpoint))
             _currentJobEndpointAccessor.SetSource(sourceEndpoint);
         else
             _currentJobEndpointAccessor.ClearSource();
 
-        if (TryBuildTargetEndpoint(packageConfig, out var targetEndpoint))
+        if (ConfiguredJobEndpoints.TryBuildTarget(packageConfig, out var targetEndpoint))
             _currentJobEndpointAccessor.SetTarget(targetEndpoint);
         else
             _currentJobEndpointAccessor.ClearTarget();
     }
 
-    private static bool TryBuildSourceEndpoint(IConfiguration packageConfig, out ISourceEndpointInfo endpoint)
-    {
-        var url = ConfigTokenResolver.Resolve(packageConfig["MigrationPlatform:Source:Url"])?.Trim();
-        var project = packageConfig["MigrationPlatform:Source:Project"]?.Trim();
-        if (string.IsNullOrWhiteSpace(project))
-        {
-            project = packageConfig
-                .GetSection("MigrationPlatform:Source:Generator:Projects")
-                .GetChildren()
-                .Select(projectSection => projectSection["Name"]?.Trim())
-                .FirstOrDefault(projectName => !string.IsNullOrWhiteSpace(projectName));
-        }
-        var connectorType = packageConfig["MigrationPlatform:Source:Type"];
-
-        if (string.IsNullOrWhiteSpace(connectorType))
-        {
-            endpoint = null!;
-            return false;
-        }
-
-        var authSection = packageConfig.GetSection("MigrationPlatform:Source:Authentication");
-        var authType = ParseAuthenticationType(authSection, "MigrationPlatform:Source:Authentication");
-        endpoint = new ExplicitSourceEndpointInfo(
-            url ?? string.Empty,
-            project ?? string.Empty,
-            connectorType,
-            packageConfig["MigrationPlatform:Source:ApiVersion"],
-            authType,
-            ConfigTokenResolver.Resolve(authSection?["AccessToken"]));
-        return true;
-    }
-
-    private static bool TryBuildTargetEndpoint(IConfiguration packageConfig, out ITargetEndpointInfo endpoint)
-    {
-        var url = ConfigTokenResolver.Resolve(packageConfig["MigrationPlatform:Target:Url"])?.Trim();
-        var project = packageConfig["MigrationPlatform:Target:Project"]?.Trim();
-        var connectorType = packageConfig["MigrationPlatform:Target:Type"];
-
-        if (string.IsNullOrWhiteSpace(connectorType))
-        {
-            endpoint = null!;
-            return false;
-        }
-
-        var authSection = packageConfig.GetSection("MigrationPlatform:Target:Authentication");
-        var authType = ParseAuthenticationType(authSection, "MigrationPlatform:Target:Authentication");
-        endpoint = new ExplicitTargetEndpointInfo(
-            url ?? string.Empty,
-            project ?? string.Empty,
-            connectorType,
-            packageConfig["MigrationPlatform:Target:ApiVersion"],
-            authType,
-            ConfigTokenResolver.Resolve(authSection?["AccessToken"]));
-        return true;
-    }
-
     private static bool PlanMaterializesInventorySnapshot(JobTaskList plan)
         => plan.Tasks.Any(task => task.Id.Equals("analyse.inventory", StringComparison.OrdinalIgnoreCase));
-
-    private static AuthenticationType ParseAuthenticationType(IConfiguration authSection, string path)
-    {
-        var raw = authSection?["Type"];
-        if (string.IsNullOrWhiteSpace(raw))
-            return AuthenticationType.None;
-
-        if (string.Equals(raw, "Pat", StringComparison.OrdinalIgnoreCase))
-            return AuthenticationType.AccessToken;
-
-        if (Enum.TryParse<AuthenticationType>(raw, ignoreCase: true, out var parsed))
-            return parsed;
-
-        throw new InvalidOperationException(
-            $"Unsupported authentication type '{raw}' at '{path}:Type'. " +
-            "Supported values are None, AccessToken, and Windows.");
-    }
 
     private static async Task WriteInventoryCompletionMarkerAsync(IPackageAccess package, Job job, CancellationToken ct)
     {
@@ -356,47 +292,6 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             ct).ConfigureAwait(false);
     }
 
-    private sealed record ExplicitSourceEndpointInfo(
-        string Url,
-        string Project,
-        string ConnectorType,
-        string? ApiVersion,
-        AuthenticationType AuthenticationType,
-        string? AccessToken) : ISourceEndpointInfo
-    {
-        public OrganisationEndpoint ToOrganisationEndpoint() => new()
-        {
-            ResolvedUrl = Url,
-            Type = ConnectorType,
-            ApiVersion = ApiVersion,
-            Authentication = new OrganisationEndpointAuthentication
-            {
-                Type = AuthenticationType,
-                ResolvedAccessToken = AccessToken
-            }
-        };
-    }
-
-    private sealed record ExplicitTargetEndpointInfo(
-        string Url,
-        string Project,
-        string ConnectorType,
-        string? ApiVersion,
-        AuthenticationType AuthenticationType,
-        string? AccessToken) : ITargetEndpointInfo
-    {
-        public OrganisationEndpoint ToOrganisationEndpoint() => new()
-        {
-            ResolvedUrl = Url,
-            Type = ConnectorType,
-            ApiVersion = ApiVersion,
-            Authentication = new OrganisationEndpointAuthentication
-            {
-                Type = AuthenticationType,
-                ResolvedAccessToken = AccessToken
-            }
-        };
-    }
 
     // ── Migration execution ───────────────────────────────────────────────────
 

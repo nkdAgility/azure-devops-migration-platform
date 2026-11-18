@@ -63,7 +63,7 @@ public sealed class TfsResolutionStrategyFactoryTests
 
         var strategy = await factory.CreateAsync(
             options,
-            Mock.Of<IWorkItemTarget>(),
+            ObjectModelTarget(),
             new TestTargetEndpointInfo(),
             CancellationToken.None);
 
@@ -80,7 +80,7 @@ public sealed class TfsResolutionStrategyFactoryTests
 
         var strategy = await factory.CreateAsync(
             options,
-            Mock.Of<IWorkItemTarget>(),
+            ObjectModelTarget(),
             new WhitespaceTargetEndpointInfo(),
             CancellationToken.None);
 
@@ -139,6 +139,25 @@ public sealed class TfsResolutionStrategyFactoryTests
         {
             Environment.SetEnvironmentVariable(envName, null);
         }
+    }
+
+    /// <summary>A target that offers the Object Model query, as TfsWorkItemTarget does.</summary>
+    private static IWorkItemTarget ObjectModelTarget()
+    {
+        var target = new Mock<IWorkItemTarget>();
+        target.As<ITfsWorkItemQuery>();
+        return target.Object;
+    }
+
+    // Martin, 2026-11-18: no REST client. A target without the Object Model query is refused.
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task CreateAsync_TargetFieldWithoutAnObjectModelTarget_IsRefused()
+    {
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => new TfsResolutionStrategyFactory().CreateAsync(
+            new WorkItemResolutionStrategyOptions { Strategy = "TargetField", FieldName = "Custom.SourceId" },
+            Mock.Of<IWorkItemTarget>(), new TestTargetEndpointInfo(), CancellationToken.None));
     }
 
     private sealed class TestTargetEndpointInfo : ITargetEndpointInfo

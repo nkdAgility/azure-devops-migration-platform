@@ -36,6 +36,12 @@ public class PreventDuplicateWorkItemsContext
     /// <summary>Tracks whether CreateWorkItemAsync was called.</summary>
     public bool CreateWorkItemCalled { get; set; }
 
+    /// <summary>The fields the work item was created with, when it was created.</summary>
+    public IReadOnlyList<WorkItemField>? CreatedFields { get; set; }
+
+    /// <summary>How many times an existing target work item was saved with a revision.</summary>
+    public int ApplyRevisionCount { get; set; }
+
     /// <summary>Tracks whether RecordSkippedRevisionAsync was called.</summary>
     public bool SkippedRevisionRecorded { get; set; }
 
@@ -83,7 +89,7 @@ public class PreventDuplicateWorkItemsContext
             .Setup(s => s.ResolveSingleAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((int?)null);
         MockResolutionStrategy
-            .Setup(s => s.WriteProvenanceAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .Returns(System.Threading.Tasks.Task.CompletedTask);
+            .Setup(s => s.ProvenanceFor(It.IsAny<int>()))
+            .Returns(ImportProvenance.Empty);
     }
 }

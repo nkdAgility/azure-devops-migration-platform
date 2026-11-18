@@ -83,7 +83,7 @@ public class StreamingImportReplayTests
     private static void SetupTargetNoOp(StreamingImportReplayContext ctx, int targetId = 10)
     {
         ctx.MockTarget
-            .Setup(t => t.CreateWorkItemAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()))
+            .Setup(t => t.CreateFromRevisionAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<PendingAttachment>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new ImportedWorkItemResult { TargetWorkItemId = targetId, IsNewlyCreated = true });
         ctx.MockTarget
             .Setup(t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()))
@@ -102,8 +102,8 @@ public class StreamingImportReplayTests
             .Setup(s => s.ResolveSingleAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((int?)null);
         ctx.MockResolutionStrategy
-            .Setup(s => s.WriteProvenanceAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+            .Setup(s => s.ProvenanceFor(It.IsAny<int>()))
+            .Returns(ImportProvenance.Empty);
     }
 
     private static void SetupProgressSinkNoOp(StreamingImportReplayContext ctx)
@@ -130,10 +130,14 @@ public class StreamingImportReplayTests
         // Act
         await ctx.BuildOrchestrator().ImportAsync(ctx.Extensions, ResumeMode.Auto, CancellationToken.None);
 
-        // Assert — one ApplyRevisionAsync call per revision folder
+        // Assert — one save per revision folder (#169): the first revision creates the item,
+        // each later revision applies to it.
+        ctx.MockTarget.Verify(
+            t => t.CreateFromRevisionAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<PendingAttachment>>(), It.IsAny<CancellationToken>()),
+            Times.Once);
         ctx.MockTarget.Verify(
             t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()),
-            Times.Exactly(folderPaths.Count));
+            Times.Exactly(folderPaths.Count - 1));
 
         // Assert — EnumerateAsync called once (no re-sort)
         ctx.MockArtefactStore.Verify(
@@ -208,7 +212,7 @@ public class StreamingImportReplayTests
             .Setup(s => s.GetTargetWorkItemIdAsync(10, It.IsAny<CancellationToken>()))
             .ReturnsAsync(100);
         ctx.MockTarget
-            .Setup(t => t.CreateWorkItemAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()))
+            .Setup(t => t.CreateFromRevisionAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<PendingAttachment>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new ImportedWorkItemResult { TargetWorkItemId = 100, IsNewlyCreated = true });
 
         // Act
@@ -243,9 +247,12 @@ public class StreamingImportReplayTests
         // Act
         await ctx.BuildOrchestrator().ImportAsync(ctx.Extensions, ResumeMode.Auto, CancellationToken.None);
 
-        // Assert — target was updated (identity passed through)
+        // Assert — the item was created in one save carrying the identity field (#169)
         ctx.MockTarget.Verify(
-            t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()),
+            t => t.CreateFromRevisionAsync(It.IsAny<string>(),
+                It.Is<IReadOnlyList<WorkItemField>>(fs => fs.Any(fl => fl.ReferenceName == "System.AssignedTo")),
+                It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(),
+                It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<PendingAttachment>>(), It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -262,7 +269,7 @@ public class StreamingImportReplayTests
 
         // Assert — target CreateWorkItemAsync was called (only target APIs used)
         ctx.MockTarget.Verify(
-            t => t.CreateWorkItemAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()),
+            t => t.CreateFromRevisionAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<PendingAttachment>>(), It.IsAny<CancellationToken>()),
             Times.AtLeastOnce);
     }
 
@@ -325,15 +332,18 @@ public class StreamingImportReplayTests
         // Act
         await ctx.BuildOrchestrator().ImportAsync(ctx.Extensions, ResumeMode.Auto, CancellationToken.None);
 
-        // Assert — attachment uploaded to target work item
+        // Assert — the new item was created in one save carrying the attachment (#169); the binary
+        // is not uploaded to an existing item first.
         ctx.MockTarget.Verify(
-            t => t.UploadAttachmentAsync(targetId, "screenshot.png", It.IsAny<System.IO.Stream>(), It.IsAny<CancellationToken>()),
+            t => t.CreateFromRevisionAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(),
+                It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(),
+                It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(),
+                It.Is<IReadOnlyList<PendingAttachment>>(a => a.Count == 1 && a[0].FileName == "screenshot.png"),
+                It.IsAny<CancellationToken>()),
             Times.Once);
-
-        // Assert — attachment mapping recorded
-        ctx.MockIdMapStore.Verify(
-            s => s.SetAttachmentMappingAsync(workItemId, 0, "screenshot.png", It.IsAny<string>(), It.IsAny<CancellationToken>()),
-            Times.Once);
+        ctx.MockTarget.Verify(
+            t => t.UploadAttachmentAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<System.IO.Stream>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 }
 

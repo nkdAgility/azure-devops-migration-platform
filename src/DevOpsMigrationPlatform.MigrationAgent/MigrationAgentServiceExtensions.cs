@@ -59,15 +59,22 @@ public static class MigrationAgentServiceExtensions
         // The /agents/lease endpoint is a long-poll held open by the server for ~10s.
         // Increase timeouts to prevent Polly from firing spurious timeouts on every idle poll.
         // Polly validation constraints:
-        //   TotalRequestTimeout >= AttemptTimeout * (MaxRetries + 1)  →  150s >= 30s * 4 = 120s ✓
-        //   CircuitBreaker.SamplingDuration >= 2 * AttemptTimeout     →  61s  >= 2 * 30s = 60s  ✓
+        //   TotalRequestTimeout >= AttemptTimeout * (MaxRetries + 1)  →  200s >= 45s * 4 = 180s ✓
+        //   CircuitBreaker.SamplingDuration >= 2 * AttemptTimeout     →  91s  >= 2 * 45s = 90s  ✓
+        // RemoveAllResilienceHandlers first: AddServiceDefaults puts the standard handler (10 s
+        // attempt timeout) on every client, and it would cut each lease long-poll short (#171).
+        // EXTEXP0001: RemoveAllResilienceHandlers is the documented way to replace that default.
+#pragma warning disable EXTEXP0001
         builder.Services.AddCoreAgentServices(builder.Configuration, controlPlaneBaseUrl,
-            httpBuilder => httpBuilder.AddStandardResilienceHandler(options =>
+            httpBuilder => httpBuilder.RemoveAllResilienceHandlers().AddStandardResilienceHandler(options =>
             {
-                options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(30);
-                options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(150);
-                options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(61);
+                // Longer than the Control Plane's 30 s lease long poll, so an idle poll reaches
+                // the 204 branch instead of timing out (PR #222 review).
+                options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(45);
+                options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(200);
+                options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(91);
             }));
+#pragma warning restore EXTEXP0001
 
         // Register flat IOptions<T> bindings for top-level config sections.
         // These are read-only per-host bindings; per-job re-reads go through IOptionsSnapshot<T>
@@ -106,6 +113,10 @@ public static class MigrationAgentServiceExtensions
 
         // Simulated connector — required for offline tests and CI scenarios.
         builder.Services.AddSimulatedServices();
+
+        // Embedded-image download for the active job's source connector (#169, #154).
+        builder.Services.AddScoped<DevOpsMigrationPlatform.Infrastructure.Agent.Export.SourceEndpointEmbeddedImageDownloader>();
+        builder.Services.AddScoped<DevOpsMigrationPlatform.Abstractions.Agent.Attachments.IEmbeddedImageDownloader, SourceConnectorEmbeddedImageDownloader>();
 
         // Register the polymorphic endpoint converter so JobAgentWorker can deserialise
         // Source/Target from migration-config.json using System.Text.Json.

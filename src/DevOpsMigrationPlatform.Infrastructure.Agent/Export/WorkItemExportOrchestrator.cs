@@ -21,10 +21,8 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Attachments;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Revisions;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions;
-#if !NET481
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent;
-#endif
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 
@@ -62,6 +60,10 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
     private readonly IAttachmentBinarySource? _attachmentBinarySource;
     private readonly IProgressSink? _progressSink;
     private readonly MigrationEndpointOptions? _endpoint;
+    // The job's source endpoint, for the selection pass when no organisation is listed (#171).
+    private readonly OrganisationEndpoint? _sourceOrganisationEndpoint;
+
+    private OrganisationEndpoint? SelectionEndpoint => _endpoint?.ToOrganisationEndpoint() ?? _sourceOrganisationEndpoint;
     private readonly string? _wiqlQuery;
     private readonly IWorkItemFetchService? _fetchService;
     private readonly IReadOnlyList<WorkItemFieldFilterOptions>? _filterOptions;
@@ -72,10 +74,9 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
     private readonly IWorkItemDiscoveryService? _discoveryService;
     private readonly IWorkItemProgressStoreFactory? _exportProgressStoreFactory;
     private readonly string? _packageUri;
-#if !NET481
+    private readonly IEmbeddedImageExportService? _embeddedImageExport;
     private readonly IReferencedPathLifecycle? _referencedPathTracker;
     private readonly IReadOnlyList<IModuleExtension>? _exportExtensions;
-#endif
 
     public WorkItemExportOrchestrator(
         IPackageAccess package,
@@ -94,13 +95,14 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
         string? wiqlQuery = null,
         IWorkItemDiscoveryService? discoveryService = null,
         IWorkItemProgressStoreFactory? exportProgressStoreFactory = null,
-        string? packageUri = null
-#if !NET481
+        string? packageUri = null,
+        IEmbeddedImageExportService? embeddedImageExport = null
         , IReferencedPathLifecycle? referencedPathTracker = null
         , IReadOnlyList<IModuleExtension>? exportExtensions = null
-#endif
+        , OrganisationEndpoint? sourceOrganisationEndpoint = null
         )
     {
+        _sourceOrganisationEndpoint = sourceOrganisationEndpoint;
         _package = package ?? throw new ArgumentNullException(nameof(package));
         _organisation = organisation ?? throw new ArgumentNullException(nameof(organisation));
         _project = project ?? throw new ArgumentNullException(nameof(project));
@@ -118,10 +120,9 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
         _discoveryService = discoveryService;
         _exportProgressStoreFactory = exportProgressStoreFactory;
         _packageUri = packageUri;
-#if !NET481
+        _embeddedImageExport = embeddedImageExport;
         _referencedPathTracker = referencedPathTracker;
         _exportExtensions = exportExtensions;
-#endif
     }
 
     /// <summary>
@@ -141,18 +142,22 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
         // If filters are configured, fetch only filter-referenced fields via IWorkItemFetchService.
         // Items not in the set are skipped in the main loop — no revision API calls are made.
         HashSet<int>? filteredIds = null;
-        if (_filterOptions is { Count: > 0 } && _fetchService != null && _endpoint != null &&
+        // Filters only: a configured query is applied by the revision source as it streams, so
+        // a query on its own never builds an ID set (PR #222 review: stream, never materialise).
+        // With filters, the pass runs the same query as its base, so both bound the export.
+        var filterOptions = _filterOptions ?? Array.Empty<WorkItemFieldFilterOptions>();
+        if (filterOptions.Count > 0 && _fetchService != null && SelectionEndpoint != null &&
             !string.IsNullOrEmpty(_project))
         {
-            _logger?.LogInformation("[WorkItems] Starting pre-filter pass — fetching work items to evaluate {FilterCount} filter(s).", _filterOptions.Count);
+            _logger?.LogInformation("[WorkItems] Starting pre-filter pass — fetching work items to evaluate {FilterCount} filter(s).", filterOptions.Count);
             _progressSink?.Emit(new ProgressEvent
             {
                 Module = "WorkItems",
                 Stage = "Filtering",
-                Message = $"[WorkItems] Pre-filter pass starting — evaluating {_filterOptions.Count} filter(s)…"
+                Message = $"[WorkItems] Pre-filter pass starting — evaluating {filterOptions.Count} filter(s)…"
             });
 
-            filteredIds = await BuildFilteredIdSetAsync(_filterOptions, cancellationToken)
+            filteredIds = await BuildFilteredIdSetAsync(filterOptions, cancellationToken)
                 .ConfigureAwait(false);
 
             _logger?.LogInformation("[WorkItems] Pre-filter pass complete: {FilteredCount} work items pass filters.", filteredIds.Count);
@@ -497,16 +502,24 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
 
 
 
-                // Write revision.json.
-                var json = JsonSerializer.Serialize(revision, JsonOptions);
-                await WritePackageTextAsync($"{folderPath}revision.json", json, cancellationToken).ConfigureAwait(false);
-                // Record the highest RevisionIndex written for this work item so the next resume
-                // can skip revisions ≤ this value without ExistsAsync filesystem checks.
-                if (exportProgressStore != null)
-                    await exportProgressStore.SetRevAsync(revision.WorkItemId, revision.RevisionIndex, cancellationToken).ConfigureAwait(false);
+                // Embedded images (#169, #154): save each source-hosted image beside revision.json and
+                // list it in the revision so the import can upload it and map its URL.
+                var revisionToWrite = revision;
+                if (_embeddedImageExport != null)
+                {
+                    var images = await _embeddedImageExport
+                        .CaptureFromFieldsAsync(revision.Fields, folderPath.TrimEnd('/'), cancellationToken)
+                        .ConfigureAwait(false);
+                    if (images.Count > 0)
+                        revisionToWrite = revision with { EmbeddedImages = images };
+                }
+
+                // revision.json is written last (below): a resume skips any revision whose
+                // revision.json exists, so it marks the revision complete only once its images,
+                // attachment binaries and extension files are in the package.
+                var json = JsonSerializer.Serialize(revisionToWrite, JsonOptions);
 
                 // Record area and iteration paths for the referenced-paths artifact.
-#if !NET481
                 if (_referencedPathTracker != null)
                 {
                     foreach (var field in revision.Fields)
@@ -519,7 +532,6 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
                             await _referencedPathTracker.RecordIterationPathAsync(iterPath, _package, _organisation, _project, cancellationToken).ConfigureAwait(false);
                     }
                 }
-#endif
 
                 // Record payload complexity metrics per revision.
                 if (_metrics != null)
@@ -661,15 +673,10 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
 
                 // Write attachment binaries beside revision.json when a binary source is available.
                 // Delta detection: skip re-downloading when the same URL appears on adjacent revisions.
-                // When export extensions are registered (the facet-based path), skip the inline
-                // attachment download — the enabled attachment extension handles it instead.
                 var currentAttachmentUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-#if !NET481
-                var useInlineAttachments = _exportExtensions == null || _exportExtensions.Count == 0;
-#else
-                var useInlineAttachments = true;
-#endif
-                if (useInlineAttachments && _attachmentBinarySource != null)
+                // Attachment download is always inline: there is no attachment extension, and the
+                // always-registered comments extension used to switch this off (PR #222 review).
+                if (_attachmentBinarySource != null)
                 {
                     foreach (var attachment in revision.Attachments)
                     {
@@ -859,7 +866,6 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
 
                 previousAttachmentUrls = currentAttachmentUrls;
 
-#if !NET481
                 // Invoke any registered export-side facet extensions (e.g. AttachmentsWorkItemExtension,
                 // CommentsWorkItemExtension) that have SupportsExport = true and IsEnabled = true.
                 if (_exportExtensions is { Count: > 0 })
@@ -874,7 +880,8 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
                         RevisionIndex = revision.RevisionIndex,
                         Revision = revision,
                         FolderPath = folderPath,
-                        SourceEndpoint = _endpoint
+                        SourceEndpoint = _endpoint,
+                        EmbeddedImageExport = _embeddedImageExport
                     };
 
                     foreach (var ext in _exportExtensions)
@@ -889,6 +896,8 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
                         {
                             throw;
                         }
+                        // Any extension failure fails the revision before revision.json is written, so the
+                        // next run exports it again (PR #222 review); it is reported, then rethrown.
                         catch (Exception ex)
                         {
                             _progressSink?.Emit(new ProgressEvent
@@ -900,10 +909,24 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
                             _logger?.LogWarning(ex,
                                 "[WorkItems] Extension '{ExtensionName}' export failed for WI {WorkItemId} rev {RevisionIndex}.",
                                 ext.Name, revision.WorkItemId, revision.RevisionIndex);
+                            // The rethrow skips both normal cleanup paths: release the in-flight
+                            // count and the span here, and record a failure, not a completion.
+                            _metrics?.RecordWorkItemFailed(exportTags);
+                            _metrics?.DecrementInFlight(exportTags);
+                            workItemActivity?.SetStatus(ActivityStatusCode.Error, ex.GetType().Name);
+                            workItemActivity?.Dispose();
+                            workItemActivity = null;
+                            throw;
                         }
                     }
                 }
-#endif
+
+                // Commit the revision: write revision.json, then record the highest RevisionIndex
+                // written for this work item so the next resume can skip revisions ≤ this value
+                // without ExistsAsync filesystem checks.
+                await WritePackageTextAsync($"{folderPath}revision.json", json, cancellationToken).ConfigureAwait(false);
+                if (exportProgressStore != null)
+                    await exportProgressStore.SetRevAsync(revision.WorkItemId, revision.RevisionIndex, cancellationToken).ConfigureAwait(false);
 
                 // Accumulate historical counts from the cursor so the persisted value always
                 // reflects the cumulative total across all runs, not just this run's exports.
@@ -974,11 +997,15 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
     {
         var ids = new HashSet<int>();
 
-        // Fetch only the fields referenced by filter predicates — minimal payload.
-        var filterFields = filterOptions.Select(f => f.FieldName).Distinct().ToArray();
+        // Fetch only the fields referenced by filter predicates — minimal payload. A query with
+        // no filters still needs one field to project.
+        var filterFields = filterOptions.Count > 0
+            ? filterOptions.Select(f => f.FieldName).Distinct().ToArray()
+            : new[] { "System.Id" };
         var scope = new WorkItemFetchScope(
             Fields: filterFields,
             FilterOptions: filterOptions,
+            BaseQuery: IsCustomQuery(_wiqlQuery) ? _wiqlQuery : null,
             Progress: new Progress<int>(n =>
             {
                 _logger?.LogInformation("[WorkItems] Pre-filter pass: {Fetched} work items fetched so far…", n);
@@ -991,7 +1018,7 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
                 });
             }));
 
-        var orgEndpoint = _endpoint!.ToOrganisationEndpoint();
+        var orgEndpoint = SelectionEndpoint!;
 
         await foreach (var item in _fetchService!.FetchAsync(orgEndpoint, _project!, scope, cancellationToken)
             .ConfigureAwait(false))
@@ -1001,6 +1028,14 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
 
         return ids;
     }
+
+    /// <summary>True when a WIQL other than the whole-project default is configured.</summary>
+    private static bool IsCustomQuery(string? query) =>
+        !string.IsNullOrWhiteSpace(query)
+        && !string.Equals(
+            System.Text.RegularExpressions.Regex.Replace(query!.Trim(), @"\s+", " "),
+            DevOpsMigrationPlatform.Abstractions.Agent.Modules.WorkItemsModuleExtensions.DefaultWiqlQuery,
+            StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Returns true if the revision represents a comment edit or delete.

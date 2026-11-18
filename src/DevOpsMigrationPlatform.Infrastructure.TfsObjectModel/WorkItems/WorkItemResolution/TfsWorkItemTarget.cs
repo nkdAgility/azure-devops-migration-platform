@@ -20,12 +20,23 @@ namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.WorkItems.WorkIt
 /// Connects to a TFS or Azure DevOps target project and creates/updates work items
 /// using <see cref="WorkItemStore"/> APIs.
 /// </summary>
-public sealed class TfsWorkItemTarget : IWorkItemTarget
+public sealed class TfsWorkItemTarget : IWorkItemTarget, ITfsWorkItemQuery
 {
+    /// <inheritdoc/>
+    /// <remarks>Object Model only, so TFS 2008 targets work (Martin, 2026-11-18). The
+    /// <see cref="WorkItemCollection"/> pages from the server as it is enumerated.</remarks>
+    public IEnumerable<(int Id, string? Value)> Query(string wiql, string fieldName)
+    {
+        foreach (WorkItem workItem in _store.Query(wiql))
+        {
+            var value = workItem.Fields.Contains(fieldName) ? workItem.Fields[fieldName].Value?.ToString() : null;
+            yield return (workItem.Id, value);
+        }
+    }
+
     private static readonly HashSet<string> s_excludedFieldReferences = new(StringComparer.OrdinalIgnoreCase)
     {
         "System.TeamProject",
-        "System.State",
         "System.CreatedDate",
         "System.ChangedDate",
         "System.CreatedBy",
@@ -114,25 +125,97 @@ public sealed class TfsWorkItemTarget : IWorkItemTarget
         ct.ThrowIfCancellationRequested();
 
         var workItem = _store.GetWorkItem(targetWorkItemId);
+        var changed = AddLinksTo(workItem, relatedLinks, externalLinks, hyperlinks);
+
+        if (changed)
+            workItem.Save();
+
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc/>
+    public async Task<ImportedWorkItemResult> CreateFromRevisionAsync(
+        string workItemType,
+        IReadOnlyList<WorkItemField> fields,
+        IReadOnlyList<RelatedWorkItemLink> relatedLinks,
+        IReadOnlyList<ExternalWorkItemLink> externalLinks,
+        IReadOnlyList<HyperlinkWorkItemLink> hyperlinks,
+        IReadOnlyList<PendingAttachment> attachments,
+        CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        var project = _store.Projects[_project];
+        var workItem = project.WorkItemTypes[workItemType].NewWorkItem();
+        ApplyFields(workItem, fields);
+        AddLinksTo(workItem, relatedLinks, externalLinks, hyperlinks);
+
+        // TFS OM attaches files from disk; stage each binary as a temp file for the one save (#169).
+        var tempFiles = new List<string>();
+        // TFS identifies an attachment by its file name (see UploadAttachmentAsync).
+        var stored = new List<CreatedAttachment>(attachments.Count);
+        try
+        {
+            foreach (var attachment in attachments)
+            {
+                using var content = await attachment.OpenAsync(ct).ConfigureAwait(false);
+                if (content is null) continue;
+                var tempPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + "_" + attachment.FileName);
+                using (var fs = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true))
+                    await content.CopyToAsync(fs, 81920, ct).ConfigureAwait(false);
+                tempFiles.Add(tempPath);
+                workItem.Attachments.Add(new Attachment(tempPath, attachment.FileName));
+                if (attachment.RelativePath is { } path)
+                    stored.Add(new CreatedAttachment(path, attachment.FileName));
+            }
+
+            try
+            {
+                workItem.Save();
+            }
+            catch (ValidationException ex)
+            {
+                throw new ValidationException($"{ex.Message}. Invalid fields: {DescribeInvalidFields(workItem)}");
+            }
+        }
+        finally
+        {
+            foreach (var path in tempFiles)
+            {
+                try { File.Delete(path); }
+                catch { /* best-effort cleanup */ }
+            }
+        }
+
+        _logger.LogDebug("[TFS Import] Created work item {Id} of type '{Type}' from one revision.", workItem.Id, workItemType);
+        return new ImportedWorkItemResult { TargetWorkItemId = workItem.Id, IsNewlyCreated = true, CreatedAttachments = stored };
+    }
+    /// <summary>Adds the links to <paramref name="workItem"/> without saving it. Returns true when any was added.</summary>
+    private bool AddLinksTo(
+        WorkItem workItem,
+        IReadOnlyList<RelatedWorkItemLink> relatedLinks,
+        IReadOnlyList<ExternalWorkItemLink> externalLinks,
+        IReadOnlyList<HyperlinkWorkItemLink> hyperlinks)
+    {
 
         bool changed = false;
 
-        // Related work item links
+        // Related work item links. The package names a non-directional link by its link type
+        // (System.LinkTypes.Related) and a directional one by its end (PR #222 review).
         foreach (var link in relatedLinks)
         {
             if (string.IsNullOrWhiteSpace(link.ArtifactLinkType))
                 continue;
 
-            WorkItemLinkTypeEnd linkTypeEnd;
-            try
-            {
-                linkTypeEnd = _store.WorkItemLinkTypes.LinkTypeEnds[link.ArtifactLinkType];
-            }
-            catch
+            var linkTypeEnd = ResolveLinkEnd(
+                link.ArtifactLinkType,
+                name => _store.WorkItemLinkTypes.Contains(name) ? _store.WorkItemLinkTypes[name].ForwardEnd : null,
+                name => _store.WorkItemLinkTypes.LinkTypeEnds.Contains(name) ? _store.WorkItemLinkTypes.LinkTypeEnds[name] : null);
+            if (linkTypeEnd is null)
             {
                 _logger.LogWarning(
-                    "[TFS Import] Unknown link type end '{LinkType}' — skipping link on WI {Id}.",
-                    link.ArtifactLinkType, targetWorkItemId);
+                    "[TFS Import] Unknown link type '{LinkType}' — skipping link on WI {Id}.",
+                    link.ArtifactLinkType, workItem.Id);
                 continue;
             }
 
@@ -158,7 +241,7 @@ public sealed class TfsWorkItemTarget : IWorkItemTarget
             {
                 _logger.LogWarning(
                     "[TFS Import] Unknown external link type '{LinkType}' — skipping on WI {Id}.",
-                    link.ArtifactLinkType, targetWorkItemId);
+                    link.ArtifactLinkType, workItem.Id);
                 continue;
             }
 
@@ -184,10 +267,7 @@ public sealed class TfsWorkItemTarget : IWorkItemTarget
             changed = true;
         }
 
-        if (changed)
-            workItem.Save();
-
-        return Task.CompletedTask;
+        return changed;
     }
 
     /// <inheritdoc/>
@@ -354,6 +434,18 @@ public sealed class TfsWorkItemTarget : IWorkItemTarget
             return Task.FromResult(false);
         }
     }
+
+    /// <summary>True for fields the target writes from the source revision; false for fields TFS computes.</summary>
+    internal static bool IsWritten(string referenceName) => !s_excludedFieldReferences.Contains(referenceName);
+
+    /// <summary>
+    /// The link end for a package relation name: a link type reference name (non-directional,
+    /// e.g. System.LinkTypes.Related) resolves to that type's forward end; otherwise the name is
+    /// an end (directional, e.g. System.LinkTypes.Hierarchy-Forward). Null when neither matches.
+    /// </summary>
+    internal static TEnd? ResolveLinkEnd<TEnd>(string relationName, Func<string, TEnd?> forwardEndOfType, Func<string, TEnd?> endByName)
+        where TEnd : class
+        => forwardEndOfType(relationName) ?? endByName(relationName);
 
     private static void ApplyFields(WorkItem workItem, IReadOnlyList<WorkItemField> fields)
     {

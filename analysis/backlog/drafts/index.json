@@ -1,0 +1,20 @@
+{
+  "items": [
+    {
+      "parent": null,
+      "file": "analysis\\backlog\\drafts\\agent-connectivity-checks.md",
+      "slug": "agent-connectivity-checks",
+      "labels": [
+        "backlog-item",
+        "needs-assessment"
+      ],
+      "duplicateOf": null,
+      "blocks": [],
+      "number": 223,
+      "dependsOn": [],
+      "type": "Product Backlog Item",
+      "likelyTooBig": false,
+      "title": "Connectivity and permission checks before a job runs, made by the agent (ADR-0021 Tier 1)"
+    }
+  ]
+}

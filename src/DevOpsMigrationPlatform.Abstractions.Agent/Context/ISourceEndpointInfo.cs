@@ -30,7 +30,7 @@ public interface ISourceEndpointInfo
     /// "https://dev.azure.com/nkdagility", "DefaultCollection" from
     /// "http://tfsserver:8080/tfs/DefaultCollection"), or the hostname when no path exists.
     /// </summary>
-#if !NET481
+#if !NET481 // net481-exempt: ADR-0036 default-interface-member
     string OrganisationSlug => OrganisationEndpointSlug.ExtractSlug(Url);
 #else
     string OrganisationSlug { get; }

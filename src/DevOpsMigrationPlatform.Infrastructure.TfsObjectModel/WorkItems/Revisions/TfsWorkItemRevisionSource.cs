@@ -54,6 +54,13 @@ public sealed class TfsWorkItemRevisionSource : IWorkItemRevisionSource
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
+    /// <summary>
+    /// The same source selecting with <paramref name="wiqlQuery"/>: the configured selection
+    /// query, which the window strategy reduces to a bracketed WHERE (PR #222 review).
+    /// </summary>
+    public TfsWorkItemRevisionSource WithQuery(string wiqlQuery) =>
+        new(_workItemStore, _mapper, _windowStrategy, _registry, _project, wiqlQuery, _logger);
+
     /// <inheritdoc/>
     public async IAsyncEnumerable<WorkItemRevision> GetRevisionsAsync(
         [EnumeratorCancellation] CancellationToken cancellationToken = default)

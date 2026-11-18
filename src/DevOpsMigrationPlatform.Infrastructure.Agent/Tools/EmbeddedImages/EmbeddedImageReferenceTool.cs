@@ -6,9 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
-#if !NET481
 using HtmlAgilityPack;
-#endif
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tools.EmbeddedImages;
 
@@ -72,7 +70,6 @@ public sealed class EmbeddedImageReferenceTool : IEmbeddedImageReferenceTool
         if (string.IsNullOrEmpty(html))
             return Array.Empty<string>();
 
-#if !NET481
         var doc = new HtmlDocument();
         doc.LoadHtml(html);
         var imgNodes = doc.DocumentNode.SelectNodes("//img[@src]");
@@ -87,14 +84,6 @@ public sealed class EmbeddedImageReferenceTool : IEmbeddedImageReferenceTool
                 sources.Add(src);
         }
         return sources;
-#else
-        // net481: HtmlAgilityPack is not referenced; the export path does not exist on this
-        // runtime, so the regex engine is a sufficient fallback for reference detection.
-        return ImportHtmlImageRegex.Matches(html).Cast<Match>()
-            .Select(m => m.Groups["url"].Value)
-            .Where(u => !string.IsNullOrEmpty(u))
-            .ToList();
-#endif
     }
 
     /// <inheritdoc/>
@@ -104,7 +93,6 @@ public sealed class EmbeddedImageReferenceTool : IEmbeddedImageReferenceTool
         if (string.IsNullOrEmpty(html))
             return html;
 
-#if !NET481
         var doc = new HtmlDocument();
         doc.LoadHtml(html);
         var imgNodes = doc.DocumentNode.SelectNodes("//img[@src]");
@@ -119,13 +107,6 @@ public sealed class EmbeddedImageReferenceTool : IEmbeddedImageReferenceTool
         }
 
         return doc.DocumentNode.OuterHtml;
-#else
-        // net481 fallback (export path unused on this runtime): ordinal src replacement.
-        var result = html;
-        foreach (var mapping in urlMap)
-            result = result.Replace(mapping.Key, mapping.Value);
-        return result;
-#endif
     }
 
     /// <inheritdoc/>

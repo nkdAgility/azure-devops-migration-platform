@@ -84,7 +84,7 @@ public class WorkItemResolutionStrategiesTests
 
     private static void SetupTargetNoOp(WorkItemResolutionStrategiesContext ctx)
     {
-        ctx.MockTarget.Setup(t => t.CreateWorkItemAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()))
+        ctx.MockTarget.Setup(t => t.CreateFromRevisionAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<PendingAttachment>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new ImportedWorkItemResult { TargetWorkItemId = 10, IsNewlyCreated = true });
         ctx.MockTarget.Setup(t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
         ctx.MockTarget.Setup(t => t.WorkItemExistsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
@@ -113,9 +113,10 @@ public class WorkItemResolutionStrategiesTests
         ctx.MockResolutionStrategy.Setup(s => s.ResolveSingleAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .Callback<int, CancellationToken>((_, _) => ctx.ResolveSingleCalled = true)
             .ReturnsAsync((int?)null);
-        ctx.MockResolutionStrategy.Setup(s => s.WriteProvenanceAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .Callback<int, int, CancellationToken>((src, tgt, _) => ctx.ProvenanceEntries.Add((src, tgt)))
-            .Returns(Task.CompletedTask);
+        ctx.MockResolutionStrategy.Setup(s => s.ProvenanceFor(It.IsAny<int>()))
+            .Callback<int>(src => ctx.ProvenanceEntries.Add((src, 0)))
+            .Returns<int>(src => new ImportProvenance(
+                [new WorkItemField { ReferenceName = "Custom.ReflectedWorkItemId", Value = src.ToString() }], []));
 
         SetupCursorNoOp(ctx);
         SetupTargetNoOp(ctx);
@@ -130,16 +131,17 @@ public class WorkItemResolutionStrategiesTests
 
         // Assert — no duplicate created
         ctx.MockTarget.Verify(
-            t => t.CreateWorkItemAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()),
+            t => t.CreateFromRevisionAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<PendingAttachment>>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]
-    public async Task ImportAsync_WritesProvenance_AfterNewWorkItemCreated()
+    public async Task ImportAsync_CreatesNewWorkItem_WithProvenanceInTheSameSave()
     {
-        // Arrange — no existing mapping; WI 1 will be created; provenance written after
+        // Arrange — no existing mapping; WI 1 will be created. #169: the provenance marker goes in
+        // the one save that creates the item, not in a second save afterwards.
         var ctx = BuildContextWithOneFolder();
 
         ctx.MockResolutionStrategy
@@ -149,9 +151,10 @@ public class WorkItemResolutionStrategiesTests
 
         SetupIdMapNoMapping(ctx);
         ctx.MockResolutionStrategy.Setup(s => s.ResolveSingleAsync(It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync((int?)null);
-        ctx.MockResolutionStrategy.Setup(s => s.WriteProvenanceAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .Callback<int, int, CancellationToken>((src, tgt, _) => ctx.ProvenanceEntries.Add((src, tgt)))
-            .Returns(Task.CompletedTask);
+        ctx.MockResolutionStrategy.Setup(s => s.ProvenanceFor(It.IsAny<int>()))
+            .Callback<int>(src => ctx.ProvenanceEntries.Add((src, 0)))
+            .Returns<int>(src => new ImportProvenance(
+                [new WorkItemField { ReferenceName = "Custom.ReflectedWorkItemId", Value = src.ToString() }], []));
 
         SetupCursorNoOp(ctx);
         SetupTargetNoOp(ctx);
@@ -160,9 +163,14 @@ public class WorkItemResolutionStrategiesTests
         // Act
         await ctx.BuildOrchestrator().ImportAsync(ctx.Extensions, ResumeMode.Auto, CancellationToken.None);
 
-        // Assert — WriteProvenanceAsync called with source ID 1
-        Assert.IsTrue(ctx.ProvenanceEntries.Count > 0, "WriteProvenanceAsync should have been called.");
-        Assert.AreEqual(1, ctx.ProvenanceEntries[0].SourceId);
+        // Assert — provenance asked for source ID 1, and carried by the create itself
+        Assert.AreEqual(1, ctx.ProvenanceEntries.Single().SourceId);
+        ctx.MockTarget.Verify(
+            t => t.CreateFromRevisionAsync(It.IsAny<string>(),
+                It.Is<IReadOnlyList<WorkItemField>>(fs => fs.Any(fl => fl.ReferenceName == "Custom.ReflectedWorkItemId" && (string?)fl.Value == "1")),
+                It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(),
+                It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<PendingAttachment>>(), It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [TestCategory("CodeTest")]
@@ -185,8 +193,8 @@ public class WorkItemResolutionStrategiesTests
         SetupIdMapWithExistingMapping(ctx, sourceId: 1, targetId: 10);
         ctx.MockResolutionStrategy.Setup(s => s.ResolveSingleAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((int?)null);
-        ctx.MockResolutionStrategy.Setup(s => s.WriteProvenanceAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+        ctx.MockResolutionStrategy.Setup(s => s.ProvenanceFor(It.IsAny<int>()))
+            .Returns(ImportProvenance.Empty);
 
         SetupCursorNoOp(ctx);
         SetupTargetNoOp(ctx);
@@ -201,7 +209,7 @@ public class WorkItemResolutionStrategiesTests
 
         // Assert — no per-item live lookup needed (pre-mapped via seed)
         ctx.MockTarget.Verify(
-            t => t.CreateWorkItemAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()),
+            t => t.CreateFromRevisionAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<PendingAttachment>>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 }

@@ -44,7 +44,7 @@ public sealed class NodesModule : IModule
 
     private readonly IClassificationTreeCapture? _capture;
     private readonly IClassificationTreeSource? _reader;
-#if !NET481
+#if !NET481 // net481-exempt: ADR-0036 tfs-target
     private readonly ITargetEndpointInfo _targetEndpointInfo;
 #endif
     private readonly ICheckpointingServiceFactory? _checkpointingFactory;
@@ -79,7 +79,7 @@ public sealed class NodesModule : IModule
         INodesOrchestrator orchestrator,
         IPlatformMetrics? PlatformMetrics = null,
         IClassificationTreeCapture? capture = null,
-#if !NET481
+#if !NET481 // net481-exempt: ADR-0036 tfs-target
         ITargetEndpointInfo? targetEndpointInfo = null,
 #endif
         IClassificationTreeSource? reader = null,
@@ -92,7 +92,7 @@ public sealed class NodesModule : IModule
         _PlatformMetrics = PlatformMetrics;
         _capture = capture;
         _reader = reader;
-#if !NET481
+#if !NET481 // net481-exempt: ADR-0036 tfs-target
         _targetEndpointInfo = targetEndpointInfo ?? throw new ArgumentNullException(nameof(targetEndpointInfo));
 #endif
         _checkpointingFactory = checkpointingFactory;
