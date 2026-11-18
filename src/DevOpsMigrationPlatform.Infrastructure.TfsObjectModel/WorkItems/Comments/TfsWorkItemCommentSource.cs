@@ -120,15 +120,7 @@ internal sealed class TfsWorkItemCommentSource : IWorkItemCommentSource
     /// the SDK negotiates down to a server's highest supported version, so these mean the
     /// resource itself is not served.
     /// </summary>
-    internal static bool IsCommentsApiMissing(Exception ex) =>
-        ex is Microsoft.VisualStudio.Services.WebApi.VssResourceNotFoundException
-           or Microsoft.VisualStudio.Services.WebApi.VssVersionOutOfRangeException
-        || ex is Microsoft.VisualStudio.Services.WebApi.VssServiceResponseException { HttpStatusCode: System.Net.HttpStatusCode.NotFound }
-        // TFS 2008 has no REST API at all: a plain 404 (Martin, 2026-11-18). On net481
-        // HttpRequestException carries no status code, so the standard message is matched too.
-        || ex is System.Net.Http.HttpRequestException http
-           && (http.Data["StatusCode"] is System.Net.HttpStatusCode.NotFound
-               || http.Message.IndexOf("404 (Not Found)", StringComparison.OrdinalIgnoreCase) >= 0);
+    internal static bool IsCommentsApiMissing(Exception ex) => TfsRestAvailability.IsMissing(ex);
 
     private static WorkItemComment Map(Comment comment) => new()
     {

@@ -59,21 +59,28 @@ public sealed class TfsProjectLifecycleProvider : IProjectLifecycleProvider
         }
 
         using var connection = CreateConnection(context.Endpoint);
-        var projectClient = await connection.GetClientAsync<ProjectHttpClient>(cancellationToken).ConfigureAwait(false);
-        var operationsClient = await connection.GetClientAsync<OperationsHttpClient>(cancellationToken).ConfigureAwait(false);
-        var processTypeId = _processService is not null
-            ? await _processService.ResolveProcessTypeIdAsync(context, cancellationToken).ConfigureAwait(false)
-            : KnownProcessIds.Agile;
+        try
+        {
+            var projectClient = await connection.GetClientAsync<ProjectHttpClient>(cancellationToken).ConfigureAwait(false);
+            var operationsClient = await connection.GetClientAsync<OperationsHttpClient>(cancellationToken).ConfigureAwait(false);
+            var processTypeId = _processService is not null
+                ? await _processService.ResolveProcessTypeIdAsync(context, cancellationToken).ConfigureAwait(false)
+                : KnownProcessIds.Agile;
 
-        var existing = await TryGetProjectAsync(projectClient, projectName, cancellationToken).ConfigureAwait(false);
-        if (existing is not null && existing.State != ProjectState.Deleted)
-            throw new InvalidOperationException($"TFS project '{projectName}' already exists.");
+            var existing = await TryGetProjectAsync(projectClient, projectName, cancellationToken).ConfigureAwait(false);
+            if (existing is not null && existing.State != ProjectState.Deleted)
+                throw new InvalidOperationException($"TFS project '{projectName}' already exists.");
 
-        var queued = await projectClient.QueueCreateProject(
-            BuildTeamProjectRequest(projectName, processTypeId),
-            userState: null).ConfigureAwait(false);
-        await WaitForOperationCompletionAsync(operationsClient, queued, "create", projectName, cancellationToken).ConfigureAwait(false);
-        await WaitForProjectStateAsync(projectClient, projectName, ProjectState.WellFormed, cancellationToken).ConfigureAwait(false);
+            var queued = await projectClient.QueueCreateProject(
+                BuildTeamProjectRequest(projectName, processTypeId),
+                userState: null).ConfigureAwait(false);
+            await WaitForOperationCompletionAsync(operationsClient, queued, "create", projectName, cancellationToken).ConfigureAwait(false);
+            await WaitForProjectStateAsync(projectClient, projectName, ProjectState.WellFormed, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (TranslateCreateFailure(ex, projectName) is { } operatorError)
+        {
+            throw operatorError;
+        }
 
         lock (_sync)
         {
@@ -98,8 +105,19 @@ public sealed class TfsProjectLifecycleProvider : IProjectLifecycleProvider
         }
 
         using var connection = CreateConnection(endpoint);
-        var projectClient = await connection.GetClientAsync<ProjectHttpClient>(cancellationToken).ConfigureAwait(false);
-        var operationsClient = await connection.GetClientAsync<OperationsHttpClient>(cancellationToken).ConfigureAwait(false);
+        ProjectHttpClient projectClient;
+        OperationsHttpClient operationsClient;
+        try
+        {
+            projectClient = await connection.GetClientAsync<ProjectHttpClient>(cancellationToken).ConfigureAwait(false);
+            operationsClient = await connection.GetClientAsync<OperationsHttpClient>(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (TfsRestAvailability.IsMissing(ex))
+        {
+            // No REST API: the platform could not have created this project, so there is
+            // nothing for it to tear down (Martin, 2026-11-18).
+            return;
+        }
         var existing = await TryGetProjectAsync(projectClient, record.ProjectName, cancellationToken).ConfigureAwait(false);
         if (existing is null || existing.State == ProjectState.Deleted)
             return;
@@ -113,6 +131,18 @@ public sealed class TfsProjectLifecycleProvider : IProjectLifecycleProvider
             _endpointByRecordKey.Remove(BuildRecordKey(record.RunId, record.ProjectName));
         }
     }
+
+    /// <summary>
+    /// The operator error for a project create on a TFS target with no REST API (e.g. TFS 2008),
+    /// or null for any other failure. The platform cannot create projects there, so the project
+    /// must exist (Martin, 2026-11-18: these gaps are acceptable and just need handling).
+    /// </summary>
+    internal static Exception? TranslateCreateFailure(Exception ex, string projectName) =>
+        TfsRestAvailability.IsMissing(ex)
+            ? new DevOpsMigrationPlatform.Abstractions.Agent.Context.JobConfigurationException(
+                $"This TFS server has no REST API, so the platform cannot create the target project '{projectName}'. " +
+                $"Create '{projectName}' in TFS, remove project creation from the migration config, and run the migration again.")
+            : null;
 
     private static VssConnection CreateConnection(OrganisationEndpoint endpoint)
     {
