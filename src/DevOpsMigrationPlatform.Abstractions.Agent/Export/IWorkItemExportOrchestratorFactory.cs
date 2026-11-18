@@ -38,5 +38,7 @@ public interface IWorkItemExportOrchestratorFactory
         IReferencedPathLifecycle? referencedPathTracker = null,
         IReadOnlyList<IModuleExtension>? exportExtensions = null,
         MigrationEndpointOptions? endpoint = null,
-        IEmbeddedImageExportService? embeddedImageExport = null);
+        IEmbeddedImageExportService? embeddedImageExport = null,
+        // The job's source endpoint, used by the selection pass when no organisation is listed (#171).
+        DevOpsMigrationPlatform.Abstractions.Organisations.OrganisationEndpoint? sourceOrganisationEndpoint = null);
 }

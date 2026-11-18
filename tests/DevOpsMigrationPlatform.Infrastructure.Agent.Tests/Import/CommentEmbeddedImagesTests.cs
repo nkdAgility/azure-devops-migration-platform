@@ -132,6 +132,45 @@ public class CommentEmbeddedImagesTests
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
+    public async Task ExportAsync_PackageWriteFails_FailsTheRevisionSoItIsRetried()
+    {
+        // PR #222 review: a failed write of comment-images.json or comment.json must not be
+        // logged and dropped, or the revision is recorded as exported without them.
+        var changed = new DateTime(2026, 11, 17, 10, 0, 0, DateTimeKind.Utc);
+        var comment = new WorkItemComment { CommentId = "1", Text = "plain edit", ModifiedDate = changed };
+        var source = new Mock<IWorkItemCommentSource>();
+        source.Setup(s => s.GetCommentsAsync(7, true, It.IsAny<CancellationToken>())).Returns((int _, bool _, CancellationToken ct) => Comments(comment, ct));
+        var factory = new Mock<IWorkItemCommentSourceFactory>();
+        factory.Setup(f => f.Create(It.IsAny<MigrationEndpointOptions>(), It.IsAny<string>())).Returns(source.Object);
+        var package = new Mock<IPackageAccess>();
+        package.Setup(p => p.PersistContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new IOException("disk full"));
+
+        var sut = new CommentsWorkItemExtension(
+            Microsoft.Extensions.Options.Options.Create(new CommentsExtensionOptions()),
+            DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All,
+            factory.Object);
+
+        await Assert.ThrowsExactlyAsync<IOException>(() => sut.ExportAsync(new WorkItemRevisionContext
+        {
+            Package = package.Object,
+            WorkItemId = 7,
+            RevisionIndex = 3,
+            FolderPath = "WorkItems/2026-11-17/rev-7-3/",
+            SourceEndpoint = new AzureDevOpsEndpointOptions(),
+            Revision = new WorkItemRevision
+            {
+                WorkItemId = 7,
+                RevisionIndex = 3,
+                ChangedDate = changed,
+                Fields = [new WorkItemField { ReferenceName = "System.CommentCount", Value = "1" }]
+            }
+        }, CancellationToken.None));
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
     public async Task ImportAsync_CommentWithCapturedImage_PostsTheRehostedUrl()
     {
         const string folder = "WorkItems/2026-11-17/rev-7-3";

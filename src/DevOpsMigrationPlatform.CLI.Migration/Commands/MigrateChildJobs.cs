@@ -60,6 +60,49 @@ internal sealed record MigrateChildJobs(string ParentJobId, Job Export, Job Prep
         await client.SubmitAsync(Export, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// The first problem that would stop the migration, or null. Runs before any child is
+    /// submitted, so nothing reaches the Control Plane for a config the phase runners would
+    /// reject (Tier 0/1, PR #222 review). A Simulated side needs no URL or project.
+    /// </summary>
+    internal static string? Validate(string rawJson)
+    {
+        if (!JobPackageUriResolver.TryResolveFromConfigPayload(rawJson, out _))
+            return "Package location is required for migrate.";
+
+        using var doc = JsonDocument.Parse(rawJson);
+        var mp = doc.RootElement.GetProperty("MigrationPlatform");
+        return ValidateSide(mp, "Source") ?? ValidateSide(mp, "Target");
+    }
+
+    private static string? ValidateSide(JsonElement mp, string side)
+    {
+        if (string.Equals(ReadType(mp, side), "Simulated", StringComparison.OrdinalIgnoreCase))
+            return null;
+        if (!mp.TryGetProperty(side, out var el) || el.ValueKind != JsonValueKind.Object)
+            return $"{side} is required for migrate.";
+
+        string? url;
+        try
+        {
+            url = Options.EnvironmentVariableResolver.Resolve(ReadString(el, "Url"), $"{side}.Url")?.Trim();
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
+        {
+            return ex.Message;
+        }
+        if (string.IsNullOrWhiteSpace(url))
+            return $"{side}.Url is required. Set it in the config file.";
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var parsed) || (parsed.Scheme != Uri.UriSchemeHttp && parsed.Scheme != Uri.UriSchemeHttps))
+            return $"{side}.Url must be a valid HTTP or HTTPS URL. Got: '{url}'.";
+        if (string.IsNullOrWhiteSpace(ReadString(el, "Project")))
+            return $"{side}.Project is required. Set it in the config file.";
+        return null;
+    }
+
+    private static string? ReadString(JsonElement el, string name) =>
+        el.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+
     /// <summary>Maps a config connector type name to the connector an agent advertises.</summary>
     internal static ConnectorType? ConnectorFor(string? configType) => configType switch
     {

@@ -49,11 +49,7 @@ public sealed class InventoryService : IInventoryService
         {
             var orgEndpoint = entry.ToEndpointOptions().ToOrganisationEndpoint();
 
-#if !NET481
             var fetchScope = BuildOrgFetchScope(entry.Scopes);
-#else
-            WorkItemFetchScope? fetchScope = null;
-#endif
 
             var projects = entry.Projects.Count > 0
                 ? entry.Projects
@@ -194,7 +190,6 @@ public sealed class InventoryService : IInventoryService
         }
     }
 
-#if !NET481
     /// <summary>
     /// Builds a <see cref="WorkItemFetchScope"/> from org-level <see cref="MigrationPlatformOptionsScope"/> entries.
     /// Returns <see langword="null"/> when no relevant scopes are present (wiql or filter).
@@ -262,5 +257,4 @@ public sealed class InventoryService : IInventoryService
             ? el.GetString() ?? string.Empty
             : el.ToString();
     }
-#endif
 }

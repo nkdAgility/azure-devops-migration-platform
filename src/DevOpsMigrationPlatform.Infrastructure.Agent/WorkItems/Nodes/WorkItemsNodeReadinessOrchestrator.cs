@@ -53,7 +53,7 @@ public sealed class WorkItemsNodeReadinessOrchestrator : IWorkItemsNodeReadiness
 
         if (_nodesOrchestrator is not null)
         {
-#if !NET481
+#if !NET481 // net481-exempt: ADR-0036 tfs-target
             _logger.LogWarning("[WorkItems] NodeReadinessOrchestrator is not available — falling back to INodesOrchestrator.EnsureReferencedPathsAsync.");
             await _nodesOrchestrator
                 .EnsureReferencedPathsAsync(

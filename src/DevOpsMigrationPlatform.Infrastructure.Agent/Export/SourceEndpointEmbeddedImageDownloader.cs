@@ -25,6 +25,9 @@ public sealed class SourceEndpointEmbeddedImageDownloader : IEmbeddedImageDownlo
 {
     private const int MaxAttempts = 3;
 
+    /// <summary>Largest embedded image accepted (50 MB). A larger response is refused from its headers.</summary>
+    public const long MaxImageBytes = 50L * 1024 * 1024;
+
     private readonly ISourceEndpointInfo _source;
     private readonly ILogger<SourceEndpointEmbeddedImageDownloader> _logger;
     private readonly Func<HttpMessageHandler>? _handlerFactory;
@@ -102,7 +105,7 @@ public sealed class SourceEndpointEmbeddedImageDownloader : IEmbeddedImageDownlo
                 request.Headers.Authorization = new AuthenticationHeaderValue(
                     "Basic", Convert.ToBase64String(Encoding.ASCII.GetBytes(":" + token)));
 
-            using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
             if (IsRedirect(response.StatusCode) && response.Headers.Location is { } location)
             {
                 var next = location.IsAbsoluteUri ? location : new Uri(new Uri(url), location);
@@ -119,9 +122,14 @@ public sealed class SourceEndpointEmbeddedImageDownloader : IEmbeddedImageDownlo
             if (IsTemporary(response.StatusCode))
                 return (null, $"HTTP {(int)response.StatusCode}");
 
+            // Headers only so far: check status, type and size before reading any of the body.
             var mediaType = response.Content?.Headers.ContentType?.MediaType;
-            var bytes = response.IsSuccessStatusCode && response.Content is not null
-                ? await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false)
+            var acceptableType = mediaType is null
+                || mediaType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(mediaType, "application/octet-stream", StringComparison.OrdinalIgnoreCase);
+            var tooLarge = response.Content?.Headers.ContentLength > MaxImageBytes;
+            var bytes = response.IsSuccessStatusCode && response.Content is not null && acceptableType && !tooLarge
+                ? await ReadCappedAsync(response.Content, cancellationToken).ConfigureAwait(false)
                 : null;
             var extension = bytes is null ? null : ImageExtension(mediaType, bytes);
             if (extension is null)
@@ -139,7 +147,25 @@ public sealed class SourceEndpointEmbeddedImageDownloader : IEmbeddedImageDownlo
         return (null, null);
     }
 
-    private static bool IsTemporary(System.Net.HttpStatusCode status) => (int)status is 408 or 429 or >= 500;
+    // Server errors and throttling are retried; one that persists fails the revision, so the work
+    // item stops and is flagged instead of keeping a link back to the source (Martin, 2026-11-17).
+    private static bool IsTemporary(System.Net.HttpStatusCode status) => (int)status is 408 or 429 or 500 or 502 or 503 or 504;
+
+    /// <summary>Reads the body, stopping (null) once it passes <see cref="MaxImageBytes"/>.</summary>
+    private static async Task<byte[]?> ReadCappedAsync(HttpContent content, CancellationToken ct)
+    {
+        using var source = await content.ReadAsStreamAsync().ConfigureAwait(false);
+        using var buffer = new System.IO.MemoryStream();
+        var chunk = new byte[81920];
+        int read;
+        while ((read = await source.ReadAsync(chunk, 0, chunk.Length, ct).ConfigureAwait(false)) > 0)
+        {
+            if (buffer.Length + read > MaxImageBytes)
+                return null;
+            buffer.Write(chunk, 0, read);
+        }
+        return buffer.ToArray();
+    }
 
     private bool IsOnSourceEndpoint(string imageUrl)
     {
@@ -189,18 +215,37 @@ public sealed class SourceEndpointEmbeddedImageDownloader : IEmbeddedImageDownlo
                 byte[] iend = [0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82];
                 return b.Length >= 8 + 25 + 12
                     && b[12] == (byte)'I' && b[13] == (byte)'H' && b[14] == (byte)'D' && b[15] == (byte)'R'
+                    && ContainsChunk(b, "IDAT")
                     && EndsWith(b, iend);
             case "jpg":
-                return b.Length >= 4 && b[b.Length - 2] == 0xFF && b[b.Length - 1] == 0xD9;
+                {
+                    // Padding may follow the end-of-image marker; a truncated file has none.
+                    var end = b.Length;
+                    while (end > 2 && b[end - 1] == 0x00) end--;
+                    return end >= 4 && b[end - 2] == 0xFF && b[end - 1] == 0xD9;
+                }
             case "gif":
                 return b.Length >= 14 && b[b.Length - 1] == 0x3B;
             case "webp":
                 return b.Length >= 12 && BitConverter.ToUInt32(b, 4) + 8 == (uint)b.Length;
             case "bmp":
-                return b.Length >= 14 && BitConverter.ToUInt32(b, 2) == (uint)b.Length;
+                {
+                    // Some writers leave the size field 0; otherwise it must match.
+                    if (b.Length < 14) return false;
+                    var size = BitConverter.ToUInt32(b, 2);
+                    return size == 0 || size == (uint)b.Length;
+                }
             default:
                 return true;
         }
+    }
+
+    private static bool ContainsChunk(byte[] b, string type)
+    {
+        for (var i = 8; i + 8 <= b.Length; i++)
+            if (b[i + 4] == type[0] && b[i + 5] == type[1] && b[i + 6] == type[2] && b[i + 7] == type[3])
+                return true;
+        return false;
     }
 
     private static bool EndsWith(byte[] b, byte[] tail)

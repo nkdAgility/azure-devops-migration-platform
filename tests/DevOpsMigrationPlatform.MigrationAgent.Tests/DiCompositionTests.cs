@@ -65,4 +65,42 @@ public class DiCompositionTests
 
         host.Dispose();
     }
+
+    /// <summary>
+    /// #171 live run: the Aspire default resilience handler (10 s attempt timeout) also wrapped
+    /// the Control Plane client, so every 30 s lease long-poll was cut off at 10 s. A lease granted
+    /// as the agent gave up went to nobody and the job hung.
+    /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
+    [TestMethod]
+    public async Task ControlPlaneClient_LeaseLongPollLongerThanTheDefaultTimeout_WaitsForTheAnswer()
+    {
+        var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings { Args = [], Configuration = new ConfigurationManager() });
+        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["ControlPlane:BaseUrl"] = "http://localhost:5100",
+            ["Telemetry:DiagnosticsPath"] = null,
+        });
+        builder.AddServiceDefaults(Abstractions.WellKnownServiceNames.MigrationAgent);
+        builder.AddMigrationAgentServices(new Uri("http://localhost:5100"));
+        var heldFor = TimeSpan.FromSeconds(12);
+        builder.Services.AddHttpClient("ControlPlane").ConfigurePrimaryHttpMessageHandler(() => new LongPollHandler(heldFor));
+
+        using var host = builder.Build();
+        var client = host.Services.GetRequiredService<System.Net.Http.IHttpClientFactory>().CreateClient("ControlPlane");
+
+        using var response = await client.GetAsync("/agents/lease?capabilities=AzureDevOps");
+
+        Assert.AreEqual(System.Net.HttpStatusCode.NoContent, response.StatusCode);
+    }
+
+    private sealed class LongPollHandler(TimeSpan heldFor) : System.Net.Http.HttpMessageHandler
+    {
+        protected override async Task<System.Net.Http.HttpResponseMessage> SendAsync(System.Net.Http.HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            await Task.Delay(heldFor, cancellationToken);
+            return new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.NoContent);
+        }
+    }
 }

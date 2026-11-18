@@ -50,7 +50,7 @@ public interface ITeamsOrchestrator
         TeamsModuleOptions options,
         CancellationToken ct);
 
-#if !NET481
+#if !NET481 // net481-exempt: ADR-0036 tfs-target
     Task ImportAsync(
         ImportContext context,
         ISourceEndpointInfo sourceEndpointInfo,

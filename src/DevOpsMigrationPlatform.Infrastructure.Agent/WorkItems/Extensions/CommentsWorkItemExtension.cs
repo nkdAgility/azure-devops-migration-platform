@@ -84,11 +84,13 @@ public sealed class CommentsWorkItemExtension : IModuleExtension
         if (!IsCommentEditOrDeleteRevision(ctx.Revision))
             return;
 
+        // Only reading the comments is allowed to fail softly (an older server without the
+        // comments API). Capturing images and writing comment.json must succeed or fail the
+        // revision, so a resume exports it again instead of skipping it (PR #222 review).
+        var matchingComments = new List<WorkItemComment>();
         try
         {
             var commentSource = _commentSourceFactory.Create(ctx.SourceEndpoint, ctx.ProjectName);
-            var matchingComments = new List<WorkItemComment>();
-
             await foreach (var comment in commentSource.GetCommentsAsync(
                 ctx.WorkItemId, includeDeleted: true, ct))
             {
@@ -96,44 +98,36 @@ public sealed class CommentsWorkItemExtension : IModuleExtension
                 if (deltaSeconds <= 1.0)
                     matchingComments.Add(comment);
             }
-
-            if (matchingComments.Count > 0)
-            {
-                await CaptureCommentImagesAsync(ctx, matchingComments, ct).ConfigureAwait(false);
-                var commentJson = JsonSerializer.Serialize(matchingComments, _exportJsonOptions);
-                var commentPath = $"{ctx.FolderPath}comment.json";
-                var revisionFolderPath = GetRevisionFolderPath(commentPath);
-                var fileName = GetFileName(commentPath);
-                using var stream = new MemoryStream(Encoding.UTF8.GetBytes(commentJson), writable: false);
-                await ctx.Package.PersistContentAsync(
-                    new PackageContentContext(
-                        PackageContentKind.Artefact,
-                        Organisation: ctx.Organisation,
-                        Project: ctx.ProjectName,
-                        Module: "WorkItems",
-                        Address: new WorkItemAttachmentAddress(revisionFolderPath, fileName)),
-                    new PackagePayload(stream, "application/json"),
-                    ct).ConfigureAwait(false);
-
-                _logger?.LogDebug("[Comments] WI {WorkItemId} rev {RevisionIndex}: wrote {Count} comment(s) to comment.json.",
-                    ctx.WorkItemId, ctx.RevisionIndex, matchingComments.Count);
-            }
         }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        // A temporary image failure must fail the revision so the next run retries it.
-        catch (DevOpsMigrationPlatform.Abstractions.Agent.Attachments.EmbeddedImageDownloadException)
-        {
-            throw;
-        }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger?.LogWarning(ex,
                 "[Comments] Inline comment fetch failed for WI {WorkItemId} rev {RevisionIndex}.",
                 ctx.WorkItemId, ctx.RevisionIndex);
+            return;
         }
+
+        if (matchingComments.Count == 0)
+            return;
+
+        await CaptureCommentImagesAsync(ctx, matchingComments, ct).ConfigureAwait(false);
+        var commentJson = JsonSerializer.Serialize(matchingComments, _exportJsonOptions);
+        var commentPath = $"{ctx.FolderPath}comment.json";
+        var revisionFolderPath = GetRevisionFolderPath(commentPath);
+        var fileName = GetFileName(commentPath);
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(commentJson), writable: false);
+        await ctx.Package.PersistContentAsync(
+            new PackageContentContext(
+                PackageContentKind.Artefact,
+                Organisation: ctx.Organisation,
+                Project: ctx.ProjectName,
+                Module: "WorkItems",
+                Address: new WorkItemAttachmentAddress(revisionFolderPath, fileName)),
+            new PackagePayload(stream, "application/json"),
+            ct).ConfigureAwait(false);
+
+        _logger?.LogDebug("[Comments] WI {WorkItemId} rev {RevisionIndex}: wrote {Count} comment(s) to comment.json.",
+            ctx.WorkItemId, ctx.RevisionIndex, matchingComments.Count);
     }
 
     public async Task ImportAsync(IExtensionContext context, CancellationToken ct)

@@ -28,7 +28,7 @@ using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 using System.Text.Json.Serialization;
-#if !NET481
+#if !NET481 // net481-exempt: ADR-0036 tfs-target
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
 #endif
 using Microsoft.Extensions.Logging;
@@ -61,7 +61,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
     private readonly ILogger _logger;
     private readonly IPackageAccess? _package;
     private readonly IPlatformMetrics? _PlatformMetrics;
-#if !NET481
+#if !NET481 // net481-exempt: ADR-0036 tfs-target
     private readonly INodeTranslationTool _nodeTranslationTool;
     private readonly INodeCreator _nodeCreator;
 #endif
@@ -70,7 +70,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
 
     public NodesOrchestrator(
         ILogger<NodesOrchestrator> logger
-#if !NET481
+#if !NET481 // net481-exempt: ADR-0036 tfs-target
         , INodeTranslationTool nodeTranslationTool,
         INodeCreator nodeCreator,
         IPlatformMetrics? PlatformMetrics = null,
@@ -87,7 +87,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _package = package;
         _PlatformMetrics = PlatformMetrics;
-#if !NET481
+#if !NET481 // net481-exempt: ADR-0036 tfs-target
         _nodeTranslationTool = nodeTranslationTool ?? throw new ArgumentNullException(nameof(nodeTranslationTool));
         _nodeCreator = nodeCreator ?? throw new ArgumentNullException(nameof(nodeCreator));
 #endif
@@ -352,7 +352,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
             sourceEndpointInfo.OrganisationSlug,
             sourceEndpointInfo.Project,
             ct,
-#if !NET481
+#if !NET481 // net481-exempt: ADR-0036 tfs-target
             _PlatformMetrics,
 #else
             null,
@@ -387,7 +387,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
         }
     }
 
-#if !NET481
+#if !NET481 // net481-exempt: ADR-0036 tfs-target
     /// <summary>
     /// Replicates the source classification tree into the target project.
     /// Writes checkpoint on completion.

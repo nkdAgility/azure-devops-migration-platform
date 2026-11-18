@@ -46,9 +46,7 @@ public sealed class TfsWorkItemQueryWindowStrategy : IWorkItemQueryWindowStrateg
         // Yield control so callers composing async pipelines are not blocked synchronously.
         await System.Threading.Tasks.Task.Yield();
 
-        var baseQuery = options?.BaseQuery is { Length: > 0 }
-            ? options.BaseQuery
-            : $"SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = '{EscapeWiql(project)}'";
+        var baseQuery = ToWindowBaseQuery(options?.BaseQuery, project);
 
         var progressSink = new LoggingProgressSink(_logger);
 
@@ -96,6 +94,33 @@ public sealed class TfsWorkItemQueryWindowStrategy : IWorkItemQueryWindowStrateg
     }
 
     private static string EscapeWiql(string value) => value.Replace("'", "''");
+
+    /// <summary>
+    /// The query the date windows are appended to ("AND [System.CreatedDate] ..."): the
+    /// configured query's WHERE in brackets, with <c>@project</c> resolved (an Object Model query
+    /// has no project context) and ORDER BY removed. No query means the whole project (#171).
+    /// </summary>
+    internal static string ToWindowBaseQuery(string? query, string project)
+    {
+        var where = $"[System.TeamProject] = @project";
+        if (!string.IsNullOrWhiteSpace(query))
+        {
+            var q = query!.Trim();
+            var whereAt = q.IndexOf(" WHERE ", StringComparison.OrdinalIgnoreCase);
+            if (whereAt >= 0)
+            {
+                where = q.Substring(whereAt + " WHERE ".Length);
+                var orderAt = where.LastIndexOf("ORDER BY", StringComparison.OrdinalIgnoreCase);
+                if (orderAt >= 0)
+                    where = where.Substring(0, orderAt);
+                where = where.Trim();
+            }
+        }
+
+        where = System.Text.RegularExpressions.Regex.Replace(
+            where, @"@project\b", $"'{EscapeWiql(project)}'", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        return $"SELECT [System.Id] FROM WorkItems WHERE ({where})";
+    }
 
     private sealed class LoggingProgressSink : IProgressSink
     {

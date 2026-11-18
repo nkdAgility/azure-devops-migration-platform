@@ -47,7 +47,7 @@ public sealed class TeamsModule : IModule
     private static readonly ActivitySource MigrationActivity = new(WellKnownActivitySourceNames.Migration);
 
     private readonly ITeamSource? _teamSource;
-#if !NET481
+#if !NET481 // net481-exempt: ADR-0036 tfs-target
     private readonly ITeamTarget? _teamTarget;
 #endif
     private readonly ICheckpointingServiceFactory? _checkpointingFactory;
@@ -55,7 +55,7 @@ public sealed class TeamsModule : IModule
     private readonly IPlatformMetrics? _PlatformMetrics;
     private readonly TeamsModuleOptions _options;
     private readonly ISourceEndpointInfo _sourceEndpointInfo;
-#if !NET481
+#if !NET481 // net481-exempt: ADR-0036 tfs-target
     private readonly ITargetEndpointInfo? _targetEndpointInfo;
 #endif
     private readonly ITeamsOrchestrator _orchestrator;
@@ -99,7 +99,7 @@ public sealed class TeamsModule : IModule
     public bool SupportsExport => true;
     public bool SupportsInventory => true;
     public bool SupportsPrepare => true;
-#if !NET481
+#if !NET481 // net481-exempt: ADR-0036 tfs-target
     public bool SupportsImport => true;
 #else
     public bool SupportsImport => false;
@@ -124,7 +124,7 @@ public sealed class TeamsModule : IModule
         _checkpointingFactory = checkpointingFactory;
     }
 
-#if !NET481
+#if !NET481 // net481-exempt: ADR-0036 tfs-target
     public TeamsModule(
         ILogger<TeamsModule> logger,
         IOptions<TeamsModuleOptions> options,
@@ -213,7 +213,7 @@ public sealed class TeamsModule : IModule
     }
 
     /// <inheritdoc/>
-#if !NET481
+#if !NET481 // net481-exempt: ADR-0036 tfs-target
     public async Task<TaskExecutionResult> ImportAsync(ImportContext context, CancellationToken ct)
     {
         if (!_options.Enabled)

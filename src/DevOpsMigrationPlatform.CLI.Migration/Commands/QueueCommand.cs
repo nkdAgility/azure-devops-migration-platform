@@ -410,6 +410,13 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         var console = GetRequiredService<IAnsiConsole>();
         console.MarkupLine($"[blue]ℹ[/] Migration job [bold]{children.ParentJobId}[/] (Export → Prepare → Import)");
 
+        // Validate first: nothing reaches the Control Plane for a config a phase would reject.
+        if (MigrateChildJobs.Validate(rawJson) is { } problem)
+        {
+            ShowError(console, problem);
+            return 1;
+        }
+
         // Register all three children before following any, so the parent's state covers the
         // whole migration and detaching leaves it running (PR #222 review).
         try

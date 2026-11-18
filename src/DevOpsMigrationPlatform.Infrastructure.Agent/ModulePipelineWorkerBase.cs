@@ -22,9 +22,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
-#if !NET481
 using DevOpsMigrationPlatform.Infrastructure.Serialization;
-#endif
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent;
 
@@ -93,15 +91,11 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         ILogger logger,
         IWorkerEventSink eventWriter,
         IActiveJobState? activeJobState = null
-#if !NET481
         , PolymorphicEndpointOptionsConverter? endpointConverter = null
         , PolymorphicOrganisationEntryConverter? organisationConverter = null
-#endif
         ) : base(leaseState, packageState, httpClientFactory, logger, eventWriter
-#if !NET481
                  , endpointConverter
                  , organisationConverter
-#endif
                  )
     {
         ProgressSink = progressSink ?? throw new ArgumentNullException(nameof(progressSink));

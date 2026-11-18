@@ -143,11 +143,17 @@ public sealed class SimulatedWorkItemTarget : IWorkItemTarget
     {
         // Read the binaries first, then create the item and add everything in one step (#169).
         var binaries = new List<SimulatedAttachment>(attachments.Count);
+        // Package paths of the attachments actually read, kept with each read (PR #222 review).
+        var storedPaths = new List<(string Path, string FileName)>(attachments.Count);
         foreach (var attachment in attachments)
         {
             using var content = await attachment.OpenAsync(ct).ConfigureAwait(false);
             if (content is not null)
+            {
                 binaries.Add(new SimulatedAttachment(attachment.FileName, ReadAllBytes(content)));
+                if (attachment.RelativePath is not null)
+                    storedPaths.Add((attachment.RelativePath, attachment.FileName));
+            }
         }
 
         var created = await CreateWorkItemAsync(workItemType, fields, ct).ConfigureAwait(false);
@@ -161,10 +167,9 @@ public sealed class SimulatedWorkItemTarget : IWorkItemTarget
             stored.AddRange(binaries);
         }
         // Same deterministic ID as UploadAttachmentAsync gives.
-        var createdAttachments = attachments
-            .Where(a => a.RelativePath is not null && binaries.Any(b => b.FileName == a.FileName))
-            .Select(a => new CreatedAttachment(
-                a.RelativePath!, $"simulated://{created.TargetWorkItemId}/{Uri.EscapeDataString(a.FileName)}"))
+        var createdAttachments = storedPaths
+            .Select(stored => new CreatedAttachment(
+                stored.Path, $"simulated://{created.TargetWorkItemId}/{Uri.EscapeDataString(stored.FileName)}"))
             .ToList();
         return created with { CreatedAttachments = createdAttachments };
     }

@@ -38,10 +38,12 @@ public class CliRunnerTimeoutTests
         var startedAfter = DateTime.Now.AddSeconds(-1);
 
         // A short, deterministic runner timeout: the standalone stack is still starting (or the job
-        // is running), so the timeout branch is guaranteed to execute.
+        // is running), so the timeout branch is guaranteed to execute. 1.5 s, not 4 s: since the
+        // agent's lease long-poll stopped timing out every 10 s (#171), the whole simulated export
+        // finishes in about 3 s.
         var result = await CliRunner.RunAsync(
             ["queue", "--config", "scenarios/SystemTest-Simulated-Export-WorkItems.json", "--force-fresh"],
-            timeout: TimeSpan.FromSeconds(4));
+            timeout: TimeSpan.FromSeconds(1.5));
 
         Assert.IsTrue(result.TimedOut, "The runner timeout should have fired for this test to be meaningful.");
 

@@ -6,7 +6,7 @@ using DevOpsMigrationPlatform.Abstractions.Options;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-#if !NET481
+#if !NET481 // net481-pending: #215
 using DevOpsMigrationPlatform.Infrastructure.Config;
 using DevOpsMigrationPlatform.Infrastructure.Serialization;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -46,7 +46,7 @@ public static class MigrationPlatformServiceExtensions
             .Bind(configuration.GetSection("MigrationPlatform"))
             .ValidateOnStart();
 
-#if !NET481
+#if !NET481 // net481-pending: #215
         // Polymorphic endpoint options registry — built from all EndpointOptionsRegistration entries
         services.AddMigrationPlatformPolymorphicSerializers();
 #endif
@@ -54,7 +54,7 @@ public static class MigrationPlatformServiceExtensions
         return services;
     }
 
-#if !NET481
+#if !NET481 // net481-pending: #215
     /// <summary>
     /// Registers the polymorphic JSON serializers (registry + converters) without binding
     /// <see cref="MigrationPlatformOptions"/>. Call this when the full

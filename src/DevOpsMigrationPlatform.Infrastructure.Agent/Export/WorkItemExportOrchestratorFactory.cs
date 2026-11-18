@@ -36,7 +36,8 @@ public sealed class WorkItemExportOrchestratorFactory : IWorkItemExportOrchestra
         IReferencedPathLifecycle? referencedPathTracker = null,
         IReadOnlyList<IModuleExtension>? exportExtensions = null,
         MigrationEndpointOptions? endpoint = null,
-        IEmbeddedImageExportService? embeddedImageExport = null)
+        IEmbeddedImageExportService? embeddedImageExport = null,
+        DevOpsMigrationPlatform.Abstractions.Organisations.OrganisationEndpoint? sourceOrganisationEndpoint = null)
     {
         return new WorkItemExportOrchestrator(
             package,
@@ -57,11 +58,10 @@ public sealed class WorkItemExportOrchestratorFactory : IWorkItemExportOrchestra
             exportProgressStoreFactory: exportProgressStoreFactory,
             packageUri: packageUri,
             embeddedImageExport: embeddedImageExport
-#if !NET481
             ,
             referencedPathTracker: referencedPathTracker,
-            exportExtensions: exportExtensions
-#endif
+            exportExtensions: exportExtensions,
+            sourceOrganisationEndpoint: sourceOrganisationEndpoint
             );
     }
 }

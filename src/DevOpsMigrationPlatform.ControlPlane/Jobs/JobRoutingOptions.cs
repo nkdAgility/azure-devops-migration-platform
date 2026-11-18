@@ -18,7 +18,15 @@ public sealed class JobRoutingOptions
     [Range(typeof(TimeSpan), "00:01:00", "1.00:00:00")]
     public TimeSpan UnservableJobTimeout { get; init; } = TimeSpan.FromMinutes(2);
 
-    /// <summary>How often the Control Plane checks for unservable jobs.</summary>
+    /// <summary>
+    /// How long a leased job's agent may send no heartbeat or worker event before the job is
+    /// failed as abandoned (#171). Agents heartbeat every 15 seconds, so the default allows eight
+    /// missed heartbeats.
+    /// </summary>
+    [Range(typeof(TimeSpan), "00:01:00", "1.00:00:00")]
+    public TimeSpan SilentLeaseTimeout { get; init; } = TimeSpan.FromMinutes(2);
+
+    /// <summary>How often the Control Plane checks for unservable jobs and silent leases.</summary>
     [Range(typeof(TimeSpan), "00:00:01", "00:10:00")]
     public TimeSpan CheckInterval { get; init; } = TimeSpan.FromSeconds(15);
 }

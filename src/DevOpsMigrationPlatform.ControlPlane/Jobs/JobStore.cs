@@ -403,6 +403,37 @@ public sealed class JobStore : IJobStore
         return failed;
     }
 
+    /// <inheritdoc />
+    public IReadOnlyList<(Guid JobId, string Reason)> FailSilentLeases(TimeSpan timeout)
+    {
+        var failed = new List<(Guid JobId, string Reason)>();
+        var now = _time.GetUtcNow();
+        foreach (var (jobId, lease) in _leasedTo)
+        {
+            var state = _states.TryGetValue(jobId, out var s) ? s : null;
+            if (state is "Completed" or "Failed")
+            {
+                _leasedTo.TryRemove(jobId, out _);
+                continue;
+            }
+            if (now - lease.LastSeen <= timeout || !_all.TryGetValue(jobId, out var job))
+                continue;
+            // Remove only the lease entry seen here, so activity recorded meanwhile wins.
+            if (!_leasedTo.TryRemove(new KeyValuePair<Guid, (ConnectorType[], DateTimeOffset)>(jobId, lease)))
+                continue;
+
+            var agents = string.Join(" or ", job.Connectors.Select(AgentFor).Distinct());
+            var reason = $"{job.Kind} job {job.JobId} failed: its agent ({(agents.Length == 0 ? "MigrationAgent" : agents)}) " +
+                         $"sent no heartbeat for {timeout.TotalMinutes:0.#} minutes and has probably stopped. " +
+                         "Check the agent's log, then run the migration again; completed work is skipped.";
+            _logger?.LogWarning("[ControlPlane] {Reason}", reason);
+            JobFailedWithoutRunning?.Invoke(jobId, reason);
+            SetState(jobId, "Failed");
+            failed.Add((jobId, reason));
+        }
+        return failed;
+    }
+
     private static string UnservableReason(Job job, TimeSpan timeout)
     {
         var needed = string.Join(", ", job.Connectors);

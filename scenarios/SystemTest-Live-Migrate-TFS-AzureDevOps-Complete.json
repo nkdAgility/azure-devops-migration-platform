@@ -62,7 +62,14 @@
       "WorkItems": {
         "Enabled": true,
         "Selection": {
-          "Query": "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project ORDER BY [System.Id]"
+          "Query": "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project AND [System.WorkItemType] <> 'Issue' ORDER BY [System.Id]",
+          "Filters": [
+            {
+              "Mode": "Exclude",
+              "Pattern": "^E2E169 excluded",
+              "Field": "System.Title"
+            }
+          ]
         },
         "Data": {
           "Revisions": {

@@ -64,6 +64,37 @@ public sealed class AgentWorkerBaseLeaseCoordinationTests
         Assert.IsNull(packageState.CurrentRunId, "The cached run id must be cleared with the active package state.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
+    [TestMethod]
+    public async Task ExecuteAsync_WhenJobDispatchThrows_ReportsTheJobFailed()
+    {
+        // #171 live run: a TFS Export threw while starting; nothing told the Control Plane, so the
+        // job stayed leased for 16 hours and Prepare and Import waited behind it for ever.
+        var leaseState = new ActiveLeaseState();
+        var packageState = new ActivePackageState();
+        var job = new Job
+        {
+            JobId = "job-dispatch-failure",
+            Kind = JobKind.Export,
+            ConfigPayload = "{\"MigrationPlatform\":{\"Package\":{\"WorkingDirectory\":\"file:///tmp/package\"}}}"
+        };
+        var handler = new SingleLeaseResponseHandler("lease-dispatch-failure", job);
+        using var client = new HttpClient(handler) { BaseAddress = new Uri("http://localhost:5100") };
+        var httpClientFactory = new TestHttpClientFactory(client);
+        var eventWriter = new UnifiedWorkerEventWriter(httpClientFactory, leaseState, NullLogger<UnifiedWorkerEventWriter>.Instance);
+        var worker = new ThrowingAgentWorker(leaseState, packageState, httpClientFactory, eventWriter);
+
+        using var runCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await worker.StartAsync(runCts.Token);
+        await Task.WhenAny(handler.TerminalPosted.Task, Task.Delay(TimeSpan.FromSeconds(3)));
+        await runCts.CancelAsync();
+        await worker.StopAsync(CancellationToken.None);
+
+        Assert.IsTrue(handler.TerminalPosted.Task.IsCompleted, "A failed terminal event must reach the Control Plane.");
+        StringAssert.Contains(await handler.TerminalPosted.Task, "lease-dispatch-failure");
+    }
+
     private sealed class ThrowingAgentWorker(
         ActiveLeaseState leaseState,
         ActivePackageState packageState,
@@ -97,7 +128,23 @@ public sealed class AgentWorkerBaseLeaseCoordinationTests
     {
         private bool _leaseReturned;
 
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        /// <summary>Completes with the request URL of the first event POST that carries a failed terminal.</summary>
+        public TaskCompletionSource<string> TerminalPosted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            if (request.Method == HttpMethod.Post && request.Content is not null)
+            {
+                var body = await request.Content.ReadAsStringAsync(cancellationToken);
+                // The payload is nested JSON, so its quotes arrive escaped as ".
+                if (body.Contains("\"kind\":\"Terminal\"") && body.Contains("\\u0022failed\\u0022:true"))
+                    TerminalPosted.TrySetResult(request.RequestUri + " " + body);
+                return new HttpResponseMessage(HttpStatusCode.Accepted);
+            }
+            return await Respond(request);
+        }
+
+        private Task<HttpResponseMessage> Respond(HttpRequestMessage request)
         {
             if (!_leaseReturned && request.Method == HttpMethod.Get && request.RequestUri?.AbsolutePath == "/agents/lease")
             {

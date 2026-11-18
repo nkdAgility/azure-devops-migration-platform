@@ -17,8 +17,9 @@ public sealed class TfsConnectorCapabilityProvider : IConnectorCapabilityProvide
 {
     /// <inheritdoc />
     /// <remarks>
-    /// Always returns <see langword="false"/> — TFS Object Model exposes
-    /// <see cref="ConnectorCapability.None"/>.
+    /// Only <see cref="ConnectorCapability.WorkItemComments"/>: comment versions come from the
+    /// comments REST API that TFS 2019+ and Azure DevOps serve (#171). Team and board
+    /// capabilities stay undeclared.
     /// </remarks>
-    public bool Has(ConnectorCapability capability) => false;
+    public bool Has(ConnectorCapability capability) => capability == ConnectorCapability.WorkItemComments;
 }

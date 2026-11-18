@@ -285,3 +285,11 @@ All work is a GitHub Backlog Item; questions needing a ruling are Decisions. Eve
 A migration whose source and target need different agents (TFS → Azure DevOps) runs as one parent job with dependent children: Export (source connector only) → Prepare → Import (target connector only). The CLI decides the split from the configured connector types and runs nothing. The Control Plane routes each child by its own connectors, holds a child until the job it depends on completes, and fails it if that job fails; it knows only "job X waits for job Y". The package is the hand-off, and cursors make each child resumable. The operator sees one parent ID whose state is built from its children.
 
 **Current implication:** Never put both connectors on one job that spans agents; queue Migrate through `MigrateChildJobs`. Dependency handling stays generic in `JobStore` (`DependsOnJobId`, `ParentJobId`). A job that no connected agent can serve fails fast with its reason instead of waiting forever.
+
+## ADR 0036 — net481 Guard Inventory and Exemptions
+
+**Status:** Accepted
+
+Applies ADR-0018 to every `#if !NET481` guard. The TFS export features are restored on net481: export extensions such as comments and comment images, include/exclude filters, WIQL selection, referenced-path tracking, the HTML image parser and the polymorphic converters. The TFS connector now reads comment versions from the comments REST API. Two kinds of exemption remain. Default interface members are a runtime incompatibility. TFS-as-target Nodes and Teams import waits on Decision #139. Guards outside Infrastructure.Agent and Abstractions.Agent stay pending under #215.
+
+**Current implication:** Every `#if !NET481` in `src/` carries `// net481-exempt: ADR-0036 <category>` or `// net481-pending: #215`, and `Net481GuardClauseTests` fails otherwise. Implement a feature on net481 rather than adding a guard.

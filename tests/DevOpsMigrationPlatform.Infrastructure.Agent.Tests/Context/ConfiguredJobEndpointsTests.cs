@@ -83,6 +83,22 @@ public class ConfiguredJobEndpointsTests
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
+    public void TryBuildSource_ProjectSetAndSeveralGeneratedProjects_IsRejected()
+    {
+        // PR #222 review: the Simulated source streams every generated project, so a set
+        // Source:Project does not make a multi-project list safe.
+        var config = Config(
+            ("MigrationPlatform:Source:Type", "Simulated"),
+            ("MigrationPlatform:Source:Project", "Alpha"),
+            ("MigrationPlatform:Source:Generator:Projects:0:Name", "Alpha"),
+            ("MigrationPlatform:Source:Generator:Projects:1:Name", "Beta"));
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => ConfiguredJobEndpoints.TryBuildSource(config, out _));
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
     public void TryBuildSource_OneGeneratedProject_IsTheSourceProject()
     {
         var config = Config(

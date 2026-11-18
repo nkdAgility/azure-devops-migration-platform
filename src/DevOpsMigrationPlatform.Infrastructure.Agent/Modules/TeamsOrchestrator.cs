@@ -708,7 +708,7 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
     /// deserialises, and delegates per-team import to <paramref name="importOrchestrator"/>.
     /// Writes checkpoint on completion.
     /// </summary>
-#if !NET481
+#if !NET481 // net481-exempt: ADR-0036 tfs-target
     public async Task ImportAsync(
         ImportContext context,
         ISourceEndpointInfo sourceEndpointInfo,

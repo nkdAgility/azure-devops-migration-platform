@@ -218,6 +218,10 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
             if (targetId is null)
             {
                 targetId = await resolutionStrategy.ResolveSingleAsync(revision.WorkItemId, ct).ConfigureAwait(false);
+                // The strategy found the item on the target (e.g. from a provenance field): save
+                // the mapping so this and later revisions, links and resumes find it.
+                if (targetId is not null)
+                    await _idMapStore.SetWorkItemMappingAsync(revision.WorkItemId, targetId.Value, ct).ConfigureAwait(false);
             }
             else
             {

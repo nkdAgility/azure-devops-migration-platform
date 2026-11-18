@@ -223,10 +223,8 @@ public sealed class TeamMigrationOrchestrator
         string project,
         CancellationToken ct)
     {
-#if !NET481
         if (_referencedPathTracker is DevOpsMigrationPlatform.Abstractions.Agent.Tools.IReferencedPathLifecycle tracker)
             return tracker.RecordAreaPathAsync(path, package, organisation, project, ct);
-#endif
         return Task.CompletedTask;
     }
 

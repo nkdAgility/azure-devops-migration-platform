@@ -73,6 +73,27 @@ public sealed class WorkItemsOrchestratorExportTests
             "Attachment binary source should always be forwarded to the export orchestrator.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task ExportAsync_ConfiguredQueryWithoutFilters_ForwardsTheFetchServiceAndQuery()
+    {
+        // #171 live E2E: the fetch service was forwarded only when filters were set, so a
+        // configured WIQL on its own never bounded the export.
+        const string query = "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project AND [System.WorkItemType] <> 'Issue'";
+        var spy = new ExportFactorySpy();
+        var fetchService = Mock.Of<IWorkItemFetchService>();
+        var options = Options.Create(new WorkItemsModuleOptions { Selection = new WorkItemsSelectionOptions { Query = query } });
+
+        var orchestrator = WorkItemsModuleTestFactory.CreateOrchestrator(
+            exportOrchestratorFactory: spy, fetchService: fetchService, options: options);
+
+        await orchestrator.ExportAsync(CreateExportContext(), CancellationToken.None);
+
+        Assert.AreSame(fetchService, spy.CapturedFetchService);
+        Assert.AreEqual(query, spy.CapturedQuery);
+    }
+
     private static ExportContext CreateExportContext() => new()
     {
         Job = new Job { JobId = "test-job", Kind = JobKind.Export },
@@ -83,6 +104,8 @@ public sealed class WorkItemsOrchestratorExportTests
     private sealed class ExportFactorySpy : IWorkItemExportOrchestratorFactory
     {
         public IAttachmentBinarySource? CapturedAttachmentSource { get; private set; }
+        public IWorkItemFetchService? CapturedFetchService { get; private set; }
+        public string? CapturedQuery { get; private set; }
         public IReadOnlyList<IModuleExtension>? CapturedExtensions { get; private set; }
 
         public IWorkItemExportOrchestrator Create(
@@ -105,8 +128,11 @@ public sealed class WorkItemsOrchestratorExportTests
             IReferencedPathLifecycle? referencedPathTracker = null,
             IReadOnlyList<IModuleExtension>? exportExtensions = null,
             MigrationEndpointOptions? endpoint = null,
-            DevOpsMigrationPlatform.Abstractions.Agent.Attachments.IEmbeddedImageExportService? embeddedImageExport = null)
+            DevOpsMigrationPlatform.Abstractions.Agent.Attachments.IEmbeddedImageExportService? embeddedImageExport = null,
+            DevOpsMigrationPlatform.Abstractions.Organisations.OrganisationEndpoint? sourceOrganisationEndpoint = null)
         {
+            CapturedFetchService = fetchService;
+            CapturedQuery = wiqlQuery;
             CapturedAttachmentSource = attachmentBinarySource;
             CapturedExtensions = exportExtensions;
             var stub = new Mock<IWorkItemExportOrchestrator>(MockBehavior.Loose);

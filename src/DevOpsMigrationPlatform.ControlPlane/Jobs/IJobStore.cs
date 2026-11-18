@@ -82,8 +82,16 @@ public interface IJobStore
     IReadOnlyList<(Guid JobId, string Reason)> FailUnservableJobs(TimeSpan timeout);
 
     /// <summary>
-    /// Raised when the Control Plane fails a job before any agent ran it: its dependency
-    /// failed, or no connected agent can serve it. Carries the job id and an actionable reason.
+    /// Fails every leased, unfinished job whose agent sent no heartbeat or worker event within
+    /// <paramref name="timeout"/>: the agent has stopped, so the job would otherwise stay leased
+    /// for ever (#171). Its dependents fail with it; a re-run resumes the work.
+    /// </summary>
+    IReadOnlyList<(Guid JobId, string Reason)> FailSilentLeases(TimeSpan timeout);
+
+    /// <summary>
+    /// Raised when the Control Plane itself fails a job, which no agent will report: its
+    /// dependency failed, no connected agent can serve it, or its agent went silent mid-job.
+    /// Carries the job id and an actionable reason.
     /// </summary>
     event Action<Guid, string>? JobFailedWithoutRunning;
 }

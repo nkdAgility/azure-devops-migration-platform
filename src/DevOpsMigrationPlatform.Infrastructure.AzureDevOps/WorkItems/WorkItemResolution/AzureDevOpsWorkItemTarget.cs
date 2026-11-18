@@ -60,6 +60,13 @@ internal sealed class AzureDevOpsWorkItemTarget : IWorkItemTarget, IDisposable
     /// <summary>Organisation URL used to establish the connection to this target.</summary>
     public string OrganisationUrl { get; }
 
+    /// <summary>
+    /// The URL a related-link relation must carry: Azure DevOps rejects a relative one with
+    /// "Linking to a work item requires the full url" (#171).
+    /// </summary>
+    internal static string RelatedWorkItemUrl(string organisationUrl, int workItemId) =>
+        $"{organisationUrl.TrimEnd('/')}/_apis/wit/workItems/{workItemId}";
+
     public AzureDevOpsWorkItemTarget(WorkItemTrackingHttpClient witClient, string project, string organisationUrl)
     {
         _witClient = witClient ?? throw new ArgumentNullException(nameof(witClient));
@@ -135,7 +142,7 @@ internal sealed class AzureDevOpsWorkItemTarget : IWorkItemTarget, IDisposable
                 Value = new
                 {
                     rel = rel.ArtifactLinkType,
-                    url = $"/_apis/wit/workItems/{rel.RelatedWorkItemId}",
+                    url = RelatedWorkItemUrl(OrganisationUrl, rel.RelatedWorkItemId),
                     attributes = rel.Comment is not null ? new { comment = rel.Comment } : null
                 }
             });
@@ -268,7 +275,7 @@ internal sealed class AzureDevOpsWorkItemTarget : IWorkItemTarget, IDisposable
     /// Adds a relation operation for each link and attachment, skipping any already present on
     /// <paramref name="existing"/> (null for a work item being created).
     /// </summary>
-    private static void AddRelationOperations(
+    private void AddRelationOperations(
         JsonPatchDocument patch,
         IReadOnlyList<RelatedWorkItemLink> relatedLinks,
         IReadOnlyList<ExternalWorkItemLink> externalLinks,
@@ -301,7 +308,7 @@ internal sealed class AzureDevOpsWorkItemTarget : IWorkItemTarget, IDisposable
                 Value = new
                 {
                     rel = rel.ArtifactLinkType,
-                    url = $"/_apis/wit/workItems/{rel.RelatedWorkItemId}",
+                    url = RelatedWorkItemUrl(OrganisationUrl, rel.RelatedWorkItemId),
                     attributes = rel.Comment is not null ? new { comment = rel.Comment } : null
                 }
             });

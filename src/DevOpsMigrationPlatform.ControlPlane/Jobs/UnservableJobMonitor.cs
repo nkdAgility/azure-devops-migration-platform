@@ -50,6 +50,7 @@ public sealed class UnservableJobMonitor : BackgroundService
             {
                 // Failures are published through JobFailedWithoutRunning.
                 _jobStore.FailUnservableJobs(_options.UnservableJobTimeout);
+                _jobStore.FailSilentLeases(_options.SilentLeaseTimeout);
             }
         }
         catch (OperationCanceledException)

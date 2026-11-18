@@ -23,20 +23,20 @@ public static class ConfiguredJobEndpoints
     {
         var url = ConfigTokenResolver.Resolve(packageConfig["MigrationPlatform:Source:Url"])?.Trim();
         var project = packageConfig["MigrationPlatform:Source:Project"]?.Trim();
+        // A job migrates one source project; multi-project migration is not supported. The
+        // Simulated source streams every generated project, so the list is checked even when
+        // Source:Project is set.
+        var generated = packageConfig
+            .GetSection("MigrationPlatform:Source:Generator:Projects")
+            .GetChildren()
+            .Select(projectSection => projectSection["Name"]?.Trim())
+            .Where(projectName => !string.IsNullOrWhiteSpace(projectName))
+            .ToList();
+        if (generated.Count > 1)
+            throw new InvalidOperationException(
+                $"MigrationPlatform:Source:Generator:Projects lists {generated.Count} projects. A migration job has one source project; list only one.");
         if (string.IsNullOrWhiteSpace(project))
-        {
-            // A job migrates one source project; multi-project migration is not supported.
-            var generated = packageConfig
-                .GetSection("MigrationPlatform:Source:Generator:Projects")
-                .GetChildren()
-                .Select(projectSection => projectSection["Name"]?.Trim())
-                .Where(projectName => !string.IsNullOrWhiteSpace(projectName))
-                .ToList();
-            if (generated.Count > 1)
-                throw new InvalidOperationException(
-                    $"MigrationPlatform:Source:Generator:Projects lists {generated.Count} projects. A migration job has one source project; list only one.");
             project = generated.FirstOrDefault();
-        }
         var connectorType = packageConfig["MigrationPlatform:Source:Type"];
 
         if (string.IsNullOrWhiteSpace(connectorType))

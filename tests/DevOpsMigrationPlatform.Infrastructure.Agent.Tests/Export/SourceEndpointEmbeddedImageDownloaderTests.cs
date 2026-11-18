@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
@@ -226,6 +227,82 @@ public class SourceEndpointEmbeddedImageDownloaderTests
         await Assert.ThrowsExactlyAsync<DevOpsMigrationPlatform.Abstractions.Agent.Attachments.EmbeddedImageDownloadException>(
             () => WithoutDelay(handler).TryDownloadAsync($"{SourceUrl}/guid/_apis/wit/attachments/abc", CancellationToken.None));
         Assert.AreEqual(3, handler.Requests.Count);
+    }
+
+    private static async Task<EmbeddedImageDownloadResultOrNull> Download(byte[] bytes, string mediaType = "application/octet-stream")
+    {
+        var handler = new RecordingHandler(_ => Image(mediaType, bytes));
+        return new(await WithoutDelay(handler).TryDownloadAsync($"{SourceUrl}/guid/_apis/wit/attachments/abc", CancellationToken.None));
+    }
+
+    private sealed record EmbeddedImageDownloadResultOrNull(DevOpsMigrationPlatform.Abstractions.Agent.Attachments.EmbeddedImageDownloadResult? Value);
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task TryDownloadAsync_PngWithoutImageData_IsRejected()
+    {
+        // PR #222 review: signature, IHDR and IEND but no IDAT chunk is not an image.
+        var noIdat = PngBytes.Take(33).Concat(PngBytes.Skip(PngBytes.Length - 12)).ToArray();
+        Assert.IsNull((await Download(noIdat, "image/png")).Value);
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task TryDownloadAsync_JpegWithPaddingAfterItsEndMarker_IsAccepted()
+    {
+        byte[] jpeg = [0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0xFF, 0xD9, 0x00, 0x00];
+        Assert.AreEqual("jpg", (await Download(jpeg)).Value?.Extension);
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task TryDownloadAsync_BmpWithZeroSizeField_IsAccepted()
+    {
+        var bmp = new byte[30]; bmp[0] = (byte)'B'; bmp[1] = (byte)'M';
+        Assert.AreEqual("bmp", (await Download(bmp)).Value?.Extension);
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task TryDownloadAsync_ServerError500Persists_IsRetriedThenFailsTheRevision()
+    {
+        // Martin, 2026-11-17: a 500 is retried; if it persists the work item stops and is flagged,
+        // rather than the image silently keeping its source link.
+        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.InternalServerError));
+
+        var ex = await Assert.ThrowsExactlyAsync<EmbeddedImageDownloadException>(
+            () => WithoutDelay(handler).TryDownloadAsync($"{SourceUrl}/guid/_apis/wit/attachments/abc", CancellationToken.None));
+        StringAssert.Contains(ex.Message, "HTTP 500");
+        Assert.AreEqual(3, handler.Requests.Count);
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task TryDownloadAsync_ServerError500ThenSuccess_DownloadsTheImage()
+    {
+        var calls = 0;
+        var handler = new RecordingHandler(_ => ++calls == 1 ? new HttpResponseMessage(HttpStatusCode.InternalServerError) : Image());
+
+        Assert.IsNotNull(await WithoutDelay(handler).TryDownloadAsync($"{SourceUrl}/guid/_apis/wit/attachments/abc", CancellationToken.None));
+        Assert.AreEqual(2, handler.Requests.Count);
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task TryDownloadAsync_ResponseLargerThanTheCap_IsRefusedUnread()
+    {
+        // PR #222 review: stream, never materialise. A huge response is refused from its headers.
+        var response = Image();
+        response.Content.Headers.ContentLength = SourceEndpointEmbeddedImageDownloader.MaxImageBytes + 1;
+        var handler = new RecordingHandler(_ => response);
+
+        Assert.IsNull(await WithoutDelay(handler).TryDownloadAsync($"{SourceUrl}/guid/_apis/wit/attachments/abc", CancellationToken.None));
     }
 
     [TestCategory("CodeTest")]

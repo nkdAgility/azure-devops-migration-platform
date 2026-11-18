@@ -17,9 +17,7 @@ using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-#if !NET481
 using DevOpsMigrationPlatform.Infrastructure.Serialization;
-#endif
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent;
 
@@ -53,10 +51,8 @@ public abstract class AgentWorkerBase : BackgroundService
         IHttpClientFactory httpClientFactory,
         ILogger logger,
         IWorkerEventSink eventWriter
-#if !NET481
         , PolymorphicEndpointOptionsConverter? endpointConverter = null
         , PolymorphicOrganisationEntryConverter? organisationConverter = null
-#endif
         )
     {
         _leaseState = leaseState ?? throw new ArgumentNullException(nameof(leaseState));
@@ -71,12 +67,10 @@ public abstract class AgentWorkerBase : BackgroundService
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             Converters = { new JsonStringEnumConverter() }
         };
-#if !NET481
         if (endpointConverter is not null)
             _jsonOptions.Converters.Add(endpointConverter);
         if (organisationConverter is not null)
             _jsonOptions.Converters.Add(organisationConverter);
-#endif
     }
 
     /// <summary>
@@ -188,6 +182,13 @@ public abstract class AgentWorkerBase : BackgroundService
             try
             {
                 await OnJobAsync(lease.Job, controlPlane, lease.LeaseId, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (!(ex is OperationCanceledException && ct.IsCancellationRequested))
+            {
+                // A job that throws must still end: without the terminal signal the Control
+                // Plane keeps it leased and every job that depends on it waits for ever.
+                _logger.LogError(ex, "Job {JobId} failed on lease {LeaseId}; reporting it failed.", lease.Job.JobId, lease.LeaseId);
+                await SignalTerminalAsync("fail", ct).ConfigureAwait(false);
             }
             finally
             {

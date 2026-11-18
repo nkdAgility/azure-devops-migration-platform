@@ -2,6 +2,7 @@
 // Copyright (c) Naked Agility Limited
 
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
@@ -56,6 +57,30 @@ public class SimulatedWorkItemTargetCreateFromRevisionTests
 
         Assert.AreEqual(1, result.CreatedAttachments.Count);
         Assert.AreEqual("attachments/a.png", result.CreatedAttachments[0].RelativePath);
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task CreateFromRevisionAsync_SameFileNameOneMissing_ReportsOnlyTheStoredOne()
+    {
+        // PR #222 review: two attachments named a.png, only one with a binary; the missing one
+        // must not get a mapping.
+        var target = new SimulatedWorkItemTarget();
+
+        var result = await target.CreateFromRevisionAsync(
+            "Task",
+            [new WorkItemField { ReferenceName = "System.Title", Value = "E2E169" }],
+            [],
+            [],
+            [],
+            [
+                new PendingAttachment("a.png", _ => Task.FromResult<Stream?>(new MemoryStream(new byte[] { 1 }))) { RelativePath = "rev0/a.png" },
+                new PendingAttachment("a.png", _ => Task.FromResult<Stream?>(null)) { RelativePath = "rev1/a.png" }
+            ],
+            CancellationToken.None);
+
+        Assert.AreEqual("rev0/a.png", result.CreatedAttachments.Single().RelativePath);
         Assert.AreEqual($"simulated://{result.TargetWorkItemId}/a.png", result.CreatedAttachments[0].AttachmentId);
     }
 }

@@ -4,7 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-#if !NET481
+#if !NET481 // net481-pending: #215
 using System.Diagnostics.Metrics;
 #endif
 using System.IO;
@@ -25,7 +25,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
 internal sealed class ActivePackageAccess : IPackageAccess
 {
     private static readonly ActivitySource s_activitySource = new(WellKnownActivitySourceNames.Migration);
-#if !NET481
+#if !NET481 // net481-pending: #215
     private static readonly Meter s_meter = new(WellKnownMeterNames.Agent, "4.0");
     private static readonly Counter<long> s_operationCounter = s_meter.CreateCounter<long>(WellKnownAgentMetricNames.PackageBoundaryOperations, unit: "{operation}");
     private static readonly Counter<long> s_errorCounter = s_meter.CreateCounter<long>(WellKnownAgentMetricNames.PackageBoundaryErrors, unit: "{error}");
@@ -440,7 +440,7 @@ internal sealed class ActivePackageAccess : IPackageAccess
         {
             var result = await action().ConfigureAwait(false);
             activity?.SetTag("package.result", "success");
-#if !NET481
+#if !NET481 // net481-pending: #215
             s_operationCounter.Add(1, BuildTags(operation, path, kind, stream, "success", null));
 #endif
             return result;
@@ -449,7 +449,7 @@ internal sealed class ActivePackageAccess : IPackageAccess
         {
             activity?.SetTag("package.result", "error");
             activity?.SetTag("error.type", ex.GetType().Name);
-#if !NET481
+#if !NET481 // net481-pending: #215
             s_errorCounter.Add(1, BuildTags(operation, path, kind, stream, "error", ex.GetType().Name));
 #endif
             throw;
@@ -458,13 +458,13 @@ internal sealed class ActivePackageAccess : IPackageAccess
         {
             startedAt.Stop();
             activity?.SetTag("package.duration.ms", startedAt.Elapsed.TotalMilliseconds);
-#if !NET481
+#if !NET481 // net481-pending: #215
             s_durationHistogram.Record(startedAt.Elapsed.TotalMilliseconds, BuildTags(operation, path, kind, stream, null, null));
 #endif
         }
     }
 
-#if !NET481
+#if !NET481 // net481-pending: #215
     private TagList BuildTags(
         string operation,
         string path,

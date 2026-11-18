@@ -31,6 +31,20 @@ public class AzureDevOpsWorkItemTargetFieldPatchTests
         CollectionAssert.AreEqual(new[] { "/fields/System.Title" }, patch.Select(p => p.Path).ToArray());
     }
 
+    // #171 live E2E: "Linking to a work item requires the full url." A related link sent
+    // /_apis/wit/workItems/{id}, which Azure DevOps rejects.
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    [DataRow("https://dev.azure.com/org")]
+    [DataRow("https://dev.azure.com/org/")]
+    public void RelatedWorkItemUrl_IsTheFullUrlOnTheTargetOrganisation(string organisationUrl)
+    {
+        Assert.AreEqual(
+            "https://dev.azure.com/org/_apis/wit/workItems/42",
+            AzureDevOpsWorkItemTarget.RelatedWorkItemUrl(organisationUrl, 42));
+    }
+
     // #169 live E2E: TF51541 "The Area/Iteration ID is not recognized: 681". Source node IDs,
     // revision counters and computed counts mean nothing on the target and are read-only there.
     [TestCategory("CodeTest")]

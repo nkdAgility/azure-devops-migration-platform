@@ -63,6 +63,26 @@ public class MigrateChildJobsTests
         CollectionAssert.AreEqual(new[] { jobs.Import.JobId, jobs.Prepare.JobId, jobs.Export.JobId }, client.Submitted);
     }
 
+    // PR #222 review: Tier 0/1 checks run before anything reaches the Control Plane.
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    [DataRow("""{ "MigrationPlatform": { "Mode": "Migrate", "Source": { "Type": "TeamFoundationServer", "Url": "https://dev.azure.com/s", "Project": "S" }, "Target": { "Type": "AzureDevOpsServices", "Url": "https://dev.azure.com/t", "Project": "T" } } }""", "Package location")]
+    [DataRow("""{ "MigrationPlatform": { "Mode": "Migrate", "Package": { "WorkingDirectory": "C:/pkg" }, "Source": { "Type": "TeamFoundationServer", "Url": "not a url", "Project": "S" }, "Target": { "Type": "AzureDevOpsServices", "Url": "https://dev.azure.com/t", "Project": "T" } } }""", "Source.Url")]
+    [DataRow("""{ "MigrationPlatform": { "Mode": "Migrate", "Package": { "WorkingDirectory": "C:/pkg" }, "Source": { "Type": "TeamFoundationServer", "Url": "https://dev.azure.com/s", "Project": "S" }, "Target": { "Type": "AzureDevOpsServices", "Url": "https://dev.azure.com/t" } } }""", "Target.Project")]
+    public void Validate_IncompleteConfig_ReportsTheProblemBeforeSubmission(string config, string expected)
+    {
+        StringAssert.Contains(MigrateChildJobs.Validate(config), expected);
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public void Validate_CompleteConfig_HasNoProblem()
+    {
+        Assert.IsNull(MigrateChildJobs.Validate("""{ "MigrationPlatform": { "Mode": "Migrate", "Package": { "WorkingDirectory": "C:/pkg" }, "Source": { "Type": "TeamFoundationServer", "Url": "https://dev.azure.com/s", "Project": "S" }, "Target": { "Type": "AzureDevOpsServices", "Url": "https://dev.azure.com/t", "Project": "T" } } }"""));
+    }
+
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]

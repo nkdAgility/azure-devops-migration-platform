@@ -28,7 +28,7 @@ public interface ITargetEndpointInfo
     /// Filesystem-safe organisation identifier derived from <see cref="Url"/>.
     /// Used as a route segment in package content paths.
     /// </summary>
-#if !NET481
+#if !NET481 // net481-exempt: ADR-0036 default-interface-member
     string OrganisationSlug => OrganisationEndpointSlug.ExtractSlug(Url);
 #else
     string OrganisationSlug { get; }

@@ -56,7 +56,6 @@ public static class NodeTranslationToolServiceCollectionExtensions
             sp.GetService<IPlatformMetrics>()));
         services.AddSingleton<INodeTranslationTool>(sp => sp.GetRequiredService<NodeTranslationTool>());
 
-#if !NET481
         services.AddSingleton<IValidateOptions<NodeTranslationOptions>, NodeTranslationOptionsValidator>();
         services.AddScoped<INodeTranslationValidator>(sp => new NodeTranslationValidator(
             sp.GetRequiredService<IOptions<NodeTranslationOptions>>(),
@@ -67,9 +66,10 @@ public static class NodeTranslationToolServiceCollectionExtensions
         // (scope) and isolated across jobs.
         services.AddScoped<ReferencedPathLifecycle>();
         services.AddScoped<IReferencedPathLifecycle>(sp => sp.GetRequiredService<ReferencedPathLifecycle>());
-        services.AddScoped<ClassificationTreeCapture>();
-        services.AddScoped<IClassificationTreeCapture>(sp => sp.GetRequiredService<ClassificationTreeCapture>());
-#endif
+        // TryAdd: a connector that brings its own capture (TFS: TfsClassificationTreeCapture) keeps
+        // it; the generic one reads IClassificationTreeSource, which the TFS agent does not register.
+        services.TryAddScoped<ClassificationTreeCapture>();
+        services.TryAddScoped<IClassificationTreeCapture>(sp => sp.GetRequiredService<ClassificationTreeCapture>());
 
         return services;
     }

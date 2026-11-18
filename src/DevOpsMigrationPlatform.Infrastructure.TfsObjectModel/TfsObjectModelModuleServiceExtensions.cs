@@ -48,6 +48,12 @@ public static class TfsObjectModelModuleServiceExtensions
         // TFS adapter implementations for module contracts.
         services.AddSingleton<IClassificationTreeCapture, TfsClassificationTreeCapture>();
         services.AddSingleton<IWorkItemRevisionSourceFactory, TfsActiveJobWorkItemRevisionSourceFactory>();
+        // Attachment binaries for export, from the active job (#171).
+        services.TryAddSingleton<global::DevOpsMigrationPlatform.Abstractions.Agent.Attachments.IAttachmentBinarySource,
+            Attachments.TfsActiveJobAttachmentBinarySource>();
+        // Selection pass (query and filters) for export, from the active job (#171).
+        services.TryAddSingleton<global::DevOpsMigrationPlatform.Abstractions.Agent.Export.IWorkItemFetchService,
+            WorkItems.Revisions.TfsActiveJobWorkItemFetchService>();
         services.AddSingleton<IIdentitySource, TfsActiveJobIdentitySource>();
         // TFS identity adapter (reduced capability: empty + Warning) for full connector coverage (FR-019).
         // Registered via the keyed composite dispatch seam so identity lookups route by connector type.
@@ -59,6 +65,10 @@ public static class TfsObjectModelModuleServiceExtensions
             TfsConnectorCapabilityProvider>();
         services.AddSingleton<global::DevOpsMigrationPlatform.Abstractions.Agent.Teams.ITeamBoardAdapter,
             TfsNullBoardAdapter>();
+        // Comment edits and deletes for the Comments extension (#171): the capability provider
+        // declares WorkItemComments, so the extension needs a comment source.
+        services.TryAddSingleton<global::DevOpsMigrationPlatform.Abstractions.Agent.Export.IWorkItemCommentSourceFactory,
+            WorkItems.Comments.TfsWorkItemCommentSourceFactory>();
         services.AddSingleton<INodeCreator, TfsActiveJobNodeCreator>();
         services.AddSingleton<TfsActiveJobWorkItemTypeReadinessTargetFactory>();
         services.TryAddSingleton<IWorkItemTypeReadinessTargetFactory>(sp => sp.GetRequiredService<TfsActiveJobWorkItemTypeReadinessTargetFactory>());
