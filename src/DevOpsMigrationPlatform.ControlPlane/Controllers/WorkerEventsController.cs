@@ -148,21 +148,23 @@ public sealed class WorkerEventsController : ControllerBase
                 break;
 
             case WorkerEventKind.Metrics:
+                // Agents flush their final metrics before the terminal, so a finished job's
+                // later Metrics, Snapshot and Tasks events are dropped too (PR #222 review).
                 var metrics = Deserialize<JobMetrics>(evt.PayloadJson, evt.Seq);
-                if (metrics is not null)
-                    _metricsStore.Store(jobId, metrics);
+                if (metrics is not null && !_jobStore.RunIfActive(jobId, () => _metricsStore.Store(jobId, metrics)))
+                    _logger.LogDebug("Dropped late metrics event {Seq} for finished job {JobId}.", evt.Seq, jobId);
                 break;
 
             case WorkerEventKind.Snapshot:
                 var snapshot = Deserialize<JobSnapshot>(evt.PayloadJson, evt.Seq);
-                if (snapshot is not null)
-                    _snapshotStore.Store(jobId, snapshot);
+                if (snapshot is not null && !_jobStore.RunIfActive(jobId, () => _snapshotStore.Store(jobId, snapshot)))
+                    _logger.LogDebug("Dropped late snapshot event {Seq} for finished job {JobId}.", evt.Seq, jobId);
                 break;
 
             case WorkerEventKind.Tasks:
                 var tasks = Deserialize<JobTaskList>(evt.PayloadJson, evt.Seq);
-                if (tasks is not null)
-                    _taskStore.Store(jobId, tasks);
+                if (tasks is not null && !_jobStore.RunIfActive(jobId, () => _taskStore.Store(jobId, tasks)))
+                    _logger.LogDebug("Dropped late tasks event {Seq} for finished job {JobId}.", evt.Seq, jobId);
                 break;
 
             case WorkerEventKind.Terminal:

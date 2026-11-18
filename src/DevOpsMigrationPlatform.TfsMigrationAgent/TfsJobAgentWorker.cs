@@ -233,6 +233,10 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
             ActiveJobIdentity?.Clear();
         }
 
+        // Flush before signalling, as the MigrationAgent does: the Control Plane ignores a
+        // finished job's later events, so the final metrics and logs must land first (PR #222 review).
+        foreach (var flushable in _flushables)
+            await flushable.FlushAsync().ConfigureAwait(false);
         await SignalTerminalAsync(failed ? "fail" : "complete", ct)
             .ConfigureAwait(false);
     }

@@ -79,7 +79,10 @@ public sealed class LateWorkerEventTests
 
         var ran = jobs.RunIfActive(jobId, () =>
         {
-            failing = Task.Run(() => jobs.TrySetState(jobId, "Failed"));
+            // PR #222 review: prove the competing transition has started before checking it is held.
+            using var started = new ManualResetEventSlim();
+            failing = Task.Run(() => { started.Set(); return jobs.TrySetState(jobId, "Failed"); });
+            Assert.IsTrue(started.Wait(TimeSpan.FromSeconds(5)), "The competing transition must have started.");
             failedDuringWrite = failing.Wait(TimeSpan.FromMilliseconds(200));
         });
 
@@ -123,6 +126,50 @@ public sealed class LateWorkerEventTests
         }));
 
         Assert.AreEqual(0, diagnostics.GetSnapshot(jobId).Count);
+    }
+
+    // PR #222 review: Metrics, Snapshot and Tasks events after a Terminal in the same batch must
+    // not change what a finished job shows.
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
+    [TestMethod]
+    [DataRow(WorkerEventKind.Metrics)]
+    [DataRow(WorkerEventKind.Snapshot)]
+    [DataRow(WorkerEventKind.Tasks)]
+    public void EventAfterATerminalInTheSameBatch_IsNotStored(WorkerEventKind kind)
+    {
+        var jobId = Guid.NewGuid();
+        var resolver = new Mock<ILeaseJobResolver>();
+        resolver.Setup(r => r.ResolveJobId(LeaseId)).Returns(jobId);
+        var jobs = new JobStore();
+        jobs.Enqueue(new DevOpsMigrationPlatform.Abstractions.Jobs.Job { JobId = jobId.ToString(), Kind = DevOpsMigrationPlatform.Abstractions.Jobs.JobKind.Export });
+        jobs.SetState(jobId, "Running");
+        var metrics = new JobMetricsStore();
+        var snapshots = new JobSnapshotStore();
+        var tasks = new InMemoryJobTaskStore();
+        var controller = new WorkerEventsController(resolver.Object, new JobProgressStore(Options.Create(new JobProgressOptions())),
+            new DiagnosticLogStore(Options.Create(new DiagnosticLogStoreOptions())), metrics, snapshots, tasks, jobs,
+            NullLogger<WorkerEventsController>.Instance);
+        object payload = kind switch
+        {
+            WorkerEventKind.Metrics => new JobMetrics(),
+            WorkerEventKind.Snapshot => new JobSnapshot(),
+            _ => new JobTaskList { Tasks = Array.Empty<JobTask>() }
+        };
+
+        controller.PostEvents(WorkerId, new WorkerEventBatch(WorkerId, LeaseId, new[]
+        {
+            new WorkerEvent(1, DateTimeOffset.UtcNow, WorkerEventKind.Terminal, JsonSerializer.Serialize(new { failed = false }, s_options)),
+            new WorkerEvent(2, DateTimeOffset.UtcNow, kind, JsonSerializer.Serialize(payload, s_options))
+        }));
+
+        object? stored = kind switch
+        {
+            WorkerEventKind.Metrics => metrics.GetLatest(jobId),
+            WorkerEventKind.Snapshot => snapshots.GetLatest(jobId),
+            _ => tasks.GetLatest(jobId)
+        };
+        Assert.IsNull(stored, $"A {kind} event after the terminal must not be stored.");
     }
 
     [TestCategory("CodeTest")]

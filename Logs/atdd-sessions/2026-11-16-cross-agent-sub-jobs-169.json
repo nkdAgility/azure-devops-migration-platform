@@ -185,7 +185,7 @@
     {
       "suite": "IntegrationTests",
       "run": true,
-      "passed": 670,
+      "passed": 673,
       "failed": 0
     },
     {
@@ -197,7 +197,7 @@
     {
       "suite": "SystemTest_Live",
       "run": false,
-      "not_run_reason": "Runs in CI on the PR. The item live E2E (scratchpad e2e171-cycle, TFS Object Model source to Azure DevOps target) passed every section 6 check on run 169-m-mh-202611180954, again on 169-m-mh-202611181143 after the second review round, on 169-m-mh-202611181155 with the agent telemetry exporter, and on 169-m-mh-202611181221 after the no-REST TFS changes (import summary: 3 work items imported; resume: 0): selection 3 of 5 (WIQL and title filter), counts 3=3, field-by-field incl. state, related link, comment image and cleared assignee, no duplicates, resume run re-imported nothing; its adpe2e- projects were deleted. Earlier runs on 2026-11-17/18 were the RED evidence for the TFS link-name, full-url related link, selection and DI defects fixed in this round."
+      "not_run_reason": "Runs in CI on the PR. The item live E2E (scratchpad e2e171-cycle, TFS Object Model source to Azure DevOps target) passed every section 6 check on run 169-m-mh-202611180954, again on 169-m-mh-202611181143 after the second review round, on 169-m-mh-202611181155 with the agent telemetry exporter, on 169-m-mh-202611181221 after the no-REST TFS changes, and on 169-m-mh-202611181233 after fencing every worker-event write (import summary: 3 work items imported; resume: 0): selection 3 of 5 (WIQL and title filter), counts 3=3, field-by-field incl. state, related link, comment image and cleared assignee, no duplicates, resume run re-imported nothing; its adpe2e- projects were deleted. Earlier runs on 2026-11-17/18 were the RED evidence for the TFS link-name, full-url related link, selection and DI defects fixed in this round."
     },
     {
       "suite": "SystemTest_Smoke",
